@@ -72,23 +72,27 @@ class StopCharge(object):
             return False
     # end setChargeLimit(str, int)
 
+    def stopChargingCar(self, lastState: dict):
+        chargeState: dict = lastState["charge_state"]
+        displayName: str = lastState["display_name"]
+        chargingState: str = chargeState["charging_state"]
+        chargeLimit: int = chargeState["charge_limit_soc"]
+        limitMinPercent: int = chargeState["charge_limit_soc_min"]
+        logging.info(f"{displayName} is {chargingState}")
+
+        if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
+            if self.setChargeLimit(lastState["vin"], limitMinPercent):
+                logging.info(f"{displayName} charge limit changed "
+                             f"from {chargeLimit} "
+                             f"to {limitMinPercent}")
+    # end stopChargingCar(dict)
+
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
 
         for vehicle in vehicles:
             lastState: dict = vehicle["last_state"]
-            chargeState: dict = lastState["charge_state"]
-            displayName: str = lastState["display_name"]
-            chargingState: str = chargeState["charging_state"]
-            chargeLimit: int = chargeState["charge_limit_soc"]
-            limitMinPercent: int = chargeState["charge_limit_soc_min"]
-            logging.info(f"{displayName} is {chargingState}")
-
-            if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
-                if self.setChargeLimit(lastState["vin"], limitMinPercent):
-                    logging.info(f"{displayName} charge limit changed "
-                                 f"from {chargeLimit} "
-                                 f"to {limitMinPercent}")
+            self.stopChargingCar(lastState)
     # end main()
 
 # end class StopCharge
