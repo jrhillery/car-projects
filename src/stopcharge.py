@@ -9,8 +9,6 @@ from requests import request
 
 class StopCharge(object):
     """Stops vehicles from charging if plugged in"""
-    LIMIT_PERCENT = 50
-
     def __init__(self):
         self.parmPath = StopCharge.findParmPath()
         self.token = self.loadToken()
@@ -49,7 +47,7 @@ class StopCharge(object):
             return json.load(file)["token"]
     # end loadToken()
 
-    def getStateOfActiveVehicles(self):
+    def getStateOfActiveVehicles(self) -> list[dict]:
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
         response = request("GET", url, params=queryParams, headers=self.headers)
@@ -74,27 +72,29 @@ class StopCharge(object):
             return False
     # end setChargeLimit(str, int)
 
-    def main(self):
+    def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
 
         for vehicle in vehicles:
-            lastState = vehicle["last_state"]
-            displayName = lastState["display_name"]
-            chargeState = lastState["charge_state"]
-            chargingState = chargeState["charging_state"]
+            lastState: dict = vehicle["last_state"]
+            chargeState: dict = lastState["charge_state"]
+            displayName: str = lastState["display_name"]
+            chargingState: str = chargeState["charging_state"]
+            chargeLimit: int = chargeState["charge_limit_soc"]
+            limitMinPercent: int = chargeState["charge_limit_soc_min"]
             logging.info(f"{displayName} is {chargingState}")
 
-            if chargingState != "Disconnected":
-                if self.setChargeLimit(lastState["vin"], StopCharge.LIMIT_PERCENT):
+            if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
+                if self.setChargeLimit(lastState["vin"], limitMinPercent):
                     logging.info(f"{displayName} charge limit changed "
-                                 f"from {chargeState['charge_limit_soc']} "
-                                 f"to {StopCharge.LIMIT_PERCENT}")
+                                 f"from {chargeLimit} "
+                                 f"to {limitMinPercent}")
     # end main()
 
 # end class StopCharge
 
 
-def configLogging():
+def configLogging() -> None:
     # format times like: Tue Feb 08 18:25:02
     DATE_FMT_DAY_SECOND = "%a %b %d %H:%M:%S"
 
