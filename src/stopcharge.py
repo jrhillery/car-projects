@@ -12,11 +12,9 @@ from time import time
 class StopCharge(object):
     """Stops vehicles from charging if plugged in"""
     def __init__(self):
-        self.parmPath = StopCharge.findParmPath()
-        self.token = self.loadToken()
         self.headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {self.token}"
+            "Authorization": f"Bearer {self.loadToken()}"
         }
     # end __init__()
 
@@ -32,11 +30,12 @@ class StopCharge(object):
         return pp
     # end findParmPath()
 
-    def parmFile(self, fileNm: Path) -> Path:
+    @staticmethod
+    def parmFile(fileNm: Path) -> Path:
         if fileNm.exists():
             return fileNm
         else:
-            pf = Path(self.parmPath, fileNm)
+            pf = Path(StopCharge.findParmPath(), fileNm)
 
             return pf.with_suffix(".json")
     # end parmFile(Path)
@@ -52,6 +51,7 @@ class StopCharge(object):
     def getStateOfActiveVehicles(self) -> list[dict]:
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
+
         response = request("GET", url, params=queryParams, headers=self.headers)
         vehicles = response.json()["results"]
 
@@ -65,6 +65,7 @@ class StopCharge(object):
             "wait_for_completion": "true",
             "percent": percent
         }
+
         response = request("GET", url, params=queryParams, headers=self.headers)
 
         if response.status_code == 200:
@@ -75,16 +76,21 @@ class StopCharge(object):
     # end setChargeLimit(str, int)
 
     def stopChargingCar(self, vehicleState: dict, callTime: float):
+        """Lower the charge limit to minimum if plugged in and not minimum already"""
         chargeState: dict = vehicleState["charge_state"]
         displayName: str = vehicleState["display_name"]
         chargingState: str = chargeState["charging_state"]
         chargeLimit: int = chargeState["charge_limit_soc"]
         limitMinPercent: int = chargeState["charge_limit_soc_min"]
-        lastSeen = chargeState["timestamp"] * 0.001
+        lastSeen: float = chargeState["timestamp"] * 0.001
+
+        # log the current charging state
         timeAgo = timedelta(seconds=int(callTime - lastSeen + 0.5))
         logging.info(f"{displayName} charging state is {chargingState} {timeAgo} ago")
 
         if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
+            # this vehicle is plugged in and not set to charge limit minimum already
+
             if self.setChargeLimit(vehicleState["vin"], limitMinPercent):
                 logging.info(f"{displayName} charge limit changed "
                              f"from {chargeLimit} "
