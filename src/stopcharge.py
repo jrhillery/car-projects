@@ -1,10 +1,12 @@
 
 import json
 import logging
+from datetime import timedelta
 from logging.config import dictConfig
 from pathlib import Path
 
 from requests import request
+from time import time
 
 
 class StopCharge(object):
@@ -72,26 +74,29 @@ class StopCharge(object):
             return False
     # end setChargeLimit(str, int)
 
-    def stopChargingCar(self, vehicleState: dict):
+    def stopChargingCar(self, vehicleState: dict, callTime: float):
         chargeState: dict = vehicleState["charge_state"]
         displayName: str = vehicleState["display_name"]
         chargingState: str = chargeState["charging_state"]
         chargeLimit: int = chargeState["charge_limit_soc"]
         limitMinPercent: int = chargeState["charge_limit_soc_min"]
-        logging.info(f"{displayName} is {chargingState}")
+        lastSeen = chargeState["timestamp"] * 0.001
+        timeAgo = timedelta(seconds=int(callTime - lastSeen + 0.5))
+        logging.info(f"{displayName} charging state is {chargingState} {timeAgo} ago")
 
         if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
             if self.setChargeLimit(vehicleState["vin"], limitMinPercent):
                 logging.info(f"{displayName} charge limit changed "
                              f"from {chargeLimit} "
                              f"to {limitMinPercent}")
-    # end stopChargingCar(dict)
+    # end stopChargingCar(dict, float)
 
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
+        callTime = time()
 
         for vehicle in vehicles:
-            self.stopChargingCar(vehicle["last_state"])
+            self.stopChargingCar(vehicle["last_state"], callTime)
     # end main()
 
 # end class StopCharge
