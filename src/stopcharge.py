@@ -58,6 +58,18 @@ class StopCharge(object):
         return vehicles
     # end getStateOfActiveVehicles()
 
+    def getStatus(self, vin: str) -> str:
+        url = f"https://api.tessie.com/{vin}/status"
+
+        response = request("GET", url, headers=self.headers)
+
+        if response.status_code == 200:
+            return response.json()["status"]
+        else:
+            logging.error(response.text)
+            return "unknown"
+    # end getStatus(str)
+
     def setChargeLimit(self, vin: str, percent: int) -> bool:
         url = f"https://api.tessie.com/{vin}/command/set_charge_limit"
         queryParams = {
@@ -77,6 +89,7 @@ class StopCharge(object):
 
     def stopChargingCar(self, vehicleState: dict, callTime: float):
         """Lower the charge limit to minimum if plugged in and not minimum already"""
+        vin: str = vehicleState["vin"]
         chargeState: dict = vehicleState["charge_state"]
         displayName: str = vehicleState["display_name"]
         chargingState: str = chargeState["charging_state"]
@@ -86,15 +99,17 @@ class StopCharge(object):
 
         # log the current charging state
         timeAgo = timedelta(seconds=int(callTime - lastSeen + 0.5))
-        logging.info(f"{displayName} charging state is {chargingState} {timeAgo} ago")
+        logging.info(f"{displayName} is {self.getStatus(vin)}"
+                     f" with charge limit {chargeLimit}"
+                     f"; charging state is {chargingState} {timeAgo} ago")
 
         if chargingState != "Disconnected" and chargeLimit > limitMinPercent:
             # this vehicle is plugged in and not set to charge limit minimum already
 
-            if self.setChargeLimit(vehicleState["vin"], limitMinPercent):
-                logging.info(f"{displayName} charge limit changed "
-                             f"from {chargeLimit} "
-                             f"to {limitMinPercent}")
+            if self.setChargeLimit(vin, limitMinPercent):
+                logging.info(f"{displayName} charge limit changed"
+                             f" from {chargeLimit}"
+                             f" to {limitMinPercent}")
     # end stopChargingCar(dict, float)
 
     def main(self) -> None:
