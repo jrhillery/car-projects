@@ -53,6 +53,7 @@ class StopCharge(object):
         queryParams = {"only_active": "true"}
 
         response = request("GET", url, params=queryParams, headers=self.headers)
+        response.raise_for_status()
         vehicles = response.json()["results"]
 
         return vehicles
@@ -95,7 +96,7 @@ class StopCharge(object):
         chargingState: str = chargeState["charging_state"]
         chargeLimit: int = chargeState["charge_limit_soc"]
         limitMinPercent: int = chargeState["charge_limit_soc_min"]
-        lastSeen: float = chargeState["timestamp"] * 0.001
+        lastSeen: float = chargeState["timestamp"] * 0.001  # convert ms to seconds
 
         # log the current charging state
         timeAgo = timedelta(seconds=int(callTime - lastSeen + 0.5))
