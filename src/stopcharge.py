@@ -1,11 +1,11 @@
 
 import json
 import logging
-import sys
 from datetime import timedelta
 from logging.config import dictConfig
 from pathlib import Path
 
+import sys
 from requests import request
 from time import time
 
@@ -15,7 +15,7 @@ class StopCharge(object):
     def __init__(self):
         self.headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {self.loadToken()}"
+            "Authorization": f"Bearer {StopCharge.loadToken()}"
         }
     # end __init__()
 
@@ -32,19 +32,10 @@ class StopCharge(object):
     # end findParmPath()
 
     @staticmethod
-    def parmFile(fileNm: Path) -> Path:
-        if fileNm.exists():
-            return fileNm
-        else:
-            pf = Path(StopCharge.findParmPath(), fileNm)
+    def loadToken() -> str:
+        filePath = Path(StopCharge.findParmPath(), "accesstoken").with_suffix(".json")
 
-            return pf.with_suffix(".json")
-    # end parmFile(Path)
-
-    def loadToken(self) -> str:
-        fileNm = self.parmFile(Path("accesstoken"))
-
-        with open(fileNm, "r", encoding="utf-8") as file:
+        with open(filePath, "r", encoding="utf-8") as file:
 
             return json.load(file)["token"]
     # end loadToken()
