@@ -28,13 +28,13 @@ class CarDetails(object):
 # end class CarDetails
 
 
-class StopCharge(object):
-    """Stops vehicles from charging if plugged in"""
+class ChargeControl(object):
+    """Controls vehicles charging activity"""
     def __init__(self, args: Namespace):
         self.enable: bool = args.enable
         self.headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {StopCharge.loadToken()}"
+            "Authorization": f"Bearer {ChargeControl.loadToken()}"
         }
     # end __init__()
 
@@ -52,7 +52,7 @@ class StopCharge(object):
 
     @staticmethod
     def loadToken() -> str:
-        filePath = Path(StopCharge.findParmPath(), "accesstoken").with_suffix(".json")
+        filePath = Path(ChargeControl.findParmPath(), "accesstoken").with_suffix(".json")
 
         with open(filePath, "r", encoding="utf-8") as file:
 
@@ -161,7 +161,7 @@ class StopCharge(object):
                 self.disableCarCharging(carDetails)
     # end main()
 
-# end class StopCharge
+# end class ChargeControl
 
 
 def parseArgs() -> Namespace:
@@ -175,7 +175,7 @@ def parseArgs() -> Namespace:
 
 
 def configLogging() -> None:
-    filePath = Path(sys.path[0], "StopCharge.logging.config.json")
+    filePath = Path(sys.path[0], "chargecontrol.logging.config.json")
 
     with open(filePath, "r", encoding="utf-8") as file:
         dictConfig(json.load(file))
@@ -186,8 +186,8 @@ if __name__ == "__main__":
     clArgs = parseArgs()
     configLogging()
     try:
-        stopChrg = StopCharge(clArgs)
-        stopChrg.main()
+        chrgCtl = ChargeControl(clArgs)
+        chrgCtl.main()
     except Exception as xcpt:
         logging.error(xcpt)
         logging.debug("Exception suppressed:", exc_info=xcpt)

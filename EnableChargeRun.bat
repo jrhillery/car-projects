@@ -1,2 +1,2 @@
 @Echo Starting %0%
-python src\stopcharge.py --enable
+python src\chargecontrol.py --enable
