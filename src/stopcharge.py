@@ -116,17 +116,19 @@ class StopCharge(object):
     # end startCharging(str)
 
     def enableCarCharging(self, dtls: CarDetails):
-        """Raise the charge limit to mean if minimum, then start charging if stopped"""
+        """Raise the charge limit to mean if minimum,
+           then start charging if plugged in and not charging"""
 
         if dtls.chargeLimit == dtls.limitMinPercent:
-            meanLimit = isqrt(dtls.limitMinPercent * dtls.chargeState["charge_limit_soc_std"])
+            limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
+            meanLimit = isqrt(dtls.limitMinPercent * limitStdPercent)
 
             if self.setChargeLimit(dtls.vin, meanLimit):
                 logging.info(f"{dtls.displayName} charge limit changed"
                              f" from {dtls.chargeLimit}"
                              f" to {meanLimit}")
 
-        if dtls.chargingState == "Stopped" or dtls.chargingState == "Complete":
+        if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
             if self.startCharging(dtls.vin):
                 logging.info(f"{dtls.displayName} charging started")
     # end enableCarCharging(CarDetails)
