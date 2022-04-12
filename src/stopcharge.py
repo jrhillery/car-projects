@@ -82,8 +82,8 @@ class StopCharge(object):
             return "unknown"
     # end getStatus(str)
 
-    def setChargeLimit(self, vin: str, percent: int) -> bool:
-        url = f"https://api.tessie.com/{vin}/command/set_charge_limit"
+    def setChargeLimit(self, dtls: CarDetails, percent: int) -> bool:
+        url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
         queryParams = {
             "retry_duration": 60,
             "wait_for_completion": "true",
@@ -93,14 +93,17 @@ class StopCharge(object):
         response = request("GET", url, params=queryParams, headers=self.headers)
 
         if response.status_code == 200:
+            logging.info(f"{dtls.displayName} charge limit changed"
+                         f" from {dtls.chargeLimit}"
+                         f" to {percent}")
             return True
         else:
             logging.error(response.text)
             return False
-    # end setChargeLimit(str, int)
+    # end setChargeLimit(CarDetails, int)
 
-    def startCharging(self, vin: str):
-        url = f"https://api.tessie.com/{vin}/command/start_charging"
+    def startCharging(self, dtls: CarDetails) -> bool:
+        url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
         queryParams = {
             "retry_duration": 60,
             "wait_for_completion": "true"
@@ -109,41 +112,35 @@ class StopCharge(object):
         response = request("GET", url, params=queryParams, headers=self.headers)
 
         if response.status_code == 200:
+            logging.info(f"{dtls.displayName} charging started")
             return True
         else:
             logging.error(response.text)
             return False
-    # end startCharging(str)
+    # end startCharging(CarDetails)
 
-    def enableCarCharging(self, dtls: CarDetails):
+    def enableCarCharging(self, dtls: CarDetails) -> None:
         """Raise the charge limit to mean if minimum,
            then start charging if plugged in and not charging"""
 
         if dtls.chargeLimit == dtls.limitMinPercent:
             limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
-            meanLimit = isqrt(dtls.limitMinPercent * limitStdPercent)
+            geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
-            if self.setChargeLimit(dtls.vin, meanLimit):
-                logging.info(f"{dtls.displayName} charge limit changed"
-                             f" from {dtls.chargeLimit}"
-                             f" to {meanLimit}")
+            self.setChargeLimit(dtls, geometricMeanLimitPercent)
 
         if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
-            if self.startCharging(dtls.vin):
-                logging.info(f"{dtls.displayName} charging started")
+            self.startCharging(dtls)
     # end enableCarCharging(CarDetails)
 
-    def stopChargingCar(self, dtls: CarDetails):
+    def disableCarCharging(self, dtls: CarDetails) -> None:
         """Lower the charge limit to minimum if plugged in and not minimum already"""
 
         if dtls.chargingState != "Disconnected" and dtls.chargeLimit > dtls.limitMinPercent:
             # this vehicle is plugged in and not set to charge limit minimum already
 
-            if self.setChargeLimit(dtls.vin, dtls.limitMinPercent):
-                logging.info(f"{dtls.displayName} charge limit changed"
-                             f" from {dtls.chargeLimit}"
-                             f" to {dtls.limitMinPercent}")
-    # end stopChargingCar(CarDetails)
+            self.setChargeLimit(dtls, dtls.limitMinPercent)
+    # end disableCarCharging(CarDetails)
 
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
@@ -161,7 +158,7 @@ class StopCharge(object):
             if self.enable:
                 self.enableCarCharging(carDetails)
             else:
-                self.stopChargingCar(carDetails)
+                self.disableCarCharging(carDetails)
     # end main()
 
 # end class StopCharge
