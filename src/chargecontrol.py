@@ -30,6 +30,7 @@ class CarDetails(object):
 
 class ChargeControl(object):
     """Controls vehicles charging activity"""
+
     def __init__(self, args: Namespace):
         self.enable: bool = args.enable
         self.headers = {
@@ -65,9 +66,8 @@ class ChargeControl(object):
 
         response = request("GET", url, params=queryParams, headers=self.headers)
         response.raise_for_status()
-        vehicles = response.json()["results"]
 
-        return vehicles
+        return response.json()["results"]
     # end getStateOfActiveVehicles()
 
     def getStatus(self, vin: str) -> str:
@@ -124,12 +124,15 @@ class ChargeControl(object):
            then start charging if plugged in and not charging"""
 
         if dtls.chargeLimit == dtls.limitMinPercent:
+            # this vehicle is set to charge limit minimum
             limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
             geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
             self.setChargeLimit(dtls, geometricMeanLimitPercent)
 
         if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
+            # this vehicle is plugged in and not charging
+
             self.startCharging(dtls)
     # end enableCarCharging(CarDetails)
 
@@ -152,7 +155,7 @@ class ChargeControl(object):
             # log the current charging state
             logging.info(f"{carDetails.displayName} is {self.getStatus(carDetails.vin)}"
                          f" with charge limit {carDetails.chargeLimit}"
-                         f"; charging state is {carDetails.chargingState}"
+                         f"; charging state {carDetails.chargingState}"
                          f" {carDetails.sinceLastSeen} ago")
 
             if self.enable:
