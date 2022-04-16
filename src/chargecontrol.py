@@ -21,6 +21,7 @@ class CarDetails(object):
         self.chargingState: str = self.chargeState["charging_state"]
         self.chargeLimit: int = self.chargeState["charge_limit_soc"]
         self.limitMinPercent: int = self.chargeState["charge_limit_soc_min"]
+        self.batteryLevel: int = self.chargeState["usable_battery_level"]
         lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
         self.sinceLastSeen = timedelta(seconds=int(callTime - lastSeen + 0.5))
     # end __init__(dict, float)
@@ -53,7 +54,7 @@ class ChargeControl(object):
 
     @staticmethod
     def loadToken() -> str:
-        filePath = Path(ChargeControl.findParmPath(), "accesstoken").with_suffix(".json")
+        filePath = Path(ChargeControl.findParmPath(), "accesstoken.json")
 
         with open(filePath, "r", encoding="utf-8") as file:
 
@@ -70,8 +71,21 @@ class ChargeControl(object):
         return response.json()["results"]
     # end getStateOfActiveVehicles()
 
-    def getStatus(self, vin: str) -> str:
-        url = f"https://api.tessie.com/{vin}/status"
+    def getState(self, dtls: CarDetails) -> CarDetails:
+        url = f"https://api.tessie.com/{dtls.vin}/state"
+        queryParams = {"use_cache": "true"}
+
+        response = request("GET", url, params=queryParams, headers=self.headers)
+
+        if response.status_code == 200:
+            return CarDetails(response.json(), time())
+        else:
+            logging.error(response.text)
+            return dtls
+    # end getState(CarDetails)
+
+    def getStatus(self, dtls: CarDetails) -> str:
+        url = f"https://api.tessie.com/{dtls.vin}/status"
 
         response = request("GET", url, headers=self.headers)
 
@@ -80,7 +94,7 @@ class ChargeControl(object):
         else:
             logging.error(response.text)
             return "unknown"
-    # end getStatus(str)
+    # end getStatus(CarDetails)
 
     def setChargeLimit(self, dtls: CarDetails, percent: int) -> bool:
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
@@ -132,8 +146,10 @@ class ChargeControl(object):
 
         if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
             # this vehicle is plugged in and not charging
+            dtls = self.getState(dtls)
 
-            self.startCharging(dtls)
+            if dtls.batteryLevel < dtls.chargeLimit:
+                self.startCharging(dtls)
     # end enableCarCharging(CarDetails)
 
     def disableCarCharging(self, dtls: CarDetails) -> None:
@@ -153,10 +169,11 @@ class ChargeControl(object):
             carDetails = CarDetails(vehicle["last_state"], callTime)
 
             # log the current charging state
-            logging.info(f"{carDetails.displayName} is {self.getStatus(carDetails.vin)}"
-                         f" with charge limit {carDetails.chargeLimit}"
-                         f"; charging state {carDetails.chargingState}"
-                         f" {carDetails.sinceLastSeen} ago")
+            logging.info(f"{carDetails.displayName} was {self.getStatus(carDetails)}"
+                         f" {carDetails.sinceLastSeen} ago"
+                         f" with charging {carDetails.chargingState}"
+                         f", charge limit {carDetails.chargeLimit}%"
+                         f" and battery {carDetails.batteryLevel}%")
 
             if self.enable:
                 self.enableCarCharging(carDetails)
