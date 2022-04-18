@@ -71,19 +71,6 @@ class ChargeControl(object):
         return response.json()["results"]
     # end getStateOfActiveVehicles()
 
-    def getState(self, dtls: CarDetails) -> CarDetails:
-        url = f"https://api.tessie.com/{dtls.vin}/state"
-        queryParams = {"use_cache": "true"}
-
-        response = request("GET", url, params=queryParams, headers=self.headers)
-
-        if response.status_code == 200:
-            return CarDetails(response.json(), time())
-        else:
-            logging.error(response.text)
-            return dtls
-    # end getState(CarDetails)
-
     def getStatus(self, dtls: CarDetails) -> str:
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
@@ -110,6 +97,7 @@ class ChargeControl(object):
             logging.info(f"{dtls.displayName} charge limit changed"
                          f" from {dtls.chargeLimit}"
                          f" to {percent}")
+            dtls.chargeLimit = percent
             return True
         else:
             logging.error(response.text)
@@ -127,6 +115,7 @@ class ChargeControl(object):
 
         if response.status_code == 200:
             logging.info(f"{dtls.displayName} charging started")
+            dtls.chargingState = "Charging"
             return True
         else:
             logging.error(response.text)
@@ -146,7 +135,6 @@ class ChargeControl(object):
 
         if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
             # this vehicle is plugged in and not charging
-            dtls = self.getState(dtls)
 
             if dtls.batteryLevel < dtls.chargeLimit:
                 self.startCharging(dtls)
