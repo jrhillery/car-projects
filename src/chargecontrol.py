@@ -186,7 +186,16 @@ def configLogging() -> None:
     filePath = Path(sys.path[0], "chargecontrol.logging.config.json")
 
     with open(filePath, "r", encoding="utf-8") as file:
-        dictConfig(json.load(file))
+        loggingConfig: dict = json.load(file)
+
+    filePath = Path(loggingConfig["handlers"]["file"]["filename"])
+
+    if filePath.exists():
+        # add a blank line each subsequent execution
+        with open(filePath, "a", encoding="utf-8") as logFile:
+            logFile.write("\n")
+
+    dictConfig(loggingConfig)
 # end configLogging()
 
 
