@@ -7,7 +7,7 @@
     },
     "simple": {
       "format": "%(asctime)s.%(msecs)03d: %(message)s",
-      "datefmt": "%a %b %d %H:%M:%S"
+      "datefmt": "%a %H:%M:%S"
     }
   },
   "handlers": {
