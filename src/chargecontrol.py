@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from datetime import timedelta
 from logging.config import dictConfig
 from pathlib import Path
-from threading import Thread
+from threading import current_thread, Thread
 
 import sys
 from math import isqrt
@@ -131,27 +131,34 @@ class ChargeControl(object):
         """Raise the charge limit to mean if minimum,
            then start charging if plugged in and not charging"""
 
-        if dtls.chargeLimit == dtls.limitMinPercent:
-            # this vehicle is set to charge limit minimum
-            limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
-            geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
+        try:
+            if dtls.chargeLimit == dtls.limitMinPercent:
+                # this vehicle is set to charge limit minimum
+                limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
+                geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
-            self.setChargeLimit(dtls, geometricMeanLimitPercent)
+                self.setChargeLimit(dtls, geometricMeanLimitPercent)
 
-        if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
-            # this vehicle is plugged in and not charging
+            if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
+                # this vehicle is plugged in and not charging
 
-            if dtls.batteryLevel < dtls.chargeLimit:
-                self.startCharging(dtls)
+                if dtls.batteryLevel < dtls.chargeLimit:
+                    self.startCharging(dtls)
+        except Exception as e:
+            handleException(e)
     # end enableCarCharging(CarDetails)
 
     def disableCarCharging(self, dtls: CarDetails) -> None:
         """Lower the charge limit to minimum if plugged in and not minimum already"""
 
-        if dtls.chargingState != "Disconnected" and dtls.chargeLimit > dtls.limitMinPercent:
-            # this vehicle is plugged in and not set to charge limit minimum already
+        try:
+            if dtls.chargingState != "Disconnected" \
+                    and dtls.chargeLimit > dtls.limitMinPercent:
+                # this vehicle is plugged in and not set to charge limit minimum already
 
-            self.setChargeLimit(dtls, dtls.limitMinPercent)
+                self.setChargeLimit(dtls, dtls.limitMinPercent)
+        except Exception as e:
+            handleException(e)
     # end disableCarCharging(CarDetails)
 
     def main(self) -> None:
@@ -214,6 +221,13 @@ def configLogging() -> None:
 # end configLogging()
 
 
+def handleException(exceptn: Exception) -> None:
+    logging.error(exceptn)
+    logging.debug(f"Exception suppressed in thread {current_thread().name}:",
+                  exc_info=exceptn)
+# end handleException(Exception)
+
+
 if __name__ == "__main__":
     clArgs = parseArgs()
     configLogging()
@@ -221,5 +235,4 @@ if __name__ == "__main__":
         chrgCtl = ChargeControl(clArgs)
         chrgCtl.main()
     except Exception as xcpt:
-        logging.error(xcpt)
-        logging.debug("Exception suppressed:", exc_info=xcpt)
+        handleException(xcpt)
