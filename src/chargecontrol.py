@@ -5,6 +5,7 @@ from argparse import ArgumentParser, Namespace
 from datetime import timedelta
 from logging.config import dictConfig
 from pathlib import Path
+from threading import Thread
 
 import sys
 from math import isqrt
@@ -25,6 +26,10 @@ class CarDetails(object):
         lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
         self.sinceLastSeen = timedelta(seconds=int(callTime - lastSeen + 0.5))
     # end __init__(dict, float)
+
+    def __str__(self) -> str:
+        return f"{self.displayName}@{self.batteryLevel}%"
+    # end __str__()
 
 # end class CarDetails
 
@@ -95,8 +100,8 @@ class ChargeControl(object):
 
         if response.status_code == 200:
             logging.info(f"{dtls.displayName} charge limit changed"
-                         f" from {dtls.chargeLimit}"
-                         f" to {percent}")
+                         f" from {dtls.chargeLimit}%"
+                         f" to {percent}%")
             dtls.chargeLimit = percent
             return True
         else:
@@ -152,6 +157,7 @@ class ChargeControl(object):
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
         callTime = time()
+        workers = []
 
         for vehicle in vehicles:
             carDetails = CarDetails(vehicle["last_state"], callTime)
@@ -164,9 +170,18 @@ class ChargeControl(object):
                          f" and battery {carDetails.batteryLevel}%")
 
             if self.enable:
-                self.enableCarCharging(carDetails)
+                method = self.enableCarCharging
             else:
-                self.disableCarCharging(carDetails)
+                method = self.disableCarCharging
+
+            thrd = Thread(target=method, args=(carDetails, ),
+                          name=f"Thread-{carDetails.displayName}")
+            workers.append(thrd)
+            thrd.start()
+        # end for
+
+        for worker in workers:
+            worker.join()
     # end main()
 
 # end class ChargeControl
