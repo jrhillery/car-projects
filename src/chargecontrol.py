@@ -112,7 +112,7 @@ class ChargeControl(object):
         if response.status_code == 200:
             return response.json()["status"]
         else:
-            logging.error(response.text)
+            logging.error(CcException.fromError(response))
             return "unknown"
     # end getStatus(CarDetails)
 
