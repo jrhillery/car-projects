@@ -9,7 +9,7 @@ from threading import current_thread, Thread
 
 import sys
 from math import isqrt
-from requests import request
+from requests import HTTPError, request, Response
 from time import time
 
 
@@ -32,6 +32,32 @@ class CarDetails(object):
     # end __str__()
 
 # end class CarDetails
+
+
+class CcException(HTTPError):
+    """Class for handled exceptions"""
+
+    @classmethod
+    def fromError(cls, badResponse: Response):
+        """Factory method for bad responses"""
+        if isinstance(badResponse.reason, bytes):
+            # Some servers choose to localize their reason strings.
+            try:
+                prefix = badResponse.reason.decode('utf-8')
+            except UnicodeDecodeError:
+                prefix = badResponse.reason.decode('iso-8859-1')
+        else:
+            prefix = badResponse.reason
+
+        if not prefix:
+            prefix = "Error"
+
+        return cls(f"{badResponse.status_code} {prefix} in {current_thread().name}"
+                   f" {badResponse.text} for url {badResponse.url}",
+                   response=badResponse)
+    # end fromError(Response)
+
+# end class CcException
 
 
 class ChargeControl(object):
@@ -88,7 +114,7 @@ class ChargeControl(object):
             return "unknown"
     # end getStatus(CarDetails)
 
-    def setChargeLimit(self, dtls: CarDetails, percent: int) -> bool:
+    def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
         queryParams = {
             "retry_duration": 60,
@@ -98,15 +124,13 @@ class ChargeControl(object):
 
         response = request("GET", url, params=queryParams, headers=self.headers)
 
-        if response.status_code == 200:
-            logging.info(f"{dtls.displayName} charge limit changed"
-                         f" from {dtls.chargeLimit}%"
-                         f" to {percent}%")
-            dtls.chargeLimit = percent
-            return True
-        else:
-            logging.error(response.text)
-            return False
+        if response.status_code != 200:
+            raise CcException.fromError(response)
+
+        logging.info(f"{dtls.displayName} charge limit changed"
+                     f" from {dtls.chargeLimit}%"
+                     f" to {percent}%")
+        dtls.chargeLimit = percent
     # end setChargeLimit(CarDetails, int)
 
     def startCharging(self, dtls: CarDetails) -> bool:
@@ -138,7 +162,10 @@ class ChargeControl(object):
                 geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
                 self.setChargeLimit(dtls, geometricMeanLimitPercent)
+        except Exception as e:
+            handleException(e)
 
+        try:
             if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
                 # this vehicle is plugged in and not charging
 
@@ -182,7 +209,7 @@ class ChargeControl(object):
                 method = self.disableCarCharging
 
             thrd = Thread(target=method, args=(carDetails, ),
-                          name=f"Thread-{carDetails.displayName}")
+                          name=f"{carDetails.displayName}-Thread")
             workers.append(thrd)
             thrd.start()
         # end for
