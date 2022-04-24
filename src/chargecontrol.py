@@ -133,7 +133,7 @@ class ChargeControl(object):
         dtls.chargeLimit = percent
     # end setChargeLimit(CarDetails, int)
 
-    def startCharging(self, dtls: CarDetails) -> bool:
+    def startCharging(self, dtls: CarDetails) -> None:
         url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
         queryParams = {
             "retry_duration": 60,
@@ -142,13 +142,11 @@ class ChargeControl(object):
 
         response = request("GET", url, params=queryParams, headers=self.headers)
 
-        if response.status_code == 200:
-            logging.info(f"{dtls.displayName} charging started")
-            dtls.chargingState = "Charging"
-            return True
-        else:
-            logging.error(response.text)
-            return False
+        if response.status_code != 200:
+            raise CcException.fromError(response)
+
+        logging.info(f"{dtls.displayName} charging started")
+        dtls.chargingState = "Charging"
     # end startCharging(CarDetails)
 
     def enableCarCharging(self, dtls: CarDetails) -> None:
@@ -248,9 +246,9 @@ def configLogging() -> None:
 # end configLogging()
 
 
-def handleException(exceptn: Exception) -> None:
+def handleException(exceptn: BaseException) -> None:
     logging.error(exceptn)
-    logging.debug(f"Exception suppressed in thread {current_thread().name}:",
+    logging.debug(f"Exception suppressed in {current_thread().name}:",
                   exc_info=exceptn)
 # end handleException(Exception)
 
