@@ -97,7 +97,9 @@ class ChargeControl(object):
         queryParams = {"only_active": "true"}
 
         response = request("GET", url, params=queryParams, headers=self.headers)
-        response.raise_for_status()
+
+        if response.status_code != 200:
+            raise CcException.fromError(response)
 
         return response.json()["results"]
     # end getStateOfActiveVehicles()
@@ -248,7 +250,7 @@ def configLogging() -> None:
 
 def handleException(exceptn: BaseException) -> None:
     logging.error(exceptn)
-    logging.debug(f"Exception suppressed in {current_thread().name}:",
+    logging.debug(f"{exceptn.__class__.__name__} suppressed in {current_thread().name}:",
                   exc_info=exceptn)
 # end handleException(Exception)
 
