@@ -130,8 +130,7 @@ class ChargeControl(object):
             raise CcException.fromError(response)
 
         logging.info(f"{dtls.displayName} charge limit changed"
-                     f" from {dtls.chargeLimit}%"
-                     f" to {percent}%")
+                     f" from {dtls.chargeLimit}% to {percent}%")
         dtls.chargeLimit = percent
     # end setChargeLimit(CarDetails, int)
 
@@ -203,10 +202,7 @@ class ChargeControl(object):
                          f", charge limit {carDetails.chargeLimit}%"
                          f" and battery {carDetails.batteryLevel}%")
 
-            if self.enable:
-                method = self.enableCarCharging
-            else:
-                method = self.disableCarCharging
+            method = self.enableCarCharging if self.enable else self.disableCarCharging
 
             thrd = Thread(target=method, args=(carDetails, ),
                           name=f"{carDetails.displayName}-Thread")
