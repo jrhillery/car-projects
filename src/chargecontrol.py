@@ -14,6 +14,7 @@ from time import time
 
 
 class CarDetails(object):
+    """Details of a vehicle as reported by Tessie"""
 
     def __init__(self, vehicleState: dict, callTime: float):
         self.vin: str = vehicleState["vin"]
@@ -35,7 +36,7 @@ class CarDetails(object):
 
 
 class CcException(HTTPError):
-    """Class for handled exceptions"""
+    """Detected exceptions"""
 
     @classmethod
     def fromError(cls, badResponse: Response):
@@ -87,9 +88,9 @@ class ChargeControl(object):
     def loadToken() -> str:
         filePath = Path(ChargeControl.findParmPath(), "accesstoken.json")
 
-        with open(filePath, "r", encoding="utf-8") as file:
+        with open(filePath, "r", encoding="utf-8") as tokenFile:
 
-            return json.load(file)["token"]
+            return json.load(tokenFile)["token"]
     # end loadToken()
 
     def getStateOfActiveVehicles(self) -> list[dict]:
@@ -162,7 +163,7 @@ class ChargeControl(object):
 
                 self.setChargeLimit(dtls, geometricMeanLimitPercent)
         except Exception as e:
-            handleException(e)
+            logException(e)
 
         try:
             if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
@@ -171,7 +172,7 @@ class ChargeControl(object):
                 if dtls.batteryLevel < dtls.chargeLimit:
                     self.startCharging(dtls)
         except Exception as e:
-            handleException(e)
+            logException(e)
     # end enableCarCharging(CarDetails)
 
     def disableCarCharging(self, dtls: CarDetails) -> None:
@@ -184,7 +185,7 @@ class ChargeControl(object):
 
                 self.setChargeLimit(dtls, dtls.limitMinPercent)
         except Exception as e:
-            handleException(e)
+            logException(e)
     # end disableCarCharging(CarDetails)
 
     def main(self) -> None:
@@ -230,8 +231,8 @@ def parseArgs() -> Namespace:
 def configLogging() -> None:
     filePath = Path(sys.path[0], "chargecontrol.logging.config.json")
 
-    with open(filePath, "r", encoding="utf-8") as file:
-        loggingConfig: dict = json.load(file)
+    with open(filePath, "r", encoding="utf-8") as loggingConfigFile:
+        loggingConfig: dict = json.load(loggingConfigFile)
 
     filePath = Path(loggingConfig["handlers"]["file"]["filename"])
 
@@ -244,11 +245,11 @@ def configLogging() -> None:
 # end configLogging()
 
 
-def handleException(exceptn: BaseException) -> None:
+def logException(exceptn: BaseException) -> None:
     logging.error(exceptn)
     logging.debug(f"{exceptn.__class__.__name__} suppressed in {current_thread().name}:",
                   exc_info=exceptn)
-# end handleException(Exception)
+# end logException(BaseException)
 
 
 if __name__ == "__main__":
@@ -258,4 +259,4 @@ if __name__ == "__main__":
         chrgCtl = ChargeControl(clArgs)
         chrgCtl.main()
     except Exception as xcpt:
-        handleException(xcpt)
+        logException(xcpt)
