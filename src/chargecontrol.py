@@ -93,16 +93,19 @@ class ChargeControl(object):
             return json.load(tokenFile)["token"]
     # end loadToken()
 
-    def getStateOfActiveVehicles(self) -> list[dict]:
+    def getStateOfActiveVehicles(self) -> list[CarDetails]:
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
 
         response = request("GET", url, params=queryParams, headers=self.headers)
+        callTime = time()
 
         if response.status_code != 200:
             raise CcException.fromError(response)
 
-        return response.json()["results"]
+        allResults: list[dict] = response.json()["results"]
+
+        return [CarDetails(car["last_state"], callTime) for car in allResults]
     # end getStateOfActiveVehicles()
 
     def getStatus(self, dtls: CarDetails) -> str:
@@ -190,12 +193,9 @@ class ChargeControl(object):
 
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
-        callTime = time()
         workers = []
 
-        for vehicle in vehicles:
-            carDetails = CarDetails(vehicle["last_state"], callTime)
-
+        for carDetails in vehicles:
             # log the current charging state
             logging.info(f"{carDetails.displayName} was {self.getStatus(carDetails)}"
                          f" {carDetails.sinceLastSeen} ago"
