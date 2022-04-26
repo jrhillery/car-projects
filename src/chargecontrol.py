@@ -73,6 +73,16 @@ class ChargeControl(object):
     # end __init__()
 
     @staticmethod
+    def parseArgs() -> Namespace:
+        """Parse command line arguments"""
+        ap = ArgumentParser(description="Module to control car charging")
+        ap.add_argument("-e", "--enable", action="store_true",
+                        help="enable charging (default is to disable)")
+
+        return ap.parse_args()
+    # end parseArgs()
+
+    @staticmethod
     def findParmPath() -> Path:
         # look in child with a specific name
         pp = Path("parmFiles")
@@ -218,16 +228,6 @@ class ChargeControl(object):
 # end class ChargeControl
 
 
-def parseArgs() -> Namespace:
-    """Parse command line arguments"""
-    ap = ArgumentParser(description="Module to control car charging")
-    ap.add_argument("-e", "--enable", action="store_true",
-                    help="enable charging (default is to disable)")
-
-    return ap.parse_args()
-# end parseArgs()
-
-
 def configLogging() -> None:
     filePath = Path(sys.path[0], "chargecontrol.logging.config.json")
 
@@ -253,7 +253,7 @@ def logException(exceptn: BaseException) -> None:
 
 
 if __name__ == "__main__":
-    clArgs = parseArgs()
+    clArgs = ChargeControl.parseArgs()
     configLogging()
     try:
         chrgCtl = ChargeControl(clArgs)
