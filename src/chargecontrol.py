@@ -65,6 +65,7 @@ class ChargeControl(object):
     """Controls vehicles charging activity"""
 
     def __init__(self, args: Namespace):
+        self.disable: bool = args.disable
         self.enable: bool = args.enable
         self.headers = {
             "Accept": "application/json",
@@ -75,9 +76,12 @@ class ChargeControl(object):
     @staticmethod
     def parseArgs() -> Namespace:
         """Parse command line arguments"""
-        ap = ArgumentParser(description="Module to control car charging")
-        ap.add_argument("-e", "--enable", action="store_true",
-                        help="enable charging (default is to disable)")
+        ap = ArgumentParser(description="Module to control charging all authorized cars")
+        group = ap.add_mutually_exclusive_group(required=True)
+        group.add_argument("-d", "--disable", action="store_true",
+                           help="disable charging")
+        group.add_argument("-e", "--enable", action="store_true",
+                           help="enable charging")
 
         return ap.parse_args()
     # end parseArgs()
@@ -203,6 +207,7 @@ class ChargeControl(object):
 
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
+        workMethod = self.enableCarCharging if self.enable else self.disableCarCharging
         workers = []
 
         for carDetails in vehicles:
@@ -213,9 +218,7 @@ class ChargeControl(object):
                          f", charge limit {carDetails.chargeLimit}%"
                          f" and battery {carDetails.batteryLevel}%")
 
-            method = self.enableCarCharging if self.enable else self.disableCarCharging
-
-            thrd = Thread(target=method, args=(carDetails, ),
+            thrd = Thread(target=workMethod, args=(carDetails, ),
                           name=f"{carDetails.displayName}-Thread")
             workers.append(thrd)
             thrd.start()
