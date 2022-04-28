@@ -16,17 +16,16 @@ from time import time
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
 
-    def __init__(self, vehicleState: dict, callTime: float):
+    def __init__(self, vehicleState: dict):
         self.vin: str = vehicleState["vin"]
         self.chargeState: dict = vehicleState["charge_state"]
         self.displayName: str = vehicleState["display_name"]
+        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
         self.chargingState: str = self.chargeState["charging_state"]
         self.chargeLimit: int = self.chargeState["charge_limit_soc"]
         self.limitMinPercent: int = self.chargeState["charge_limit_soc_min"]
         self.batteryLevel: int = self.chargeState["usable_battery_level"]
-        lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
-        self.sinceLastSeen = timedelta(seconds=int(callTime - lastSeen + 0.5))
-    # end __init__(dict, float)
+    # end __init__(dict)
 
     def __str__(self) -> str:
         return f"{self.displayName}@{self.batteryLevel}%"
@@ -71,7 +70,7 @@ class ChargeControl(object):
             "Accept": "application/json",
             "Authorization": f"Bearer {ChargeControl.loadToken()}"
         }
-    # end __init__()
+    # end __init__(Namespace)
 
     @staticmethod
     def parseArgs() -> Namespace:
@@ -112,14 +111,13 @@ class ChargeControl(object):
         queryParams = {"only_active": "true"}
 
         response = request("GET", url, params=queryParams, headers=self.headers)
-        callTime = time()
 
         if response.status_code != 200:
             raise CcException.fromError(response)
 
         allResults: list[dict] = response.json()["results"]
 
-        return [CarDetails(car["last_state"], callTime) for car in allResults]
+        return [CarDetails(car["last_state"]) for car in allResults]
     # end getStateOfActiveVehicles()
 
     def getStatus(self, dtls: CarDetails) -> str:
@@ -213,7 +211,7 @@ class ChargeControl(object):
         for carDetails in vehicles:
             # log the current charging state
             logging.info(f"{carDetails.displayName} was {self.getStatus(carDetails)}"
-                         f" {carDetails.sinceLastSeen} ago"
+                         f" {timedelta(seconds=int(time() - carDetails.lastSeen + 0.5))} ago"
                          f" with charging {carDetails.chargingState}"
                          f", charge limit {carDetails.chargeLimit}%"
                          f" and battery {carDetails.batteryLevel}%")
