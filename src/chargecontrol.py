@@ -178,9 +178,28 @@ class ChargeControl(object):
         dtls.chargingState = "Charging"
     # end startCharging(CarDetails)
 
+    def startChargingWhenReady(self, dtls: CarDetails) -> None:
+        """Start charging if plugged in, not charging and could use a charge"""
+
+        if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging" \
+                and dtls.batteryLevel < dtls.chargeLimit:
+            # this vehicle is plugged in, not charging and could use a charge
+            retries = 15
+
+            while dtls.chargingState == "Complete" \
+                    and dtls.batteryLevel < dtls.chargeLimit and retries:
+                # wait for charging state to change from Complete
+                sleep(0.5)
+                dtls = self.getState(dtls)
+                self.logStatus(dtls)
+                retries -= 1
+            # end while
+
+            self.startCharging(dtls)
+    # end startChargingWhenReady(CarDetails)
+
     def enableCarCharging(self, dtls: CarDetails) -> None:
-        """Raise the charge limit to mean if minimum,
-           then start charging if plugged in and not charging"""
+        """Raise the charge limit to mean if minimum then start charging when ready"""
 
         try:
             if dtls.chargeLimit == dtls.limitMinPercent:
@@ -194,20 +213,7 @@ class ChargeControl(object):
             logException(e)
 
         try:
-            if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
-                # this vehicle is plugged in and not charging
-                retries = 15
-
-                if dtls.batteryLevel < dtls.chargeLimit:
-                    while dtls.chargingState == "Complete" \
-                            and dtls.batteryLevel < dtls.chargeLimit and retries:
-                        # wait for charging state to change from Complete
-                        sleep(0.5)
-                        dtls = self.getState(dtls)
-                        self.logStatus(dtls)
-                        retries -= 1
-                    # end while
-                    self.startCharging(dtls)
+            self.startChargingWhenReady(dtls)
         except Exception as e:
             logException(e)
     # end enableCarCharging(CarDetails)
