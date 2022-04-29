@@ -76,7 +76,7 @@ class ChargeControl(object):
     def parseArgs() -> Namespace:
         """Parse command line arguments"""
         ap = ArgumentParser(description="Module to control charging all authorized cars")
-        group = ap.add_mutually_exclusive_group(required=True)
+        group = ap.add_mutually_exclusive_group()
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enable", action="store_true",
@@ -205,7 +205,9 @@ class ChargeControl(object):
 
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
-        workMethod = self.enableCarCharging if self.enable else self.disableCarCharging
+        workMethod = self.enableCarCharging if self.enable \
+            else self.disableCarCharging if self.disable \
+            else None
         workers = []
 
         for carDetails in vehicles:
@@ -216,10 +218,11 @@ class ChargeControl(object):
                          f", charge limit {carDetails.chargeLimit}%"
                          f" and battery {carDetails.batteryLevel}%")
 
-            thrd = Thread(target=workMethod, args=(carDetails, ),
-                          name=f"{carDetails.displayName}-Thread")
-            workers.append(thrd)
-            thrd.start()
+            if workMethod:
+                thrd = Thread(target=workMethod, args=(carDetails, ),
+                              name=f"{carDetails.displayName}-Thread")
+                workers.append(thrd)
+                thrd.start()
         # end for
 
         for worker in workers:
