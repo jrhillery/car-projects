@@ -10,7 +10,7 @@ from threading import current_thread, Thread
 import sys
 from math import isqrt
 from requests import HTTPError, request, Response
-from time import time
+from time import sleep, time
 
 
 class CarDetails(object):
@@ -120,6 +120,18 @@ class ChargeControl(object):
         return [CarDetails(car["last_state"]) for car in allResults]
     # end getStateOfActiveVehicles()
 
+    def getState(self, dtls: CarDetails) -> CarDetails:
+        url = f"https://api.tessie.com/{dtls.vin}/state"
+        queryParams = {"use_cache": "false"}
+
+        response = request("GET", url, params=queryParams, headers=self.headers)
+
+        if response.status_code != 200:
+            raise CcException.fromError(response)
+
+        return CarDetails(response.json())
+    # end getState(CarDetails)
+
     def getStatus(self, dtls: CarDetails) -> str:
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
@@ -173,7 +185,8 @@ class ChargeControl(object):
         try:
             if dtls.chargeLimit == dtls.limitMinPercent:
                 # this vehicle is set to charge limit minimum
-                limitStdPercent = dtls.chargeState["charge_limit_soc_std"]
+                limitStdPercent: int = dtls.chargeState["charge_limit_soc_std"]
+                # arithmeticMeanLimitPercent = (dtls.limitMinPercent + limitStdPercent) // 2
                 geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
                 self.setChargeLimit(dtls, geometricMeanLimitPercent)
@@ -183,8 +196,17 @@ class ChargeControl(object):
         try:
             if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging":
                 # this vehicle is plugged in and not charging
+                retries = 15
 
                 if dtls.batteryLevel < dtls.chargeLimit:
+                    while dtls.chargingState == "Complete" \
+                            and dtls.batteryLevel < dtls.chargeLimit and retries:
+                        # wait for charging state to change from Complete
+                        sleep(0.5)
+                        dtls = self.getState(dtls)
+                        self.logStatus(dtls)
+                        retries -= 1
+                    # end while
                     self.startCharging(dtls)
         except Exception as e:
             logException(e)
@@ -203,6 +225,15 @@ class ChargeControl(object):
             logException(e)
     # end disableCarCharging(CarDetails)
 
+    def logStatus(self, dtls: CarDetails) -> None:
+        # log the current charging status
+        logging.info(f"{dtls.displayName} was {self.getStatus(dtls)}"
+                     f" {timedelta(seconds=int(time() - dtls.lastSeen + 0.5))} ago"
+                     f" with charging {dtls.chargingState}"
+                     f", charge limit {dtls.chargeLimit}%"
+                     f" and battery {dtls.batteryLevel}%")
+    # end logStatus(CarDetails)
+
     def main(self) -> None:
         vehicles = self.getStateOfActiveVehicles()
         workMethod = self.enableCarCharging if self.enable \
@@ -211,12 +242,7 @@ class ChargeControl(object):
         workers = []
 
         for carDetails in vehicles:
-            # log the current charging state
-            logging.info(f"{carDetails.displayName} was {self.getStatus(carDetails)}"
-                         f" {timedelta(seconds=int(time() - carDetails.lastSeen + 0.5))} ago"
-                         f" with charging {carDetails.chargingState}"
-                         f", charge limit {carDetails.chargeLimit}%"
-                         f" and battery {carDetails.batteryLevel}%")
+            self.logStatus(carDetails)
 
             if workMethod:
                 thrd = Thread(target=workMethod, args=(carDetails, ),
