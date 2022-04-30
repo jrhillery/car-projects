@@ -9,55 +9,9 @@ from threading import current_thread, Thread
 
 import sys
 from math import isqrt
-from requests import HTTPError, request, Response
 from time import sleep, time
 
-
-class CarDetails(object):
-    """Details of a vehicle as reported by Tessie"""
-
-    def __init__(self, vehicleState: dict):
-        self.vin: str = vehicleState["vin"]
-        self.chargeState: dict = vehicleState["charge_state"]
-        self.displayName: str = vehicleState["display_name"]
-        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
-        self.chargingState: str = self.chargeState["charging_state"]
-        self.chargeLimit: int = self.chargeState["charge_limit_soc"]
-        self.limitMinPercent: int = self.chargeState["charge_limit_soc_min"]
-        self.batteryLevel: int = self.chargeState["usable_battery_level"]
-    # end __init__(dict)
-
-    def __str__(self) -> str:
-        return f"{self.displayName}@{self.batteryLevel}%"
-    # end __str__()
-
-# end class CarDetails
-
-
-class CcException(HTTPError):
-    """Detected exceptions"""
-
-    @classmethod
-    def fromError(cls, badResponse: Response):
-        """Factory method for bad responses"""
-        if isinstance(badResponse.reason, bytes):
-            # Some servers choose to localize their reason strings.
-            try:
-                prefix = badResponse.reason.decode('utf-8')
-            except UnicodeDecodeError:
-                prefix = badResponse.reason.decode('iso-8859-1')
-        else:
-            prefix = badResponse.reason
-
-        if not prefix:
-            prefix = "Error"
-
-        return cls(f"{badResponse.status_code} {prefix} in {current_thread().name}"
-                   f" {badResponse.text} for url {badResponse.url}",
-                   response=badResponse)
-    # end fromError(Response)
-
-# end class CcException
+from carinterface import CarDetails, CarInterface
 
 
 class ChargeControl(object):
@@ -66,10 +20,7 @@ class ChargeControl(object):
     def __init__(self, args: Namespace):
         self.disable: bool = args.disable
         self.enable: bool = args.enable
-        self.headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {ChargeControl.loadToken()}"
-        }
+        self.carIntrfc = CarInterface()
     # end __init__(Namespace)
 
     @staticmethod
@@ -85,99 +36,6 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    @staticmethod
-    def findParmPath() -> Path:
-        # look in child with a specific name
-        pp = Path("parmFiles")
-
-        if not pp.is_dir():
-            # just use current directory
-            pp = Path(".")
-
-        return pp
-    # end findParmPath()
-
-    @staticmethod
-    def loadToken() -> str:
-        filePath = Path(ChargeControl.findParmPath(), "accesstoken.json")
-
-        with open(filePath, "r", encoding="utf-8") as tokenFile:
-
-            return json.load(tokenFile)["token"]
-    # end loadToken()
-
-    def getStateOfActiveVehicles(self) -> list[CarDetails]:
-        url = "https://api.tessie.com/vehicles"
-        queryParams = {"only_active": "true"}
-
-        response = request("GET", url, params=queryParams, headers=self.headers)
-
-        if response.status_code != 200:
-            raise CcException.fromError(response)
-
-        allResults: list[dict] = response.json()["results"]
-
-        return [CarDetails(car["last_state"]) for car in allResults]
-    # end getStateOfActiveVehicles()
-
-    def getState(self, dtls: CarDetails) -> CarDetails:
-        url = f"https://api.tessie.com/{dtls.vin}/state"
-        queryParams = {"use_cache": "false"}
-
-        response = request("GET", url, params=queryParams, headers=self.headers)
-
-        if response.status_code != 200:
-            raise CcException.fromError(response)
-
-        return CarDetails(response.json())
-    # end getState(CarDetails)
-
-    def getStatus(self, dtls: CarDetails) -> str:
-        url = f"https://api.tessie.com/{dtls.vin}/status"
-
-        response = request("GET", url, headers=self.headers)
-
-        if response.status_code == 200:
-            return response.json()["status"]
-        else:
-            logging.error(CcException.fromError(response))
-            return "unknown"
-    # end getStatus(CarDetails)
-
-    def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
-        url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
-        queryParams = {
-            "retry_duration": 60,
-            "wait_for_completion": "true",
-            "percent": percent
-        }
-
-        response = request("GET", url, params=queryParams, headers=self.headers)
-
-        if response.status_code != 200:
-            raise CcException.fromError(response)
-
-        logging.info(f"{dtls.displayName} charge limit changed"
-                     f" from {dtls.chargeLimit}% to {percent}%")
-        dtls.chargeLimit = percent
-    # end setChargeLimit(CarDetails, int)
-
-    def startCharging(self, dtls: CarDetails) -> None:
-        url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
-        queryParams = {
-            "retry_duration": 60,
-            "wait_for_completion": "true"
-        }
-
-        response = request("GET", url, params=queryParams, headers=self.headers)
-
-        if response.status_code != 200:
-            raise CcException.fromError(response)
-
-        logging.info(f"{dtls.displayName} charging started")
-        dtls.chargingState = "Charging"
-    # end startCharging(CarDetails)
-
     def startChargingWhenReady(self, dtls: CarDetails) -> None:
         """Start charging if plugged in, not charging and could use a charge"""
 
@@ -190,12 +48,12 @@ class ChargeControl(object):
                     and dtls.batteryLevel < dtls.chargeLimit and retries:
                 # wait for charging state to change from Complete
                 sleep(0.5)
-                dtls = self.getState(dtls)
+                dtls = self.carIntrfc.getState(dtls)
                 self.logStatus(dtls)
                 retries -= 1
             # end while
 
-            self.startCharging(dtls)
+            self.carIntrfc.startCharging(dtls)
     # end startChargingWhenReady(CarDetails)
 
     def enableCarCharging(self, dtls: CarDetails) -> None:
@@ -208,7 +66,7 @@ class ChargeControl(object):
                 # arithmeticMeanLimitPercent = (dtls.limitMinPercent + limitStdPercent) // 2
                 geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
-                self.setChargeLimit(dtls, geometricMeanLimitPercent)
+                self.carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
         except Exception as e:
             logException(e)
 
@@ -226,14 +84,14 @@ class ChargeControl(object):
                     and dtls.chargeLimit > dtls.limitMinPercent:
                 # this vehicle is plugged in and not set to charge limit minimum already
 
-                self.setChargeLimit(dtls, dtls.limitMinPercent)
+                self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)
         except Exception as e:
             logException(e)
     # end disableCarCharging(CarDetails)
 
     def logStatus(self, dtls: CarDetails) -> None:
         # log the current charging status
-        logging.info(f"{dtls.displayName} was {self.getStatus(dtls)}"
+        logging.info(f"{dtls.displayName} was {self.carIntrfc.getStatus(dtls)}"
                      f" {timedelta(seconds=int(time() - dtls.lastSeen + 0.5))} ago"
                      f" with charging {dtls.chargingState}"
                      f", charge limit {dtls.chargeLimit}%"
@@ -241,7 +99,7 @@ class ChargeControl(object):
     # end logStatus(CarDetails)
 
     def main(self) -> None:
-        vehicles = self.getStateOfActiveVehicles()
+        vehicles = self.carIntrfc.getStateOfActiveVehicles()
         workMethod = self.enableCarCharging if self.enable \
             else self.disableCarCharging if self.disable \
             else None
