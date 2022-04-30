@@ -94,12 +94,12 @@ class TessieInterface(object):
         if response.status_code != 200:
             raise CcException.fromError(response)
 
-        allResults: list[dict] = response.json()["results"]
-
         try:
+            allResults: list[dict] = response.json()["results"]
+
             return [CarDetails(car["last_state"]) for car in allResults]
-        except KeyError as ke:
-            raise CcException.fromError(response) from ke
+        except Exception as e:
+            raise CcException.fromError(response) from e
     # end getStateOfActiveVehicles()
 
     def getState(self, dtls: CarDetails) -> CarDetails:
@@ -113,8 +113,8 @@ class TessieInterface(object):
 
         try:
             return CarDetails(response.json())
-        except KeyError as ke:
-            raise CcException.fromError(response) from ke
+        except Exception as e:
+            raise CcException.fromError(response) from e
     # end getState(CarDetails)
 
     def getStatus(self, dtls: CarDetails) -> str:
@@ -123,10 +123,14 @@ class TessieInterface(object):
         response = request("GET", url, headers=self.headers)
 
         if response.status_code == 200:
-            return response.json()["status"]
-        else:
-            logging.error(CcException.fromError(response))
-            return "unknown"
+            try:
+                return response.json()["status"]
+            except Exception as e:
+                logging.error(e)
+
+        logging.error(CcException.fromError(response))
+
+        return "unknown"
     # end getStatus(CarDetails)
 
     def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
