@@ -21,6 +21,17 @@ class CarDetails(object):
         self.batteryLevel: int = self.chargeState["usable_battery_level"]
     # end __init__(dict)
 
+    def updateFromDict(self, vehicleState: dict) -> None:
+        self.vin = vehicleState["vin"]
+        self.chargeState = vehicleState["charge_state"]
+        self.displayName = vehicleState["display_name"]
+        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
+        self.chargingState = self.chargeState["charging_state"]
+        self.chargeLimit = self.chargeState["charge_limit_soc"]
+        self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
+        self.batteryLevel = self.chargeState["usable_battery_level"]
+    # end updateFromDict(dict)
+
     def __str__(self) -> str:
         return f"{self.displayName}@{self.batteryLevel}%"
     # end __str__()
@@ -86,6 +97,10 @@ class TessieInterface(object):
     # end loadToken()
 
     def getStateOfActiveVehicles(self) -> list[CarDetails]:
+        """Get all vehicles and their latest state.
+        This call always returns a complete set of data and doesn't impact vehicle sleep.
+        If the vehicle is awake, the data is usually less than 10 seconds old.
+        If the vehicle is asleep, the data is from the time the vehicle went to sleep."""
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
 
@@ -102,7 +117,10 @@ class TessieInterface(object):
             raise CcException.fromError(response) from e
     # end getStateOfActiveVehicles()
 
-    def getState(self, dtls: CarDetails) -> CarDetails:
+    def getState(self, dtls: CarDetails) -> None:
+        """Get the latest state of the vehicle.
+        This call retrieves data using a live connection, which may return
+        {"state": "asleep"} or network errors depending on vehicle connectivity."""
         url = f"https://api.tessie.com/{dtls.vin}/state"
         queryParams = {"use_cache": "false"}
 
@@ -112,12 +130,14 @@ class TessieInterface(object):
             raise CcException.fromError(response)
 
         try:
-            return CarDetails(response.json())
+            dtls.updateFromDict(response.json())
         except Exception as e:
             raise CcException.fromError(response) from e
     # end getState(CarDetails)
 
     def getStatus(self, dtls: CarDetails) -> str:
+        """Get the status of the vehicle.
+        The status may be asleep, waiting_for_sleep or awake."""
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
         response = request("GET", url, headers=self.headers)
@@ -134,6 +154,7 @@ class TessieInterface(object):
     # end getStatus(CarDetails)
 
     def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
+        """Set the charge limit."""
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
         queryParams = {
             "retry_duration": 60,
@@ -152,6 +173,7 @@ class TessieInterface(object):
     # end setChargeLimit(CarDetails, int)
 
     def startCharging(self, dtls: CarDetails) -> None:
+        """Start charging."""
         url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
         queryParams = {
             "retry_duration": 60,
