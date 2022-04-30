@@ -11,7 +11,7 @@ import sys
 from math import isqrt
 from time import sleep, time
 
-from carinterface import CarDetails, CarInterface
+from tessieinterface import CarDetails, TessieInterface
 
 
 class ChargeControl(object):
@@ -20,7 +20,7 @@ class ChargeControl(object):
     def __init__(self, args: Namespace):
         self.disable: bool = args.disable
         self.enable: bool = args.enable
-        self.carIntrfc = CarInterface()
+        self.carIntrfc = TessieInterface()
     # end __init__(Namespace)
 
     @staticmethod

@@ -54,13 +54,13 @@ class CcException(HTTPError):
 # end class CcException
 
 
-class CarInterface(object):
-    """Provides an interface to authorized vehicles"""
+class TessieInterface(object):
+    """Provides an interface through Tessie to authorized vehicles"""
 
     def __init__(self):
         self.headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {CarInterface.loadToken()}"
+            "Authorization": f"Bearer {TessieInterface.loadToken()}"
         }
     # end __init__()
 
@@ -78,7 +78,7 @@ class CarInterface(object):
 
     @staticmethod
     def loadToken() -> str:
-        filePath = Path(CarInterface.findParmPath(), "accesstoken.json")
+        filePath = Path(TessieInterface.findParmPath(), "accesstoken.json")
 
         with open(filePath, "r", encoding="utf-8") as tokenFile:
 
@@ -163,4 +163,4 @@ class CarInterface(object):
         dtls.chargingState = "Charging"
     # end startCharging(CarDetails)
 
-# end class CarInterface
+# end class TessieInterface
