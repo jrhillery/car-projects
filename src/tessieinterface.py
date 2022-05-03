@@ -45,14 +45,7 @@ class CcException(HTTPError):
     @classmethod
     def fromError(cls, badResponse: Response):
         """Factory method for bad responses"""
-        if isinstance(badResponse.reason, bytes):
-            # Some servers choose to localize their reason strings.
-            try:
-                prefix = badResponse.reason.decode('utf-8')
-            except UnicodeDecodeError:
-                prefix = badResponse.reason.decode('iso-8859-1')
-        else:
-            prefix = badResponse.reason
+        prefix = CcException.decodeText(badResponse.reason)
 
         if not prefix:
             prefix = "Error"
@@ -61,6 +54,20 @@ class CcException(HTTPError):
                    f" {badResponse.text} for url {badResponse.url}",
                    response=badResponse)
     # end fromError(Response)
+
+    @staticmethod
+    def decodeText(text: bytes | str) -> str:
+        if isinstance(text, bytes):
+            # Some servers choose to localize their reason strings.
+            try:
+                string = text.decode('utf-8')
+            except UnicodeDecodeError:
+                string = text.decode('iso-8859-1')
+        else:
+            string = text
+
+        return string
+    # end decodeText(bytes | str)
 
 # end class CcException
 
@@ -126,13 +133,23 @@ class TessieInterface(object):
 
         response = request("GET", url, params=queryParams, headers=self.headers)
 
-        if response.status_code != 200:
-            raise CcException.fromError(response)
+        if response.status_code == 200:
+            try:
+                carState = response.json()
 
-        try:
-            dtls.updateFromDict(response.json())
-        except Exception as e:
-            raise CcException.fromError(response) from e
+                if carState["state"] == "asleep":
+                    logging.info(f"{dtls.displayName} didn't wake up")
+                else:
+                    dtls.updateFromDict(carState)
+            except Exception as e:
+                raise CcException.fromError(response) from e
+        elif response.status_code == 500:
+            # Internal Server Error
+            logging.info(f"{dtls.displayName} encountered 500"
+                         f" {CcException.decodeText(response.reason)}"
+                         f" {response.json()['error']} for url {response.url}")
+        else:
+            raise CcException.fromError(response)
     # end getState(CarDetails)
 
     def getStatus(self, dtls: CarDetails) -> str:
