@@ -20,18 +20,22 @@ class ChargeControl(object):
     def __init__(self, args: Namespace):
         self.disable: bool = args.disable
         self.enable: bool = args.enable
+        self.setLimit: int | None = args.setLimit
         self.carIntrfc = TessieInterface()
     # end __init__(Namespace)
 
     @staticmethod
     def parseArgs() -> Namespace:
         """Parse command line arguments"""
-        ap = ArgumentParser(description="Module to control charging all authorized cars")
+        ap = ArgumentParser(description="Module to control charging all authorized cars",
+                            epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enable", action="store_true",
                            help="enable charging")
+        group.add_argument("-s", "--setLimit", type=int, metavar="percent",
+                           help="set charge limits if 50%%")
 
         return ap.parse_args()
     # end parseArgs()
@@ -94,6 +98,30 @@ class ChargeControl(object):
             logException(e)
     # end disableCarCharging(CarDetails)
 
+    def setChargeLimit(self, dtls: CarDetails) -> None:
+        """Set the charge limit if minimum"""
+
+        try:
+            if dtls.chargeLimit == dtls.limitMinPercent:
+                # this vehicle is set to charge limit minimum
+
+                if self.setLimit < dtls.limitMinPercent:
+                    logging.info(f"{self.setLimit}% is too small"
+                                 f" -- minimum is {dtls.limitMinPercent}%"
+                                 f" so no change made to {dtls.displayName}")
+                else:
+                    limitMaxPercent = dtls.chargeState["charge_limit_soc_max"]
+
+                    if self.setLimit > limitMaxPercent:
+                        logging.info(f"{self.setLimit}% is too large"
+                                     f" -- maximum is {limitMaxPercent}%")
+                        self.setLimit = limitMaxPercent
+
+                    self.carIntrfc.setChargeLimit(dtls, self.setLimit)
+        except Exception as e:
+            logException(e)
+    # end setChargeLimit(CarDetails)
+
     def logStatus(self, dtls: CarDetails) -> None:
         # log the current charging status
         logging.info(f"{dtls.displayName} was {self.carIntrfc.getStatus(dtls)}"
@@ -107,6 +135,7 @@ class ChargeControl(object):
         vehicles = self.carIntrfc.getStateOfActiveVehicles()
         workMethod = self.enableCarCharging if self.enable \
             else self.disableCarCharging if self.disable \
+            else self.setChargeLimit if self.setLimit \
             else None
         workers = []
 
