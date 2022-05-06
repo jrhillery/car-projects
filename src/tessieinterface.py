@@ -1,10 +1,12 @@
 
 import json
 import logging
+from datetime import timedelta
 from pathlib import Path
 from threading import current_thread
 
 from requests import HTTPError, request, Response
+from time import time
 
 
 class CarDetails(object):
@@ -37,6 +39,14 @@ class CarDetails(object):
     def pluggedIn(self) -> bool:
         return self.chargingState != "Disconnected"
     # end pluggedIn()
+
+    def currentChargingStatus(self) -> str:
+        return f"{self.displayName} was {self.sleepStatus}" \
+               f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago" \
+               f" with charging {self.chargingState}" \
+               f", charge limit {self.chargeLimit}%" \
+               f" and battery {self.batteryLevel}%"
+    # end currentChargingStatus()
 
     def __str__(self) -> str:
         return f"{self.displayName}@{self.batteryLevel}%"

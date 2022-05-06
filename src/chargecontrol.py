@@ -2,14 +2,13 @@
 import json
 import logging
 from argparse import ArgumentParser, Namespace
-from datetime import timedelta
 from logging.config import dictConfig
 from pathlib import Path
 from threading import current_thread, Thread
 
 import sys
 from math import isqrt
-from time import sleep, time
+from time import sleep
 
 from tessieinterface import CarDetails, TessieInterface
 
@@ -53,7 +52,7 @@ class ChargeControl(object):
                 # wait for charging state to change from Complete
                 sleep(0.7)
                 self.carIntrfc.getCurrentState(dtls)
-                self.logStatus(dtls)
+                logging.info(dtls.currentChargingStatus())
                 retries -= 1
             # end while
 
@@ -123,15 +122,6 @@ class ChargeControl(object):
             logException(e)
     # end setChargeLimit(CarDetails)
 
-    def logStatus(self, dtls: CarDetails) -> None:
-        # log the current charging status
-        logging.info(f"{dtls.displayName} was {dtls.sleepStatus}"
-                     f" {timedelta(seconds=int(time() - dtls.lastSeen + 0.5))} ago"
-                     f" with charging {dtls.chargingState}"
-                     f", charge limit {dtls.chargeLimit}%"
-                     f" and battery {dtls.batteryLevel}%")
-    # end logStatus(CarDetails)
-
     def main(self) -> None:
         vehicles = self.carIntrfc.getStateOfActiveVehicles()
         workMethod = self.enableCarCharging if self.enable \
@@ -141,7 +131,7 @@ class ChargeControl(object):
         workers = []
 
         for carDetails in vehicles:
-            self.logStatus(carDetails)
+            logging.info(carDetails.currentChargingStatus())
 
             if workMethod:
                 thrd = Thread(target=workMethod, args=(carDetails, ),
