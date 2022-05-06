@@ -51,8 +51,8 @@ class ChargeControl(object):
             while dtls.chargingState == "Complete" \
                     and dtls.batteryLevel < dtls.chargeLimit and retries:
                 # wait for charging state to change from Complete
-                sleep(0.5)
-                self.carIntrfc.getState(dtls)
+                sleep(0.7)
+                self.carIntrfc.getCurrentState(dtls)
                 self.logStatus(dtls)
                 retries -= 1
             # end while
@@ -73,11 +73,13 @@ class ChargeControl(object):
                 self.carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
         except Exception as e:
             logException(e)
-            try:
-                # make sure we have the current charge limit
-                self.carIntrfc.getState(dtls)
-            except Exception as e:
-                logException(e)
+
+        try:
+            if dtls.chargingState != "Disconnected":
+                # make sure we have the current charge limit and battery level
+                self.carIntrfc.getCurrentState(dtls)
+        except Exception as e:
+            logException(e)
 
         try:
             self.startChargingWhenReady(dtls)

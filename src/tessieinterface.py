@@ -124,7 +124,7 @@ class TessieInterface(object):
             raise CcException.fromError(response) from e
     # end getStateOfActiveVehicles()
 
-    def getState(self, dtls: CarDetails) -> None:
+    def getCurrentState(self, dtls: CarDetails) -> None:
         """Get the latest state of the vehicle.
         This call retrieves data using a live connection, which may return
         {"state": "asleep"} or network errors depending on vehicle connectivity."""
@@ -150,7 +150,7 @@ class TessieInterface(object):
                          f" {response.json()['error']} for url {response.url}")
         else:
             raise CcException.fromError(response)
-    # end getState(CarDetails)
+    # end getCurrentState(CarDetails)
 
     def getStatus(self, dtls: CarDetails) -> str:
         """Get the status of the vehicle.
