@@ -125,7 +125,7 @@ class ChargeControl(object):
 
     def logStatus(self, dtls: CarDetails) -> None:
         # log the current charging status
-        logging.info(f"{dtls.displayName} was {self.carIntrfc.getStatus(dtls)}"
+        logging.info(f"{dtls.displayName} was {dtls.sleepStatus}"
                      f" {timedelta(seconds=int(time() - dtls.lastSeen + 0.5))} ago"
                      f" with charging {dtls.chargingState}"
                      f", charge limit {dtls.chargeLimit}%"

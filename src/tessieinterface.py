@@ -10,7 +10,8 @@ from requests import HTTPError, request, Response
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
 
-    def __init__(self, vehicleState: dict):
+    def __init__(self, sleepStatus: str, vehicleState: dict):
+        self.sleepStatus = sleepStatus
         self.vin: str = vehicleState["vin"]
         self.chargeState: dict = vehicleState["charge_state"]
         self.displayName: str = vehicleState["display_name"]
@@ -19,9 +20,10 @@ class CarDetails(object):
         self.chargeLimit: int = self.chargeState["charge_limit_soc"]
         self.limitMinPercent: int = self.chargeState["charge_limit_soc_min"]
         self.batteryLevel: int = self.chargeState["usable_battery_level"]
-    # end __init__(dict)
+    # end __init__(str, dict)
 
-    def updateFromDict(self, vehicleState: dict) -> None:
+    def updateFromDict(self, sleepStatus: str, vehicleState: dict) -> None:
+        self.sleepStatus = sleepStatus
         self.vin = vehicleState["vin"]
         self.chargeState = vehicleState["charge_state"]
         self.displayName = vehicleState["display_name"]
@@ -30,7 +32,7 @@ class CarDetails(object):
         self.chargeLimit = self.chargeState["charge_limit_soc"]
         self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
         self.batteryLevel = self.chargeState["usable_battery_level"]
-    # end updateFromDict(dict)
+    # end updateFromDict(str, dict)
 
     def pluggedIn(self) -> bool:
         return self.chargingState != "Disconnected"
@@ -108,7 +110,7 @@ class TessieInterface(object):
     # end loadToken()
 
     def getStateOfActiveVehicles(self) -> list[CarDetails]:
-        """Get all vehicles and their latest state.
+        """Get all active vehicles and their latest state.
         This call always returns a complete set of data and doesn't impact vehicle sleep.
         If the vehicle is awake, the data is usually less than 10 seconds old.
         If the vehicle is asleep, the data is from the time the vehicle went to sleep."""
@@ -122,8 +124,13 @@ class TessieInterface(object):
 
         try:
             allResults: list[dict] = response.json()["results"]
+            carStates = []
 
-            return [CarDetails(car["last_state"]) for car in allResults]
+            for car in allResults:
+                carState: dict = car["last_state"]
+                carStates.append(CarDetails(self.getStatus(carState["vin"]), carState))
+
+            return carStates
         except Exception as e:
             raise CcException.fromError(response) from e
     # end getStateOfActiveVehicles()
@@ -139,12 +146,12 @@ class TessieInterface(object):
 
         if response.status_code == 200:
             try:
-                carState = response.json()
+                carState: dict = response.json()
 
                 if carState["state"] == "asleep":
                     logging.info(f"{dtls.displayName} didn't wake up")
                 else:
-                    dtls.updateFromDict(carState)
+                    dtls.updateFromDict(self.getStatus(dtls.vin), carState)
             except Exception as e:
                 raise CcException.fromError(response) from e
         elif response.status_code == 500:
@@ -156,10 +163,10 @@ class TessieInterface(object):
             raise CcException.fromError(response)
     # end getCurrentState(CarDetails)
 
-    def getStatus(self, dtls: CarDetails) -> str:
+    def getStatus(self, vin: str) -> str:
         """Get the status of the vehicle.
         The status may be asleep, waiting_for_sleep or awake."""
-        url = f"https://api.tessie.com/{dtls.vin}/status"
+        url = f"https://api.tessie.com/{vin}/status"
 
         response = request("GET", url, headers=self.headers)
 
