@@ -63,6 +63,13 @@ class ChargeControl(object):
         """Raise the charge limit to mean if minimum then start charging when ready"""
 
         try:
+            if dtls.pluggedIn() and dtls.sleepStatus != "awake":
+                # try to get plugged-in cars awake
+                self.carIntrfc.wake(dtls)
+        except Exception as e:
+            logException(e)
+
+        try:
             if dtls.chargeLimit == dtls.limitMinPercent:
                 # this vehicle is set to charge limit minimum
                 limitStdPercent: int = dtls.chargeState["charge_limit_soc_std"]

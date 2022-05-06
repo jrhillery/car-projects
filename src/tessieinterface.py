@@ -191,6 +191,23 @@ class TessieInterface(object):
         return "unknown"
     # end getStatus(CarDetails)
 
+    def wake(self, dtls: CarDetails) -> None:
+        """Wake the vehicle from sleep.
+        Returns true after the vehicle is awake, or false after timing out (30s)."""
+        url = f"https://api.tessie.com/{dtls.vin}/wake"
+
+        response = request("GET", url, headers=self.headers)
+
+        if response.status_code != 200:
+            raise CcException.fromError(response)
+
+        if response.json()["result"]:
+            logging.info(f"{dtls.displayName} woke up")
+            dtls.sleepStatus = "woke"
+        else:
+            logging.info(f"{dtls.displayName} timed out while waking up")
+    # end wake(CarDetails)
+
     def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
         """Set the charge limit."""
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
