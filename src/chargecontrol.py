@@ -43,7 +43,7 @@ class ChargeControl(object):
     def startChargingWhenReady(self, dtls: CarDetails) -> None:
         """Start charging if plugged in, not charging and could use a charge"""
 
-        if dtls.chargingState != "Disconnected" and dtls.chargingState != "Charging" \
+        if dtls.pluggedIn() and dtls.chargingState != "Charging" \
                 and dtls.batteryLevel < dtls.chargeLimit:
             # this vehicle is plugged in, not charging and could use a charge
             retries = 15
@@ -75,7 +75,7 @@ class ChargeControl(object):
             logException(e)
 
         try:
-            if dtls.chargingState != "Disconnected":
+            if dtls.pluggedIn():
                 # make sure we have the current charge limit and battery level
                 self.carIntrfc.getCurrentState(dtls)
         except Exception as e:
@@ -91,8 +91,7 @@ class ChargeControl(object):
         """Lower the charge limit to minimum if plugged in and not minimum already"""
 
         try:
-            if dtls.chargingState != "Disconnected" \
-                    and dtls.chargeLimit > dtls.limitMinPercent:
+            if dtls.pluggedIn() and dtls.chargeLimit > dtls.limitMinPercent:
                 # this vehicle is plugged in and not set to charge limit minimum already
 
                 self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)

@@ -32,6 +32,10 @@ class CarDetails(object):
         self.batteryLevel = self.chargeState["usable_battery_level"]
     # end updateFromDict(dict)
 
+    def pluggedIn(self) -> bool:
+        return self.chargingState != "Disconnected"
+    # end pluggedIn()
+
     def __str__(self) -> str:
         return f"{self.displayName}@{self.batteryLevel}%"
     # end __str__()
