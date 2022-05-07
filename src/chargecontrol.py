@@ -43,6 +43,13 @@ class ChargeControl(object):
         """Start charging if plugged in, not charging and could use a charge"""
 
         try:
+            if dtls.pluggedIn():
+                # make sure we have the current battery level and charge limit
+                self.carIntrfc.getCurrentState(dtls)
+        except Exception as e:
+            logException(e)
+
+        try:
             if dtls.pluggedIn() and dtls.chargingState != "Charging" \
                     and dtls.batteryLevel < dtls.chargeLimit:
                 # this vehicle is plugged in, not charging and could use a charge
@@ -81,13 +88,6 @@ class ChargeControl(object):
                 geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
                 self.carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
-        except Exception as e:
-            logException(e)
-
-        try:
-            if dtls.pluggedIn():
-                # make sure we have the current charge limit and battery level
-                self.carIntrfc.getCurrentState(dtls)
         except Exception as e:
             logException(e)
 
