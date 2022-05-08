@@ -218,13 +218,14 @@ class TessieInterface(object):
         }
 
         response = request("GET", url, params=queryParams, headers=self.headers)
+        oldLimit = dtls.chargeLimit
+        dtls.chargeLimit = percent
 
         if response.status_code != 200:
             raise CcException.fromError(response)
 
         logging.info(f"{dtls.displayName} charge limit changed"
-                     f" from {dtls.chargeLimit}% to {percent}%")
-        dtls.chargeLimit = percent
+                     f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int)
 
     def startCharging(self, dtls: CarDetails) -> None:
