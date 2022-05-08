@@ -58,7 +58,7 @@ class ChargeControl(object):
                 while dtls.chargingState == "Complete" \
                         and dtls.batteryLevel < dtls.chargeLimit and retries:
                     # wait for charging state to change from Complete
-                    sleep(0.7)
+                    sleep(1.2)
                     self.carIntrfc.getCurrentState(dtls)
                     logging.info(dtls.currentChargingStatus())
                     retries -= 1
@@ -135,6 +135,7 @@ class ChargeControl(object):
     # end setChargeLimit(CarDetails)
 
     def main(self) -> None:
+        logging.debug(f"Starting {' '.join(sys.argv)}")
         vehicles = self.carIntrfc.getStateOfActiveVehicles()
         workMethod = self.enableCarCharging if self.enable \
             else self.disableCarCharging if self.disable \
