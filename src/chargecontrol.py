@@ -103,7 +103,8 @@ class ChargeControl(object):
 
                 if dtls.sleepStatus != "awake":
                     self.carIntrfc.wake(dtls)
-                self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)
+                self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
+                                              waitForCompletion=False)
         except Exception as e:
             logException(e)
     # end disableCarCharging(CarDetails)
@@ -129,7 +130,8 @@ class ChargeControl(object):
                                      f" -- maximum is {limitMaxPercent}%")
                         self.setLimit = limitMaxPercent
 
-                    self.carIntrfc.setChargeLimit(dtls, self.setLimit)
+                    self.carIntrfc.setChargeLimit(dtls, self.setLimit,
+                                                  waitForCompletion=False)
         except Exception as e:
             logException(e)
     # end setChargeLimit(CarDetails)

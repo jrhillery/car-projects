@@ -208,12 +208,13 @@ class TessieInterface(object):
             logging.info(f"{dtls.displayName} timed out while waking up")
     # end wake(CarDetails)
 
-    def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
+    def setChargeLimit(self, dtls: CarDetails, percent: int, *,
+                       waitForCompletion=True) -> None:
         """Set the charge limit."""
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
         queryParams = {
             "retry_duration": 60,
-            "wait_for_completion": "true",
+            "wait_for_completion": "true" if waitForCompletion else "false",
             "percent": percent
         }
 
