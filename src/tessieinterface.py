@@ -193,7 +193,7 @@ class TessieInterface(object):
 
     def wake(self, dtls: CarDetails) -> None:
         """Wake the vehicle from sleep.
-        Returns true after the vehicle is awake, or false after timing out (30s)."""
+        Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
         response = request("GET", url, headers=self.headers)
@@ -227,7 +227,7 @@ class TessieInterface(object):
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
-    # end setChargeLimit(CarDetails, int)
+    # end setChargeLimit(CarDetails, int, *, bool)
 
     def startCharging(self, dtls: CarDetails) -> None:
         """Start charging."""
