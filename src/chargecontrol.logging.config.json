@@ -22,7 +22,7 @@
       "level": "DEBUG",
       "formatter": "detail",
       "filename": "chargecontrol.log",
-      "maxBytes": 30000,
+      "maxBytes": 50000,
       "backupCount": 1,
       "encoding": "utf-8"
     }
