@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import current_thread
 
 from requests import HTTPError, request, Response
-from time import time
+from time import sleep, time
 
 
 class CarDetails(object):
@@ -61,15 +61,30 @@ class CcException(HTTPError):
     @classmethod
     def fromError(cls, badResponse: Response):
         """Factory method for bad responses"""
-        prefix = CcException.decodeText(badResponse.reason)
-
-        if not prefix:
-            prefix = "Error"
+        prefix = CcException.decodeReason(badResponse)
 
         return cls(f"{badResponse.status_code} {prefix} in {current_thread().name}"
                    f" {badResponse.text} for url {badResponse.url}",
                    response=badResponse)
     # end fromError(Response)
+
+    @staticmethod
+    def errorSummary(badResponse: Response) -> str:
+        prefix = CcException.decodeReason(badResponse)
+
+        return (f"{badResponse.status_code} {prefix}"
+                f" {badResponse.json()['error']} for url {badResponse.url}")
+    # end errorSummary(Response)
+
+    @staticmethod
+    def decodeReason(badResponse: Response) -> str:
+        reason = CcException.decodeText(badResponse.reason)
+
+        if not reason:
+            reason = "Error"
+
+        return reason
+    # end decodeReason(Response)
 
     @staticmethod
     def decodeText(text: bytes | str) -> str:
@@ -151,26 +166,32 @@ class TessieInterface(object):
         {"state": "asleep"} or network errors depending on vehicle connectivity."""
         url = f"https://api.tessie.com/{dtls.vin}/state"
         queryParams = {"use_cache": "false"}
+        retries = 10
 
-        response = request("GET", url, params=queryParams, headers=self.headers)
+        while retries:
+            response = request("GET", url, params=queryParams, headers=self.headers)
 
-        if response.status_code == 200:
-            try:
-                carState: dict = response.json()
+            if response.status_code == 200:
+                try:
+                    carState: dict = response.json()
 
-                if carState["state"] == "asleep":
-                    logging.info(f"{dtls.displayName} didn't wake up")
-                else:
-                    dtls.updateFromDict(self.getStatus(dtls.vin), carState)
-            except Exception as e:
-                raise CcException.fromError(response) from e
-        elif response.status_code == 500:
-            # Internal Server Error
-            logging.info(f"{dtls.displayName} encountered 500"
-                         f" {CcException.decodeText(response.reason)}"
-                         f" {response.json()['error']} for url {response.url}")
-        else:
-            raise CcException.fromError(response)
+                    if carState["state"] == "asleep":
+                        logging.info(f"{dtls.displayName} didn't wake up")
+                    else:
+                        dtls.updateFromDict(self.getStatus(dtls.vin), carState)
+
+                        return
+                except Exception as e:
+                    raise CcException.fromError(response) from e
+            elif response.status_code in {408, 500}:
+                # Request Timeout or Internal Server Error
+                logging.info(f"{dtls.displayName} encountered"
+                             f" {CcException.errorSummary(response)}")
+            else:
+                raise CcException.fromError(response)
+            sleep(60)
+            retries -= 1
+        # end while
     # end getCurrentState(CarDetails)
 
     def getStatus(self, vin: str) -> str:

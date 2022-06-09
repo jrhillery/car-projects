@@ -1,2 +1,2 @@
 @Echo Starting %0%
-python src\chargecontrol.py --setLimit 65
+python src\chargecontrol.py --setLimit 66
