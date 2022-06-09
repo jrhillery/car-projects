@@ -55,36 +55,43 @@ class CarDetails(object):
 # end class CarDetails
 
 
-class CcException(HTTPError):
-    """Detected exceptions"""
+class TessieResponse(Response):
+    """Extend Response object"""
 
-    @classmethod
-    def fromError(cls, badResponse: Response):
-        """Factory method for bad responses"""
-        prefix = CcException.decodeReason(badResponse)
+    def __init__(self, orig: Response):
+        super().__init__()
+        # noinspection PyProtectedMember
+        self._content = orig._content
+        self.status_code = orig.status_code
+        self.headers = orig.headers
+        self.raw = orig.raw
+        self.url = orig.url
+        self.encoding = orig.encoding
+        self.history = orig.history
+        self.reason = orig.reason
+        self.cookies = orig.cookies
+        self.elapsed = orig.elapsed
+        self.request = orig.request
+    # end __init__(Response)
 
-        return cls(f"{badResponse.status_code} {prefix} in {current_thread().name}"
-                   f" {badResponse.text} for url {badResponse.url}",
-                   response=badResponse)
-    # end fromError(Response)
+    def unknownSummary(self) -> str:
+        return (f"{self.status_code} {self.decodeReason()} in {current_thread().name}:"
+                f" {self.text} for url {self.url}")
+    # end unknownSummary()
 
-    @staticmethod
-    def errorSummary(badResponse: Response) -> str:
-        prefix = CcException.decodeReason(badResponse)
+    def errorSummary(self) -> str:
+        return (f"{self.status_code} {self.decodeReason()}:"
+                f" {self.json()['error']} for url {self.url}")
+    # end errorSummary()
 
-        return (f"{badResponse.status_code} {prefix}"
-                f" {badResponse.json()['error']} for url {badResponse.url}")
-    # end errorSummary(Response)
-
-    @staticmethod
-    def decodeReason(badResponse: Response) -> str:
-        reason = CcException.decodeText(badResponse.reason)
+    def decodeReason(self) -> str:
+        reason = TessieResponse.decodeText(self.reason)
 
         if not reason:
             reason = "Error"
 
         return reason
-    # end decodeReason(Response)
+    # end decodeReason()
 
     @staticmethod
     def decodeText(text: bytes | str) -> str:
@@ -99,6 +106,19 @@ class CcException(HTTPError):
 
         return string
     # end decodeText(bytes | str)
+
+# end class TessieResponse
+
+
+class CcException(HTTPError):
+    """Detected exceptions"""
+
+    @classmethod
+    def fromError(cls, badResponse: TessieResponse):
+        """Factory method for bad responses"""
+
+        return cls(badResponse.unknownSummary(), response=badResponse)
+    # end fromError(TessieResponse)
 
 # end class CcException
 
@@ -142,13 +162,13 @@ class TessieInterface(object):
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
 
-        response = request("GET", url, params=queryParams, headers=self.headers)
+        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
 
-        if response.status_code != 200:
-            raise CcException.fromError(response)
+        if resp.status_code != 200:
+            raise CcException.fromError(resp)
 
         try:
-            allResults: list[dict] = response.json()["results"]
+            allResults: list[dict] = resp.json()["results"]
             carStates = []
 
             for car in allResults:
@@ -157,7 +177,7 @@ class TessieInterface(object):
 
             return carStates
         except Exception as e:
-            raise CcException.fromError(response) from e
+            raise CcException.fromError(resp) from e
     # end getStateOfActiveVehicles()
 
     def getCurrentState(self, dtls: CarDetails) -> None:
@@ -169,7 +189,8 @@ class TessieInterface(object):
         retries = 10
 
         while retries:
-            response = request("GET", url, params=queryParams, headers=self.headers)
+            response = TessieResponse(
+                request("GET", url, params=queryParams, headers=self.headers))
 
             if response.status_code == 200:
                 try:
@@ -185,8 +206,7 @@ class TessieInterface(object):
                     raise CcException.fromError(response) from e
             elif response.status_code in {408, 500}:
                 # Request Timeout or Internal Server Error
-                logging.info(f"{dtls.displayName} encountered"
-                             f" {CcException.errorSummary(response)}")
+                logging.info(f"{dtls.displayName} encountered {response.errorSummary()}")
             else:
                 raise CcException.fromError(response)
             sleep(60)
@@ -199,7 +219,7 @@ class TessieInterface(object):
         The status may be asleep, waiting_for_sleep or awake."""
         url = f"https://api.tessie.com/{vin}/status"
 
-        response = request("GET", url, headers=self.headers)
+        response = TessieResponse(request("GET", url, headers=self.headers))
 
         if response.status_code == 200:
             try:
@@ -217,7 +237,7 @@ class TessieInterface(object):
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        response = request("GET", url, headers=self.headers)
+        response = TessieResponse(request("GET", url, headers=self.headers))
 
         if response.status_code != 200:
             raise CcException.fromError(response)
@@ -239,12 +259,12 @@ class TessieInterface(object):
             "percent": percent
         }
 
-        response = request("GET", url, params=queryParams, headers=self.headers)
+        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
         oldLimit = dtls.chargeLimit
         dtls.chargeLimit = percent
 
-        if response.status_code != 200:
-            raise CcException.fromError(response)
+        if resp.status_code != 200:
+            raise CcException.fromError(resp)
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
@@ -258,10 +278,10 @@ class TessieInterface(object):
             "wait_for_completion": "true"
         }
 
-        response = request("GET", url, params=queryParams, headers=self.headers)
+        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
 
-        if response.status_code != 200:
-            raise CcException.fromError(response)
+        if resp.status_code != 200:
+            raise CcException.fromError(resp)
 
         logging.info(f"{dtls.displayName} charging started")
         dtls.chargingState = "Charging"
