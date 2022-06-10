@@ -185,16 +185,15 @@ class TessieInterface(object):
         This call retrieves data using a live connection, which may return
         {"state": "asleep"} or network errors depending on vehicle connectivity."""
         url = f"https://api.tessie.com/{dtls.vin}/state"
-        queryParams = {"use_cache": "false"}
+        qryParms = {"use_cache": "false"}
         retries = 10
 
         while retries:
-            response = TessieResponse(
-                request("GET", url, params=queryParams, headers=self.headers))
+            resp = TessieResponse(request("GET", url, params=qryParms, headers=self.headers))
 
-            if response.status_code == 200:
+            if resp.status_code == 200:
                 try:
-                    carState: dict = response.json()
+                    carState: dict = resp.json()
 
                     if carState["state"] == "asleep":
                         logging.info(f"{dtls.displayName} didn't wake up")
@@ -203,12 +202,12 @@ class TessieInterface(object):
 
                         return
                 except Exception as e:
-                    raise CcException.fromError(response) from e
-            elif response.status_code in {408, 500}:
+                    raise CcException.fromError(resp) from e
+            elif resp.status_code in {408, 500}:
                 # Request Timeout or Internal Server Error
-                logging.info(f"{dtls.displayName} encountered {response.errorSummary()}")
+                logging.info(f"{dtls.displayName} encountered {resp.errorSummary()}")
             else:
-                raise CcException.fromError(response)
+                raise CcException.fromError(resp)
             sleep(60)
             retries -= 1
         # end while
@@ -227,7 +226,7 @@ class TessieInterface(object):
             except Exception as e:
                 logging.error(e)
 
-        logging.error(CcException.fromError(response))
+        logging.error(f"Encountered {response.unknownSummary()}")
 
         return "unknown"
     # end getStatus(CarDetails)
@@ -242,7 +241,9 @@ class TessieInterface(object):
         if response.status_code != 200:
             raise CcException.fromError(response)
 
-        if response.json()["result"]:
+        wakeOkay: bool = response.json()["result"]
+
+        if wakeOkay:
             logging.info(f"{dtls.displayName} woke up")
             dtls.sleepStatus = "woke"
         else:
@@ -279,12 +280,12 @@ class TessieInterface(object):
         }
 
         resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
+        dtls.chargingState = "Charging"
 
         if resp.status_code != 200:
             raise CcException.fromError(resp)
 
         logging.info(f"{dtls.displayName} charging started")
-        dtls.chargingState = "Charging"
     # end startCharging(CarDetails)
 
 # end class TessieInterface
