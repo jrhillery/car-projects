@@ -10,7 +10,8 @@ import sys
 from math import isqrt
 from time import sleep
 
-from tessie.tessieinterface import CarDetails, TessieInterface
+from tessie.cardetails import CarDetails
+from tessie.tessieinterface import TessieInterface
 
 
 class ChargeControl(object):
