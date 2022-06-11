@@ -41,11 +41,11 @@ class CarDetails(object):
     # end pluggedIn()
 
     def currentChargingStatus(self) -> str:
-        return f"{self.displayName} was {self.sleepStatus}" \
-               f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago" \
-               f" with charging {self.chargingState}" \
-               f", charge limit {self.chargeLimit}%" \
-               f" and battery {self.batteryLevel}%"
+        return (f"{self.displayName} was {self.sleepStatus}"
+                f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago"
+                f" with charging {self.chargingState}"
+                f", charge limit {self.chargeLimit}%"
+                f" and battery {self.batteryLevel}%")
     # end currentChargingStatus()
 
     def __str__(self) -> str:
@@ -98,9 +98,9 @@ class TessieResponse(Response):
         if isinstance(text, bytes):
             # Some servers choose to localize their reason strings.
             try:
-                string = text.decode('utf-8')
+                string = text.decode("utf-8")
             except UnicodeDecodeError:
-                string = text.decode('iso-8859-1')
+                string = text.decode("iso-8859-1")
         else:
             string = text
 
