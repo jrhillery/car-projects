@@ -123,7 +123,7 @@ class ChargeControl(object):
                 else:
                     if dtls.sleepStatus != "awake":
                         self.carIntrfc.wake(dtls)
-                    limitMaxPercent = dtls.chargeState["charge_limit_soc_max"]
+                    limitMaxPercent: int = dtls.chargeState["charge_limit_soc_max"]
 
                     if self.setLimit > limitMaxPercent:
                         logging.info(f"{self.setLimit}% is too large"

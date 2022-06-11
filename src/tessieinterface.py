@@ -12,16 +12,18 @@ from time import sleep, time
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
 
+    sleepStatus: str
+    vin: str
+    chargeState: dict
+    displayName: str
+    lastSeen: float
+    chargingState: str
+    chargeLimit: int
+    limitMinPercent: int
+    batteryLevel: int
+
     def __init__(self, sleepStatus: str, vehicleState: dict):
-        self.sleepStatus = sleepStatus
-        self.vin: str = vehicleState["vin"]
-        self.chargeState: dict = vehicleState["charge_state"]
-        self.displayName: str = vehicleState["display_name"]
-        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
-        self.chargingState: str = self.chargeState["charging_state"]
-        self.chargeLimit: int = self.chargeState["charge_limit_soc"]
-        self.limitMinPercent: int = self.chargeState["charge_limit_soc_min"]
-        self.batteryLevel: int = self.chargeState["usable_battery_level"]
+        self.updateFromDict(sleepStatus, vehicleState)
     # end __init__(str, dict)
 
     def updateFromDict(self, sleepStatus: str, vehicleState: dict) -> None:
@@ -172,6 +174,7 @@ class TessieInterface(object):
             carStates = []
 
             for car in allResults:
+                # car has vin: str, is_active: bool, last_state: dict
                 carState: dict = car["last_state"]
                 carStates.append(CarDetails(self.getStatus(carState["vin"]), carState))
 
