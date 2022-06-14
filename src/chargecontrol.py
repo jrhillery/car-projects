@@ -75,7 +75,7 @@ class ChargeControl(object):
 
         try:
             if (dtls.chargeLimit == dtls.limitMinPercent
-                    or dtls.pluggedIn()) and dtls.sleepStatus != "awake":
+                    or dtls.pluggedIn()) and not dtls.awake():
                 # try to wake up this car
                 self.carIntrfc.wake(dtls)
         except Exception as e:
@@ -102,7 +102,7 @@ class ChargeControl(object):
             if dtls.pluggedIn() and dtls.chargeLimit > dtls.limitMinPercent:
                 # this vehicle is plugged in and not set to charge limit minimum already
 
-                if dtls.sleepStatus != "awake":
+                if not dtls.awake():
                     self.carIntrfc.wake(dtls)
                 self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
                                               waitForCompletion=False)
@@ -122,7 +122,7 @@ class ChargeControl(object):
                                  f" -- minimum is {dtls.limitMinPercent}%"
                                  f" so no change made to {dtls.displayName}")
                 else:
-                    if dtls.sleepStatus != "awake":
+                    if not dtls.awake():
                         self.carIntrfc.wake(dtls)
                     limitMaxPercent: int = dtls.chargeState["charge_limit_soc_max"]
 

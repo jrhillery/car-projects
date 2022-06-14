@@ -133,7 +133,7 @@ class TessieInterface(object):
     # end getStatus(CarDetails)
 
     def wake(self, dtls: CarDetails) -> None:
-        """Wake the vehicle from sleep.
+        """Attempt to wake the vehicle from sleep.
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 

@@ -36,6 +36,10 @@ class CarDetails(object):
         return self.chargingState != "Disconnected"
     # end pluggedIn()
 
+    def awake(self) -> bool:
+        return self.sleepStatus == "awake"
+    # end awake()
+
     def currentChargingStatus(self) -> str:
         return (f"{self.displayName} was {self.sleepStatus}"
                 f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago"
