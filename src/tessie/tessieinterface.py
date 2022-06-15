@@ -100,6 +100,7 @@ class TessieInterface(object):
                         logging.info(f"{dtls.displayName} didn't wake up")
                     else:
                         dtls.updateFromDict(self.getStatus(dtls.vin), carState)
+                        logging.info(dtls.currentChargingStatus())
 
                         return
                 except Exception as e:

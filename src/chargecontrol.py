@@ -61,7 +61,6 @@ class ChargeControl(object):
                     # wait for charging state to change from Complete
                     sleep(3.2)
                     self.carIntrfc.getCurrentState(dtls)
-                    logging.info(dtls.currentChargingStatus())
                     retries -= 1
                 # end while
 
@@ -74,15 +73,14 @@ class ChargeControl(object):
         """Raise the charge limit to mean if minimum then start charging when ready"""
 
         try:
-            if (dtls.chargeLimit == dtls.limitMinPercent
-                    or dtls.pluggedIn()) and not dtls.awake():
+            if (dtls.chargeLimitIsMin() or dtls.pluggedIn()) and not dtls.awake():
                 # try to wake up this car
                 self.carIntrfc.wake(dtls)
         except Exception as e:
             logException(e)
 
         try:
-            if dtls.chargeLimit == dtls.limitMinPercent:
+            if dtls.chargeLimitIsMin():
                 # this vehicle is set to charge limit minimum
                 limitStdPercent: int = dtls.chargeState["charge_limit_soc_std"]
                 # arithmeticMeanLimitPercent = (dtls.limitMinPercent + limitStdPercent) // 2
@@ -99,7 +97,7 @@ class ChargeControl(object):
         """Lower the charge limit to minimum if plugged in and not minimum already"""
 
         try:
-            if dtls.pluggedIn() and dtls.chargeLimit > dtls.limitMinPercent:
+            if dtls.pluggedIn() and not dtls.chargeLimitIsMin():
                 # this vehicle is plugged in and not set to charge limit minimum already
 
                 if not dtls.awake():
@@ -114,7 +112,7 @@ class ChargeControl(object):
         """Set the charge limit if minimum"""
 
         try:
-            if dtls.chargeLimit == dtls.limitMinPercent:
+            if dtls.chargeLimitIsMin():
                 # this vehicle is set to charge limit minimum
 
                 if self.setLimit < dtls.limitMinPercent:
