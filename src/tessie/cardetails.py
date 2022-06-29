@@ -8,13 +8,13 @@ class CarDetails(object):
 
     sleepStatus: str
     vin: str
-    chargeState: dict
     displayName: str
-    lastSeen: float
-    chargingState: str
+    chargeState: dict
+    batteryLevel: int
     chargeLimit: int
     limitMinPercent: int
-    batteryLevel: int
+    chargingState: str
+    lastSeen: float
 
     def __init__(self, sleepStatus: str, vehicleState: dict):
         self.updateFromDict(sleepStatus, vehicleState)
