@@ -23,13 +23,13 @@ class CarDetails(object):
     def updateFromDict(self, sleepStatus: str, vehicleState: dict) -> None:
         self.sleepStatus = sleepStatus
         self.vin = vehicleState["vin"]
-        self.chargeState = vehicleState["charge_state"]
         self.displayName = vehicleState["display_name"]
-        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
-        self.chargingState = self.chargeState["charging_state"]
+        self.chargeState = vehicleState["charge_state"]
+        self.batteryLevel = self.chargeState["battery_level"]
         self.chargeLimit = self.chargeState["charge_limit_soc"]
         self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
-        self.batteryLevel = self.chargeState["usable_battery_level"]
+        self.chargingState = self.chargeState["charging_state"]
+        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
     # end updateFromDict(str, dict)
 
     def pluggedIn(self) -> bool:
