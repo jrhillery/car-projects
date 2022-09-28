@@ -54,7 +54,7 @@ class ChargeControl(object):
             if dtls.pluggedIn() and dtls.chargingState != "Charging" \
                     and dtls.batteryLevel < dtls.chargeLimit:
                 # this vehicle is plugged in, not charging and could use a charge
-                retries = 10
+                retries = 6
 
                 while dtls.chargingState == "Complete" \
                         and dtls.batteryLevel < dtls.chargeLimit and retries:
