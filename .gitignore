@@ -1,2 +1,4 @@
 /parmFiles/accesstoken.json
+/parmFiles/juicenetlogincreds.json
 /chargecontrol.log*
+/juiceboxctl.log*
