@@ -1,11 +1,11 @@
 
 import json
 import logging
-from pathlib import Path
 
 from requests import HTTPError, request
 from time import sleep
 
+from util.configure import Configure
 from .cardetails import CarDetails
 from .tessieresponse import TessieResponse
 
@@ -34,20 +34,8 @@ class TessieInterface(object):
     # end __init__()
 
     @staticmethod
-    def findParmPath() -> Path:
-        # look in child with a specific name
-        pp = Path("parmFiles")
-
-        if not pp.is_dir():
-            # just use current directory
-            pp = Path(".")
-
-        return pp
-    # end findParmPath()
-
-    @staticmethod
     def loadToken() -> str:
-        filePath = Path(TessieInterface.findParmPath(), "accesstoken.json")
+        filePath = Configure.findParmPath().joinpath("accesstoken.json")
 
         with open(filePath, "r", encoding="utf-8") as tokenFile:
 

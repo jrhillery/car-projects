@@ -1,9 +1,6 @@
 
-import json
 import logging
 from argparse import ArgumentParser, Namespace
-from logging.config import dictConfig
-from pathlib import Path
 from threading import current_thread, Thread
 
 import sys
@@ -12,6 +9,7 @@ from time import sleep
 
 from tessie.cardetails import CarDetails
 from tessie.tessieinterface import TessieInterface
+from util.configure import Configure
 
 
 class ChargeControl(object):
@@ -161,23 +159,6 @@ class ChargeControl(object):
 # end class ChargeControl
 
 
-def configLogging() -> None:
-    filePath = Path(sys.path[0], "chargecontrol.logging.config.json")
-
-    with open(filePath, "r", encoding="utf-8") as loggingConfigFile:
-        loggingConfig: dict = json.load(loggingConfigFile)
-
-    filePath = Path(loggingConfig["handlers"]["file"]["filename"])
-
-    if filePath.exists():
-        # add a blank line each subsequent execution
-        with open(filePath, "a", encoding="utf-8") as logFile:
-            logFile.write("\n")
-
-    dictConfig(loggingConfig)
-# end configLogging()
-
-
 def logException(exceptn: BaseException) -> None:
     logging.error(exceptn)
     logging.debug(f"{exceptn.__class__.__name__} suppressed in {current_thread().name}:",
@@ -187,7 +168,7 @@ def logException(exceptn: BaseException) -> None:
 
 if __name__ == "__main__":
     clArgs = ChargeControl.parseArgs()
-    configLogging()
+    Configure.logToFile()
     try:
         chrgCtl = ChargeControl(clArgs)
         chrgCtl.main()
