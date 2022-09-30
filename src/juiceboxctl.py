@@ -75,6 +75,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
         self.loggedIn = False
+        self.dianes: JuiceBoxDetails | None = None
+        self.johns: JuiceBoxDetails | None = None
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -196,8 +198,17 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         with self.openBrowser(), self:
             self.logIn()
             juiceBoxes = self.getStateOfJuiceBoxes()
-            print([str(jb) for jb in juiceBoxes])
-            sleep(9)
+
+            for juiceBox in juiceBoxes:
+                if juiceBox.name.startswith("Diane's"):
+                    self.dianes = juiceBox
+                elif juiceBox.name.startswith("John's"):
+                    self.johns = juiceBox
+            # end for
+
+            if not self.dianes or not self.johns:
+                raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
+                                        f" found {[jb.name for jb in juiceBoxes]}")
         # end with
     # end main()
 
