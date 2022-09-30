@@ -35,13 +35,15 @@ class JuiceBoxDetails(object):
     """Details of a JuiceBox"""
 
     deviceId: str
+    detailUrl: str
     name: str
     status: str
     maxCurrent: int
 
-    def __init__(self, deviceId: str) -> None:
+    def __init__(self, deviceId: str, baseUrl: str) -> None:
         self.deviceId = deviceId
-    # end __init__(str)
+        self.detailUrl = urljoin(baseUrl, f"/Portal/Details?unitID={deviceId}")
+    # end __init__(str, str)
 
     def __str__(self) -> str:
         retStr = f"id[{self.deviceId}]"
@@ -135,13 +137,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
     def storeDetails(self, juiceBox: JuiceBoxDetails) -> None:
         """Update details of the JuiceBoxDetails argument"""
-        doingMsg = "form details URL"
+        doingMsg = "request details via " + juiceBox.detailUrl
         try:
-            detUrl = urljoin(self.webDriver.current_url,
-                             f"/Portal/Details?unitID={juiceBox.deviceId}")
-
-            doingMsg = "request details via " + detUrl
-            self.webDriver.get(detUrl)
+            self.webDriver.get(juiceBox.detailUrl)
 
             doingMsg = "store name"
             juiceBox.name = self.webDriver.find_element(
@@ -163,12 +161,15 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         doingMsg = "find JuiceBoxes"
         try:
             panels = self.webDriver.find_elements(*JuiceBoxCtl.UNIT_PANEL_LOCATOR)
+
+            doingMsg = "get base URL"
+            baseUrl = self.webDriver.current_url
             juiceBoxes = []
 
             doingMsg = "extract device ids"
             for panel in panels:
                 deviceId = panel.get_dom_attribute("data-unitid")
-                juiceBoxes.append(JuiceBoxDetails(deviceId))
+                juiceBoxes.append(JuiceBoxDetails(deviceId, baseUrl))
             # end for
 
             for juiceBox in juiceBoxes:
