@@ -2,9 +2,9 @@
 import json
 import logging
 from contextlib import AbstractContextManager
-from pathlib import Path
 from types import TracebackType
 from typing import Type
+from urllib.parse import urljoin
 
 import sys
 from selenium import webdriver
@@ -31,6 +31,30 @@ class JuiceBoxException(Exception):
 # end class JuiceBoxException
 
 
+class JuiceBoxDetails(object):
+    """Details of a JuiceBox"""
+
+    deviceId: str
+    name: str
+    status: str
+    maxCurrent: int
+
+    def __init__(self, deviceId: str) -> None:
+        self.deviceId = deviceId
+    # end __init__(str)
+
+    def __str__(self) -> str:
+        retStr = f"id[{self.deviceId}]"
+
+        if hasattr(self, "name"):
+            retStr += f" name[{self.name}]"
+
+        return retStr
+    # end __str__()
+
+# end class JuiceBoxDetails
+
+
 class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     """Controls JuiceBox devices"""
     LOG_IN = "https://home.juice.net/Account/Login"
@@ -39,6 +63,10 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     PASSWORD_LOCATOR = By.CSS_SELECTOR, "input#Password"
     UPDATE_DEVICE_LIST_LOCATOR = By.CSS_SELECTOR, "a#update-unit-list-button"
     LOG_OUT_FORM_LOCATOR = By.CSS_SELECTOR, "form#logoutForm"
+    UNIT_PANEL_LOCATOR = By.CSS_SELECTOR, "div.unit-info-container"
+    UNIT_NAME_LOCATOR = By.CSS_SELECTOR, "h3.panel-title"
+    UNIT_STATUS_LOCATOR = By.CSS_SELECTOR, "span#statusText"
+    MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
     def __init__(self):
         self.webDriver: WebDriver | None = None
@@ -46,7 +74,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         self.remoteWait: WebDriverWait | None = None
         self.loggedIn = False
 
-        with open(Path(Configure.findParmPath(), "juicenetlogincreds.json"),
+        with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
             self.loginCreds = json.load(credFile)
     # end __init__()
@@ -87,7 +115,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                 "Timed out waiting to log-in")
             self.loggedIn = True
         except WebDriverException as e:
-            raise JuiceBoxException.fromXcp(doingMsg, e)
+            raise JuiceBoxException.fromXcp(doingMsg, e) from e
     # end logIn()
 
     def logOut(self) -> None:
@@ -102,8 +130,55 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             # give us a change to see we are logged out
             sleep(0.75)
         except WebDriverException as e:
-            raise JuiceBoxException.fromXcp("logging out", e) from e
+            raise JuiceBoxException.fromXcp("log out", e) from e
     # end logOut()
+
+    def storeDetails(self, juiceBox: JuiceBoxDetails) -> None:
+        """Update details of the JuiceBoxDetails argument"""
+        doingMsg = "form details URL"
+        try:
+            detUrl = urljoin(self.webDriver.current_url,
+                             f"/Portal/Details?unitID={juiceBox.deviceId}")
+
+            doingMsg = "request details via " + detUrl
+            self.webDriver.get(detUrl)
+
+            doingMsg = "store name"
+            juiceBox.name = self.webDriver.find_element(
+                *JuiceBoxCtl.UNIT_NAME_LOCATOR).text
+
+            doingMsg = "store status"
+            juiceBox.status = self.webDriver.find_element(
+                *JuiceBoxCtl.UNIT_STATUS_LOCATOR).text
+
+            doingMsg = "store current limit"
+            juiceBox.maxCurrent = int(self.webDriver.find_element(
+                *JuiceBoxCtl.MAX_CURRENT_LOCATOR).get_dom_attribute("value"))
+        except WebDriverException as e:
+            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+    # end storeDetails(JuiceBoxDetails)
+
+    def getStateOfJuiceBoxes(self) -> list[JuiceBoxDetails]:
+        """Get all active JuiceBoxes and their latest states."""
+        doingMsg = "find JuiceBoxes"
+        try:
+            panels = self.webDriver.find_elements(*JuiceBoxCtl.UNIT_PANEL_LOCATOR)
+            juiceBoxes = []
+
+            doingMsg = "extract device ids"
+            for panel in panels:
+                deviceId = panel.get_dom_attribute("data-unitid")
+                juiceBoxes.append(JuiceBoxDetails(deviceId))
+            # end for
+
+            for juiceBox in juiceBoxes:
+                self.storeDetails(juiceBox)
+            # end for
+
+            return juiceBoxes
+        except WebDriverException as e:
+            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+    # end getStateOfJuiceBoxes()
 
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
@@ -116,8 +191,11 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
     def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
+
         with self.openBrowser(), self:
             self.logIn()
+            juiceBoxes = self.getStateOfJuiceBoxes()
+            print([str(jb) for jb in juiceBoxes])
             sleep(9)
         # end with
     # end main()
