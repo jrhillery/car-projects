@@ -8,11 +8,12 @@ from urllib.parse import urljoin
 
 import sys
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.expected_conditions import (
-    element_to_be_clickable, visibility_of_element_located)
+    element_to_be_clickable, invisibility_of_element,
+    visibility_of, visibility_of_element_located)
 from selenium.webdriver.support.wait import WebDriverWait
 from time import sleep
 
@@ -40,7 +41,7 @@ class JuiceBoxDetails(object):
     status: str
     maxCurrent: int
 
-    def __init__(self, deviceId: str, baseUrl: str) -> None:
+    def __init__(self, deviceId: str, baseUrl: str):
         self.deviceId = deviceId
         self.detailUrl = urljoin(baseUrl, f"/Portal/Details?unitID={deviceId}")
     # end __init__(str, str)
@@ -95,7 +96,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             raise JuiceBoxException.fromXcp("open browser", e) from e
     # end openBrowser()
 
-    def logIn(self):
+    def logIn(self) -> None:
         """Log-in to JuiceNet"""
         doingMsg = "open log-in page " + JuiceBoxCtl.LOG_IN
         try:
@@ -183,6 +184,38 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             raise JuiceBoxException.fromXcp(doingMsg, e) from e
     # end getStateOfJuiceBoxes()
 
+    def setMaxCurrent(self, juiceBox: JuiceBoxDetails, maxCurrent: int) -> None:
+        doingMsg = "navigate to details via " + juiceBox.detailUrl
+        try:
+            self.webDriver.get(juiceBox.detailUrl)
+
+            doingMsg = "send maximum current characters"
+            inputFld = self.webDriver.find_element(*JuiceBoxCtl.MAX_CURRENT_LOCATOR)
+            inputFld.clear()
+            inputFld.send_keys(str(maxCurrent))
+
+            doingMsg = "store spinner element"
+            spinner = inputFld.get_property("parentElement").find_element(
+                By.CSS_SELECTOR, "button#buttonAllowedUpdate > i")
+
+            doingMsg = "update maximum current"
+            spinner.get_property("parentElement").click()
+            try:
+                self.localWait.until(visibility_of(spinner))
+            except TimeoutException:
+                # sometimes we miss the spinner's appearance
+                pass
+            self.remoteWait.until(invisibility_of_element(spinner),
+                                  "Timed out waiting to update maximum current")
+            oldMax = juiceBox.maxCurrent
+            juiceBox.maxCurrent = maxCurrent
+
+            logging.info(f"{juiceBox.name} maximum current changed"
+                         f" from {oldMax} A to {maxCurrent} A")
+        except WebDriverException as e:
+            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+    # end setMaxCurrent(JuiceBoxDetails, int)
+
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
 
@@ -209,6 +242,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             if not self.dianes or not self.johns:
                 raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
                                         f" found {[jb.name for jb in juiceBoxes]}")
+
+            self.setMaxCurrent(self.dianes, 25)
+            sleep(8)
         # end with
     # end main()
 
