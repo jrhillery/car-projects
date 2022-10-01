@@ -1,6 +1,7 @@
 
 import json
 import logging
+from argparse import ArgumentParser, Namespace
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Type
@@ -46,6 +47,11 @@ class JuiceBoxDetails(object):
         self.detailUrl = urljoin(baseUrl, f"/Portal/Details?unitID={deviceId}")
     # end __init__(str, str)
 
+    def statusStr(self) -> str:
+        return (f"{self.name} is {self.status}"
+                f" with maximum current {self.maxCurrent} A")
+    # end statusStr()
+
     def __str__(self) -> str:
         retStr = f"id[{self.deviceId}]"
 
@@ -71,7 +77,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     UNIT_STATUS_LOCATOR = By.CSS_SELECTOR, "span#statusText"
     MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
-    def __init__(self):
+    def __init__(self, args: Namespace):
+        self.juiceBoxName: str = args.juiceBoxName
+        self.maxAmps: int = args.maxAmps
         self.webDriver: WebDriver | None = None
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
@@ -83,6 +91,19 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                   "r", encoding="utf-8") as credFile:
             self.loginCreds = json.load(credFile)
     # end __init__()
+
+    @staticmethod
+    def parseArgs() -> Namespace:
+        """Parse command line arguments"""
+        ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
+                            epilog="Just displays status when no option is specified")
+        ap.add_argument("-j", "--juiceBoxName", metavar="name",
+                        help="name prefix of specified JuiceBox (other get remainder)")
+        ap.add_argument("-a", "--maxAmps", type=int, metavar="amps",
+                        help="maximum current (Amps)")
+
+        return ap.parse_args()
+    # end parseArgs()
 
     def openBrowser(self) -> WebDriver:
         """Get web driver and open browser"""
@@ -233,18 +254,18 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             juiceBoxes = self.getStateOfJuiceBoxes()
 
             for juiceBox in juiceBoxes:
-                if juiceBox.name.startswith("Diane's"):
-                    self.dianes = juiceBox
-                elif juiceBox.name.startswith("John's"):
-                    self.johns = juiceBox
+                if not juiceBox.status.startswith("Offline"):
+                    logging.info(juiceBox.statusStr())
+
+                    if juiceBox.name.startswith("Diane's"):
+                        self.dianes = juiceBox
+                    elif juiceBox.name.startswith("John's"):
+                        self.johns = juiceBox
             # end for
 
             if not self.dianes or not self.johns:
                 raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
                                         f" found {[jb.name for jb in juiceBoxes]}")
-
-            self.setMaxCurrent(self.dianes, 25)
-            sleep(8)
         # end with
     # end main()
 
@@ -252,9 +273,10 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
 
 if __name__ == "__main__":
+    clArgs = JuiceBoxCtl.parseArgs()
     Configure.logToFile()
     try:
-        juiceCtl = JuiceBoxCtl()
+        juiceCtl = JuiceBoxCtl(clArgs)
         juiceCtl.main()
     except Exception as xcpt:
         logging.error(xcpt)
