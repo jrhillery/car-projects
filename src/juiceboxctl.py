@@ -79,13 +79,11 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
     def __init__(self, args: Namespace):
         self.specifiedJuiceBoxName: str = args.juiceBoxName
-        self.maxAmps: int = args.maxAmps
+        self.specifiedMaxAmps: int = args.maxAmps
         self.webDriver: WebDriver | None = None
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
         self.loggedIn = False
-        self.specifiedJuiceBox: JuiceBoxDetails | None = None
-        self.otherJuiceBox: JuiceBoxDetails | None = None
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -93,12 +91,12 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
         self.totalCurrent: int = self.loginCreds["totalCurrent"]
 
-        if self.maxAmps is not None:
-            if self.maxAmps < 0:
-                self.maxAmps = 0
+        if self.specifiedMaxAmps is not None:
+            if self.specifiedMaxAmps < 0:
+                self.specifiedMaxAmps = 0
 
-            if self.maxAmps > self.totalCurrent:
-                self.maxAmps = self.totalCurrent
+            if self.specifiedMaxAmps > self.totalCurrent:
+                self.specifiedMaxAmps = self.totalCurrent
     # end __init__()
 
     @staticmethod
@@ -107,9 +105,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
                             epilog="Just displays status when no arguments are specified")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
-                        help="name prefix of specified JuiceBox (other gets remainder)")
+                        help="name prefix of JuiceBox to set (other gets remaining current)")
         ap.add_argument("-a", "--maxAmps", type=int, metavar="amps",
-                        help="maximum current (Amps)")
+                        help="maximum current to set (Amps)")
 
         return ap.parse_args()
     # end parseArgs()
@@ -251,6 +249,23 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                 raise JuiceBoxException.fromXcp(doingMsg, e) from e
     # end setMaxCurrent(JuiceBoxDetails, int)
 
+    def setNewMaximums(self, juiceBoxA: JuiceBoxDetails, maxAmpsA: int,
+                       juiceBoxB: JuiceBoxDetails) -> None:
+        """Set JuiceBox maximum currents, decrease one before increasing the other
+
+        :param juiceBoxA: One of the JuiceBoxes to set
+        :param maxAmpsA: The desired maximum current for juiceBoxA
+        :param juiceBoxB: The other JuiceBox to set (gets remaining current)
+        """
+        if maxAmpsA < juiceBoxA.maxCurrent:
+            # decreasing juiceBoxA limit, so do it first
+            self.setMaxCurrent(juiceBoxA, maxAmpsA)
+            self.setMaxCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
+        else:
+            self.setMaxCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
+            self.setMaxCurrent(juiceBoxA, maxAmpsA)
+    # end setNewMaximums(JuiceBoxDetails, int, JuiceBoxDetails)
+
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
 
@@ -262,6 +277,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
     def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
+        specifiedJuiceBox: JuiceBoxDetails | None = None
+        otherJuiceBox: JuiceBoxDetails | None = None
 
         with self.openBrowser(), self:
             self.logIn()
@@ -273,18 +290,18 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
                     if self.specifiedJuiceBoxName:
                         if juiceBox.name.startswith(self.specifiedJuiceBoxName):
-                            self.specifiedJuiceBox = juiceBox
+                            specifiedJuiceBox = juiceBox
                         else:
-                            self.otherJuiceBox = juiceBox
+                            otherJuiceBox = juiceBox
             # end for
 
             if self.specifiedJuiceBoxName:
-                if not self.specifiedJuiceBox or not self.otherJuiceBox:
+                if not specifiedJuiceBox or not otherJuiceBox:
                     raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
                                             f" found {[jb.name for jb in juiceBoxes]}")
-                if self.maxAmps is not None:
-                    self.setMaxCurrent(self.specifiedJuiceBox, self.maxAmps)
-                    self.setMaxCurrent(self.otherJuiceBox, self.totalCurrent - self.maxAmps)
+                if self.specifiedMaxAmps is not None:
+                    self.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps,
+                                        otherJuiceBox)
         # end with
     # end main()
 
