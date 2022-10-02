@@ -78,14 +78,14 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
     def __init__(self, args: Namespace):
-        self.juiceBoxName: str = args.juiceBoxName
+        self.specifiedJuiceBoxName: str = args.juiceBoxName
         self.maxAmps: int = args.maxAmps
         self.webDriver: WebDriver | None = None
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
         self.loggedIn = False
-        self.dianes: JuiceBoxDetails | None = None
-        self.johns: JuiceBoxDetails | None = None
+        self.specifiedJuiceBox: JuiceBoxDetails | None = None
+        self.otherJuiceBox: JuiceBoxDetails | None = None
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -206,35 +206,40 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     # end getStateOfJuiceBoxes()
 
     def setMaxCurrent(self, juiceBox: JuiceBoxDetails, maxCurrent: int) -> None:
-        doingMsg = "navigate to details via " + juiceBox.detailUrl
-        try:
-            self.webDriver.get(juiceBox.detailUrl)
+        # JuiceBox won't accept max of 0, so use 1 instead
+        if maxCurrent < 1:
+            maxCurrent = 1
 
-            doingMsg = "send maximum current characters"
-            inputFld = self.webDriver.find_element(*JuiceBoxCtl.MAX_CURRENT_LOCATOR)
-            inputFld.clear()
-            inputFld.send_keys(str(maxCurrent))
-
-            doingMsg = "store spinner element"
-            spinner = inputFld.get_property("parentElement").find_element(
-                By.CSS_SELECTOR, "button#buttonAllowedUpdate > i")
-
-            doingMsg = "update maximum current"
-            spinner.get_property("parentElement").click()
+        if maxCurrent != juiceBox.maxCurrent:
+            doingMsg = "navigate to details via " + juiceBox.detailUrl
             try:
-                self.localWait.until(visibility_of(spinner))
-            except TimeoutException:
-                # sometimes we miss the spinner's appearance
-                pass
-            self.remoteWait.until(invisibility_of_element(spinner),
-                                  "Timed out waiting to update maximum current")
-            oldMax = juiceBox.maxCurrent
-            juiceBox.maxCurrent = maxCurrent
+                self.webDriver.get(juiceBox.detailUrl)
 
-            logging.info(f"{juiceBox.name} maximum current changed"
-                         f" from {oldMax} A to {maxCurrent} A")
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+                doingMsg = "send maximum current characters"
+                inputFld = self.webDriver.find_element(*JuiceBoxCtl.MAX_CURRENT_LOCATOR)
+                inputFld.clear()
+                inputFld.send_keys(str(maxCurrent))
+
+                doingMsg = "store spinner element"
+                spinner = inputFld.get_property("parentElement").find_element(
+                    By.CSS_SELECTOR, "button#buttonAllowedUpdate > i")
+
+                doingMsg = "update maximum current"
+                spinner.get_property("parentElement").click()
+                try:
+                    self.localWait.until(visibility_of(spinner))
+                except TimeoutException:
+                    # sometimes we miss the spinner's appearance
+                    pass
+                self.remoteWait.until(invisibility_of_element(spinner),
+                                      "Timed out waiting to update maximum current")
+                oldMax = juiceBox.maxCurrent
+                juiceBox.maxCurrent = maxCurrent
+
+                logging.info(f"{juiceBox.name} maximum current changed"
+                             f" from {oldMax} to {maxCurrent} A")
+            except WebDriverException as e:
+                raise JuiceBoxException.fromXcp(doingMsg, e) from e
     # end setMaxCurrent(JuiceBoxDetails, int)
 
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
@@ -257,15 +262,27 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                 if not juiceBox.status.startswith("Offline"):
                     logging.info(juiceBox.statusStr())
 
-                    if juiceBox.name.startswith("Diane's"):
-                        self.dianes = juiceBox
-                    elif juiceBox.name.startswith("John's"):
-                        self.johns = juiceBox
+                    if self.specifiedJuiceBoxName:
+                        if juiceBox.name.startswith(self.specifiedJuiceBoxName):
+                            self.specifiedJuiceBox = juiceBox
+                        else:
+                            self.otherJuiceBox = juiceBox
             # end for
 
-            if not self.dianes or not self.johns:
-                raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
-                                        f" found {[jb.name for jb in juiceBoxes]}")
+            if self.specifiedJuiceBoxName:
+                if not self.specifiedJuiceBox or not self.otherJuiceBox:
+                    raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
+                                            f" found {[jb.name for jb in juiceBoxes]}")
+                if self.maxAmps is not None:
+                    if self.maxAmps < 0:
+                        self.maxAmps = 0
+                    totalCurrent = self.loginCreds["totalCurrent"]
+
+                    if self.maxAmps > totalCurrent:
+                        self.maxAmps = totalCurrent
+
+                    self.setMaxCurrent(self.specifiedJuiceBox, self.maxAmps)
+                    self.setMaxCurrent(self.otherJuiceBox, totalCurrent - self.maxAmps)
         # end with
     # end main()
 
