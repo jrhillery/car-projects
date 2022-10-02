@@ -90,6 +90,15 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
             self.loginCreds = json.load(credFile)
+
+        self.totalCurrent: int = self.loginCreds["totalCurrent"]
+
+        if self.maxAmps is not None:
+            if self.maxAmps < 0:
+                self.maxAmps = 0
+
+            if self.maxAmps > self.totalCurrent:
+                self.maxAmps = self.totalCurrent
     # end __init__()
 
     @staticmethod
@@ -274,15 +283,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                     raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
                                             f" found {[jb.name for jb in juiceBoxes]}")
                 if self.maxAmps is not None:
-                    if self.maxAmps < 0:
-                        self.maxAmps = 0
-                    totalCurrent = self.loginCreds["totalCurrent"]
-
-                    if self.maxAmps > totalCurrent:
-                        self.maxAmps = totalCurrent
-
                     self.setMaxCurrent(self.specifiedJuiceBox, self.maxAmps)
-                    self.setMaxCurrent(self.otherJuiceBox, totalCurrent - self.maxAmps)
+                    self.setMaxCurrent(self.otherJuiceBox, self.totalCurrent - self.maxAmps)
         # end with
     # end main()
 
