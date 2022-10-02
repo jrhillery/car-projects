@@ -89,7 +89,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
-            self.loginCreds = json.load(credFile)
+            self.loginCreds: dict = json.load(credFile)
 
         self.totalCurrent: int = self.loginCreds["totalCurrent"]
 
@@ -105,9 +105,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     def parseArgs() -> Namespace:
         """Parse command line arguments"""
         ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
-                            epilog="Just displays status when no option is specified")
-        ap.add_argument("-j", "--juiceBoxName", metavar="name",
-                        help="name prefix of specified JuiceBox (other get remainder)")
+                            epilog="Just displays status when no arguments are specified")
+        ap.add_argument("juiceBoxName", nargs="?", metavar="name",
+                        help="name prefix of specified JuiceBox (other gets remainder)")
         ap.add_argument("-a", "--maxAmps", type=int, metavar="amps",
                         help="maximum current (Amps)")
 
