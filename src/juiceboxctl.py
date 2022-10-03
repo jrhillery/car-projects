@@ -68,18 +68,11 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     """Controls JuiceBox devices"""
     LOG_IN = "https://home.juice.net/Account/Login"
     LOG_IN_FORM_LOCATOR = By.CSS_SELECTOR, "form.form-vertical"
-    EMAIL_LOCATOR = By.CSS_SELECTOR, "input#Email"
-    PASSWORD_LOCATOR = By.CSS_SELECTOR, "input#Password"
-    UPDATE_DEVICE_LIST_LOCATOR = By.CSS_SELECTOR, "a#update-unit-list-button"
-    LOG_OUT_FORM_LOCATOR = By.CSS_SELECTOR, "form#logoutForm"
-    UNIT_PANEL_LOCATOR = By.CSS_SELECTOR, "div.unit-info-container"
-    UNIT_NAME_LOCATOR = By.CSS_SELECTOR, "h3.panel-title"
-    UNIT_STATUS_LOCATOR = By.CSS_SELECTOR, "span#statusText"
     MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
     def __init__(self, args: Namespace):
-        self.specifiedJuiceBoxName: str = args.juiceBoxName
-        self.specifiedMaxAmps: int = args.maxAmps
+        self.specifiedJuiceBoxName: str | None = args.juiceBoxName
+        self.specifiedMaxAmps: int | None = args.maxAmps
         self.webDriver: WebDriver | None = None
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
@@ -97,7 +90,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
             if self.specifiedMaxAmps > self.totalCurrent:
                 self.specifiedMaxAmps = self.totalCurrent
-    # end __init__()
+    # end __init__(Namespace)
 
     @staticmethod
     def parseArgs() -> Namespace:
@@ -134,17 +127,17 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             liForm = self.webDriver.find_element(*JuiceBoxCtl.LOG_IN_FORM_LOCATOR)
 
             doingMsg = "enter email"
-            liForm.find_element(*JuiceBoxCtl.EMAIL_LOCATOR).send_keys(
+            liForm.find_element(By.CSS_SELECTOR, "input#Email").send_keys(
                 self.loginCreds["email"])
 
             doingMsg = "enter password"
-            liForm.find_element(*JuiceBoxCtl.PASSWORD_LOCATOR).send_keys(
+            liForm.find_element(By.CSS_SELECTOR, "input#Password").send_keys(
                 self.loginCreds["password"])
 
             doingMsg = "submit log-in form"
             liForm.submit()
             self.remoteWait.until(
-                element_to_be_clickable(JuiceBoxCtl.UPDATE_DEVICE_LIST_LOCATOR),
+                element_to_be_clickable((By.CSS_SELECTOR, "a#update-unit-list-button")),
                 "Timed out waiting to log-in")
             self.loggedIn = True
         except WebDriverException as e:
@@ -154,7 +147,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     def logOut(self) -> None:
         """Log-out from JuiceNet"""
         try:
-            self.webDriver.find_element(*JuiceBoxCtl.LOG_OUT_FORM_LOCATOR).submit()
+            self.webDriver.find_element(By.CSS_SELECTOR, "form#logoutForm").submit()
             self.remoteWait.until(
                 visibility_of_element_located(JuiceBoxCtl.LOG_IN_FORM_LOCATOR),
                 "Timed out waiting to log out")
@@ -174,11 +167,11 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
             doingMsg = "store name"
             juiceBox.name = self.webDriver.find_element(
-                *JuiceBoxCtl.UNIT_NAME_LOCATOR).text
+                By.CSS_SELECTOR, "h3.panel-title").text
 
             doingMsg = "store status"
             juiceBox.status = self.webDriver.find_element(
-                *JuiceBoxCtl.UNIT_STATUS_LOCATOR).text
+                By.CSS_SELECTOR, "span#statusText").text
 
             doingMsg = "store current limit"
             juiceBox.maxCurrent = int(self.webDriver.find_element(
@@ -191,7 +184,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         """Get all active JuiceBoxes and their latest states."""
         doingMsg = "find JuiceBoxes"
         try:
-            panels = self.webDriver.find_elements(*JuiceBoxCtl.UNIT_PANEL_LOCATOR)
+            panels = self.webDriver.find_elements(By.CSS_SELECTOR, "div.unit-info-container")
 
             doingMsg = "get base URL"
             baseUrl = self.webDriver.current_url
@@ -228,7 +221,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                 inputFld.send_keys(str(maxCurrent))
 
                 doingMsg = "store spinner element"
-                spinner = inputFld.get_property("parentElement").find_element(
+                spinner = self.webDriver.find_element(
                     By.CSS_SELECTOR, "button#buttonAllowedUpdate > i")
 
                 doingMsg = "update maximum current"
@@ -240,11 +233,10 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                     pass
                 self.remoteWait.until(invisibility_of_element(spinner),
                                       "Timed out waiting to update maximum current")
-                oldMax = juiceBox.maxCurrent
-                juiceBox.maxCurrent = maxCurrent
 
                 logging.info(f"{juiceBox.name} maximum current changed"
-                             f" from {oldMax} to {maxCurrent} A")
+                             f" from {juiceBox.maxCurrent} to {maxCurrent} A")
+                juiceBox.maxCurrent = maxCurrent
             except WebDriverException as e:
                 raise JuiceBoxException.fromXcp(doingMsg, e) from e
     # end setMaxCurrent(JuiceBoxDetails, int)
