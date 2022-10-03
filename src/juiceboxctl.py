@@ -108,7 +108,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     def openBrowser(self) -> WebDriver:
         """Get web driver and open browser"""
         try:
-            self.webDriver = webdriver.Chrome()
+            crOpts = webdriver.ChromeOptions()
+            crOpts.add_experimental_option("excludeSwitches", ["enable-logging"])
+            self.webDriver = webdriver.Chrome(options=crOpts)
             self.localWait = WebDriverWait(self.webDriver, 5)
             self.remoteWait = WebDriverWait(self.webDriver, 15)
 
