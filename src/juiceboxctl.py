@@ -70,9 +70,9 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     LOG_IN_FORM_LOCATOR = By.CSS_SELECTOR, "form.form-vertical"
     MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
-    def __init__(self, args: Namespace):
-        self.specifiedJuiceBoxName: str | None = args.juiceBoxName
-        self.specifiedMaxAmps: int | None = args.maxAmps
+    def __init__(self, args: Namespace | None = None):
+        self.specifiedJuiceBoxName: str | None = None if args is None else args.juiceBoxName
+        self.specifiedMaxAmps: int | None = None if args is None else args.maxAmps
         self.webDriver: WebDriver | None = None
         self.localWait: WebDriverWait | None = None
         self.remoteWait: WebDriverWait | None = None
