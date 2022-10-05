@@ -98,15 +98,12 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Connection': 'keep-alive',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
             'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -121,10 +118,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             "form.form-vertical > input[name='__RequestVerificationToken']")
 
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'max-age=0',
-            'Connection': 'keep-alive',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Account/Login',
             'Sec-Fetch-Dest': 'document',
@@ -132,7 +127,6 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
             'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -158,10 +152,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         """Log-out from JuiceNet"""
         url = 'https://home.juice.net/Account/LogOff'
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'max-age=0',
-            'Connection': 'keep-alive',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'document',
@@ -169,7 +161,6 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
             'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -189,16 +180,13 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         """Get all active JuiceBoxes and their latest states."""
         url = 'https://home.juice.net/Portal/GetUserUnitsJson'
         headers = {
-            'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Connection': 'keep-alive',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
             'X-Requested-With': 'XMLHttpRequest',
             'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
             'sec-ch-ua-mobile': '?0',
@@ -230,9 +218,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         if maxCurrent != juiceBox.maxCurrent:
             url = 'https://home.juice.net/Portal/SetLimit'
             headers = {
-                'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Connection': 'keep-alive',
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 'Origin': 'https://home.juice.net',
                 'Referer': 'https://home.juice.net/Portal/Details',
@@ -241,7 +227,6 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
                 'Sec-Fetch-Dest': 'empty',
                 'Sec-Fetch-Mode': 'cors',
                 'Sec-Fetch-Site': 'same-origin',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
                 'X-Requested-With': 'XMLHttpRequest',
                 'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
                 'sec-ch-ua-mobile': '?0',
