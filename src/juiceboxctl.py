@@ -5,30 +5,24 @@ from argparse import ArgumentParser, Namespace
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Type
-from urllib.parse import urljoin
 
 import sys
-from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
-from selenium.webdriver.chrome.webdriver import WebDriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.expected_conditions import (
-    element_to_be_clickable, invisibility_of_element,
-    visibility_of, visibility_of_element_located)
-from selenium.webdriver.support.wait import WebDriverWait
-from time import sleep
+from pyquery import PyQuery
+from requests import HTTPError, Session
 
 from util.configure import Configure
+from util.extresponse import ExtResponse
 
 
-class JuiceBoxException(Exception):
+class JuiceBoxException(HTTPError):
     """Class for handled exceptions"""
 
     @classmethod
-    def fromXcp(cls, unableMsg: str, xcption: WebDriverException):
-        """Factory method for WebDriverExceptions"""
-        return cls(f"Unable to {unableMsg}, {xcption.__class__.__name__}: {xcption.msg}")
-    # end fromXcp(str, WebDriverException)
+    def fromError(cls, badResponse: ExtResponse):
+        """Factory method for bad responses"""
+
+        return cls(badResponse.unknownSummary(), response=badResponse)
+    # end fromError(ExtResponse)
 
 # end class JuiceBoxException
 
@@ -37,15 +31,20 @@ class JuiceBoxDetails(object):
     """Details of a JuiceBox"""
 
     deviceId: str
-    detailUrl: str
     name: str
     status: str
     maxCurrent: int
 
-    def __init__(self, deviceId: str, baseUrl: str):
-        self.deviceId = deviceId
-        self.detailUrl = urljoin(baseUrl, f"/Portal/Details?unitID={deviceId}")
-    # end __init__(str, str)
+    def __init__(self, juiceBoxState: dict):
+        self.updateFromDict(juiceBoxState)
+    # end __init__(dict)
+
+    def updateFromDict(self, juiceBoxState: dict) -> None:
+        self.deviceId = juiceBoxState["unitID"]
+        self.name = juiceBoxState["unitName"]
+        self.status = juiceBoxState["StatusText"]
+        self.maxCurrent = juiceBoxState["allowed_C"]
+    # end updateFromDict(dict)
 
     def statusStr(self) -> str:
         return (f"{self.name} is {self.status}"
@@ -53,12 +52,7 @@ class JuiceBoxDetails(object):
     # end statusStr()
 
     def __str__(self) -> str:
-        retStr = f"id[{self.deviceId}]"
-
-        if hasattr(self, "name"):
-            retStr += f" name[{self.name}]"
-
-        return retStr
+        return f"{self.name} id[{self.deviceId}]"
     # end __str__()
 
 # end class JuiceBoxDetails
@@ -66,17 +60,12 @@ class JuiceBoxDetails(object):
 
 class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     """Controls JuiceBox devices"""
-    LOG_IN = "https://home.juice.net/Account/Login"
-    LOG_IN_FORM_LOCATOR = By.CSS_SELECTOR, "form.form-vertical"
-    MAX_CURRENT_LOCATOR = By.CSS_SELECTOR, "input#Status_allowed_C"
 
     def __init__(self, args: Namespace | None = None):
         self.specifiedJuiceBoxName: str | None = None if args is None else args.juiceBoxName
         self.specifiedMaxAmps: int | None = None if args is None else args.maxAmps
-        self.webDriver: WebDriver | None = None
-        self.localWait: WebDriverWait | None = None
-        self.remoteWait: WebDriverWait | None = None
-        self.loggedIn = False
+        self.session = Session()
+        self.loToken: str | None = None
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -105,106 +94,132 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         return ap.parse_args()
     # end parseArgs()
 
-    def openBrowser(self) -> WebDriver:
-        """Get web driver and open browser"""
-        try:
-            crOpts = webdriver.ChromeOptions()
-            crOpts.add_experimental_option("excludeSwitches", ["enable-logging"])
-            self.webDriver = webdriver.Chrome(options=crOpts)
-            self.localWait = WebDriverWait(self.webDriver, 5)
-            self.remoteWait = WebDriverWait(self.webDriver, 15)
-
-            return self.webDriver
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp("open browser", e) from e
-    # end openBrowser()
-
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
-        doingMsg = "open log-in page " + JuiceBoxCtl.LOG_IN
-        try:
-            self.webDriver.get(JuiceBoxCtl.LOG_IN)
+        url = "https://home.juice.net/Account/Login"
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
 
-            doingMsg = "find log-in form"
-            liForm = self.webDriver.find_element(*JuiceBoxCtl.LOG_IN_FORM_LOCATOR)
+        resp = ExtResponse(self.session.request("GET", url, headers=headers))
 
-            doingMsg = "enter email"
-            liForm.find_element(By.CSS_SELECTOR, "input#Email").send_keys(
-                self.loginCreds["email"])
+        if resp.status_code != 200:
+            raise JuiceBoxException.fromError(resp)
 
-            doingMsg = "enter password"
-            liForm.find_element(By.CSS_SELECTOR, "input#Password").send_keys(
-                self.loginCreds["password"])
+        liToken = PyQuery(resp.text).find(
+            "form.form-vertical > input[name='__RequestVerificationToken']")
 
-            doingMsg = "submit log-in form"
-            liForm.submit()
-            self.remoteWait.until(
-                element_to_be_clickable((By.CSS_SELECTOR, "a#update-unit-list-button")),
-                "Timed out waiting to log-in")
-            self.loggedIn = True
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'max-age=0',
+            'Connection': 'keep-alive',
+            'Origin': 'https://home.juice.net',
+            'Referer': 'https://home.juice.net/Account/Login',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        data = {
+            '__RequestVerificationToken': liToken.attr("value"),
+            'Email': self.loginCreds["email"],
+            'Password': self.loginCreds["password"],
+            'IsGreenButtonAuth': 'False',
+            'RememberMe': 'false',
+        }
+
+        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+
+        if resp.status_code != 200:
+            raise JuiceBoxException.fromError(resp)
+
+        self.loToken = PyQuery(resp.text).find(
+            "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
     # end logIn()
 
     def logOut(self) -> None:
         """Log-out from JuiceNet"""
-        try:
-            self.webDriver.find_element(By.CSS_SELECTOR, "form#logoutForm").submit()
-            self.remoteWait.until(
-                visibility_of_element_located(JuiceBoxCtl.LOG_IN_FORM_LOCATOR),
-                "Timed out waiting to log out")
+        url = 'https://home.juice.net/Account/LogOff'
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'max-age=0',
+            'Connection': 'keep-alive',
+            'Origin': 'https://home.juice.net',
+            'Referer': 'https://home.juice.net/Portal',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        data = {
+            '__RequestVerificationToken': self.loToken,
+        }
 
-            self.loggedIn = False
-            # give us a change to see we are logged out
-            sleep(0.75)
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp("log out", e) from e
+        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        self.loToken = None
+
+        if resp.status_code != 200:
+            raise JuiceBoxException.fromError(resp)
     # end logOut()
-
-    def storeDetails(self, juiceBox: JuiceBoxDetails) -> None:
-        """Update details of the JuiceBoxDetails argument"""
-        doingMsg = "request details via " + juiceBox.detailUrl
-        try:
-            self.webDriver.get(juiceBox.detailUrl)
-
-            doingMsg = "store name"
-            juiceBox.name = self.webDriver.find_element(
-                By.CSS_SELECTOR, "h3.panel-title").text
-
-            doingMsg = "store status"
-            juiceBox.status = self.webDriver.find_element(
-                By.CSS_SELECTOR, "span#statusText").text
-
-            doingMsg = "store current limit"
-            juiceBox.maxCurrent = int(self.webDriver.find_element(
-                *JuiceBoxCtl.MAX_CURRENT_LOCATOR).get_dom_attribute("value"))
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp(doingMsg, e) from e
-    # end storeDetails(JuiceBoxDetails)
 
     def getStateOfJuiceBoxes(self) -> list[JuiceBoxDetails]:
         """Get all active JuiceBoxes and their latest states."""
-        doingMsg = "find JuiceBoxes"
-        try:
-            panels = self.webDriver.find_elements(By.CSS_SELECTOR, "div.unit-info-container")
+        url = 'https://home.juice.net/Portal/GetUserUnitsJson'
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin': 'https://home.juice.net',
+            'Referer': 'https://home.juice.net/Portal',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        data = {
+            '__RequestVerificationToken': self.loToken,
+        }
 
-            doingMsg = "get base URL"
-            baseUrl = self.webDriver.current_url
+        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+
+        if resp.status_code == 200:
+            juiceBoxStates: list[dict] = resp.json()["Units"].values()
             juiceBoxes = []
 
-            doingMsg = "extract device ids"
-            for panel in panels:
-                deviceId = panel.get_dom_attribute("data-unitid")
-                juiceBoxes.append(JuiceBoxDetails(deviceId, baseUrl))
-            # end for
-
-            for juiceBox in juiceBoxes:
-                self.storeDetails(juiceBox)
-            # end for
+            for juiceBoxState in juiceBoxStates:
+                juiceBoxes.append(JuiceBoxDetails(juiceBoxState))
 
             return juiceBoxes
-        except WebDriverException as e:
-            raise JuiceBoxException.fromXcp(doingMsg, e) from e
+        else:
+            raise JuiceBoxException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
     def setMaxCurrent(self, juiceBox: JuiceBoxDetails, maxCurrent: int) -> None:
@@ -213,34 +228,38 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             maxCurrent = 1
 
         if maxCurrent != juiceBox.maxCurrent:
-            doingMsg = "navigate to details via " + juiceBox.detailUrl
-            try:
-                self.webDriver.get(juiceBox.detailUrl)
+            url = 'https://home.juice.net/Portal/SetLimit'
+            headers = {
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Origin': 'https://home.juice.net',
+                'Referer': 'https://home.juice.net/Portal/Details',
+                'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
+                'Request-Id': '|cnzEj.TYDgf',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+                'X-Requested-With': 'XMLHttpRequest',
+                'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+            }
+            data = {
+                '__RequestVerificationToken': self.loToken,
+                'unitID': juiceBox.deviceId,
+                'allowedC': str(maxCurrent),
+            }
+            resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
-                doingMsg = "send maximum current characters"
-                inputFld = self.webDriver.find_element(*JuiceBoxCtl.MAX_CURRENT_LOCATOR)
-                inputFld.clear()
-                inputFld.send_keys(str(maxCurrent))
+            if resp.status_code != 200:
+                raise JuiceBoxException.fromError(resp)
 
-                doingMsg = "store spinner element"
-                spinner = self.webDriver.find_element(
-                    By.CSS_SELECTOR, "button#buttonAllowedUpdate > i")
-
-                doingMsg = "update maximum current"
-                spinner.get_property("parentElement").click()
-                try:
-                    self.localWait.until(visibility_of(spinner))
-                except TimeoutException:
-                    # sometimes we miss the spinner's appearance
-                    pass
-                self.remoteWait.until(invisibility_of_element(spinner),
-                                      "Timed out waiting to update maximum current")
-
-                logging.info(f"{juiceBox.name} maximum current changed"
-                             f" from {juiceBox.maxCurrent} to {maxCurrent} A")
-                juiceBox.maxCurrent = maxCurrent
-            except WebDriverException as e:
-                raise JuiceBoxException.fromXcp(doingMsg, e) from e
+            logging.info(f"{juiceBox.name} maximum current changed"
+                         f" from {juiceBox.maxCurrent} to {maxCurrent} A")
+            juiceBox.maxCurrent = maxCurrent
     # end setMaxCurrent(JuiceBoxDetails, int)
 
     def setNewMaximums(self, juiceBoxA: JuiceBoxDetails, maxAmpsA: int,
@@ -263,7 +282,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
 
-        if self.loggedIn:
+        if self.loToken:
             self.logOut()
 
         return None
@@ -274,7 +293,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         specifiedJuiceBox: JuiceBoxDetails | None = None
         otherJuiceBox: JuiceBoxDetails | None = None
 
-        with self.openBrowser(), self:
+        with self.session, self:
             self.logIn()
             juiceBoxes = self.getStateOfJuiceBoxes()
 
