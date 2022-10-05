@@ -28,11 +28,6 @@ class TessieResponse(Response):
                 f" {self.text} for url {self.url}")
     # end unknownSummary()
 
-    def errorSummary(self) -> str:
-        return (f"{self.status_code} {self.decodeReason()}:"
-                f" {self.json()['error']} for url {self.url}")
-    # end errorSummary()
-
     def decodeReason(self) -> str:
         reason = TessieResponse.decodeText(self.reason)
 

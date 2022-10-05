@@ -95,7 +95,9 @@ class TessieInterface(object):
                     raise CcException.fromError(resp) from e
             elif resp.status_code in {408, 500}:
                 # Request Timeout or Internal Server Error
-                logging.info(f"{dtls.displayName} encountered {resp.errorSummary()}")
+                logging.info(f"{dtls.displayName} encountered {resp.status_code}"
+                             f" {resp.decodeReason()}: {resp.json()['error']}"
+                             f" for url {resp.url}")
             else:
                 raise CcException.fromError(resp)
             sleep(60)
