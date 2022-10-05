@@ -6,8 +6,8 @@ from requests import HTTPError, request
 from time import sleep
 
 from util.configure import Configure
+from util.extresponse import ExtResponse
 from .cardetails import CarDetails
-from .extresponse import ExtResponse
 
 
 class CcException(HTTPError):
