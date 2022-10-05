@@ -4,7 +4,7 @@ from threading import current_thread
 from requests import Response
 
 
-class TessieResponse(Response):
+class ExtResponse(Response):
     """Extend Response object"""
 
     def __init__(self, orig: Response):
@@ -29,7 +29,7 @@ class TessieResponse(Response):
     # end unknownSummary()
 
     def decodeReason(self) -> str:
-        reason = TessieResponse.decodeText(self.reason)
+        reason = ExtResponse.decodeText(self.reason)
 
         if not reason:
             reason = "Error"
@@ -51,4 +51,4 @@ class TessieResponse(Response):
         return string
     # end decodeText(bytes | str)
 
-# end class TessieResponse
+# end class ExtResponse

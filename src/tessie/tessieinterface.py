@@ -7,18 +7,18 @@ from time import sleep
 
 from util.configure import Configure
 from .cardetails import CarDetails
-from .tessieresponse import TessieResponse
+from .extresponse import ExtResponse
 
 
 class CcException(HTTPError):
     """Detected exceptions"""
 
     @classmethod
-    def fromError(cls, badResponse: TessieResponse):
+    def fromError(cls, badResponse: ExtResponse):
         """Factory method for bad responses"""
 
         return cls(badResponse.unknownSummary(), response=badResponse)
-    # end fromError(TessieResponse)
+    # end fromError(ExtResponse)
 
 # end class CcException
 
@@ -50,7 +50,7 @@ class TessieInterface(object):
         url = "https://api.tessie.com/vehicles"
         queryParams = {"only_active": "true"}
 
-        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
+        resp = ExtResponse(request("GET", url, params=queryParams, headers=self.headers))
 
         if resp.status_code != 200:
             raise CcException.fromError(resp)
@@ -78,7 +78,7 @@ class TessieInterface(object):
         retries = 10
 
         while retries:
-            resp = TessieResponse(request("GET", url, params=qryParms, headers=self.headers))
+            resp = ExtResponse(request("GET", url, params=qryParms, headers=self.headers))
 
             if resp.status_code == 200:
                 try:
@@ -110,7 +110,7 @@ class TessieInterface(object):
         The status may be asleep, waiting_for_sleep or awake."""
         url = f"https://api.tessie.com/{vin}/status"
 
-        response = TessieResponse(request("GET", url, headers=self.headers))
+        response = ExtResponse(request("GET", url, headers=self.headers))
 
         if response.status_code == 200:
             try:
@@ -128,7 +128,7 @@ class TessieInterface(object):
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        response = TessieResponse(request("GET", url, headers=self.headers))
+        response = ExtResponse(request("GET", url, headers=self.headers))
 
         if response.status_code != 200:
             raise CcException.fromError(response)
@@ -152,7 +152,7 @@ class TessieInterface(object):
             "percent": percent
         }
 
-        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
+        resp = ExtResponse(request("GET", url, params=queryParams, headers=self.headers))
         oldLimit = dtls.chargeLimit
         dtls.chargeLimit = percent
 
@@ -171,7 +171,7 @@ class TessieInterface(object):
             "wait_for_completion": "true"
         }
 
-        resp = TessieResponse(request("GET", url, params=queryParams, headers=self.headers))
+        resp = ExtResponse(request("GET", url, params=queryParams, headers=self.headers))
         dtls.chargingState = "Charging"
 
         if resp.status_code != 200:
