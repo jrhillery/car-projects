@@ -146,12 +146,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         if resp.status_code == 200:
             juiceBoxStates: list[dict] = resp.json()["Units"].values()
-            juiceBoxes = []
 
-            for juiceBoxState in juiceBoxStates:
-                juiceBoxes.append(JbDetails(juiceBoxState))
-
-            return juiceBoxes
+            return [JbDetails(jbState) for jbState in juiceBoxStates]
         else:
             raise JuiceBoxException.fromError(resp)
     # end getStateOfJuiceBoxes()
