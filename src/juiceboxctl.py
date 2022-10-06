@@ -10,6 +10,7 @@ import sys
 from pyquery import PyQuery
 from requests import HTTPError, Session
 
+from juicebox.jbdetails import JbDetails
 from util.configure import Configure
 from util.extresponse import ExtResponse
 
@@ -25,37 +26,6 @@ class JuiceBoxException(HTTPError):
     # end fromError(ExtResponse)
 
 # end class JuiceBoxException
-
-
-class JuiceBoxDetails(object):
-    """Details of a JuiceBox"""
-
-    deviceId: str
-    name: str
-    status: str
-    maxCurrent: int
-
-    def __init__(self, juiceBoxState: dict):
-        self.updateFromDict(juiceBoxState)
-    # end __init__(dict)
-
-    def updateFromDict(self, juiceBoxState: dict) -> None:
-        self.deviceId = juiceBoxState["unitID"]
-        self.name = juiceBoxState["unitName"]
-        self.status = juiceBoxState["StatusText"]
-        self.maxCurrent = juiceBoxState["allowed_C"]
-    # end updateFromDict(dict)
-
-    def statusStr(self) -> str:
-        return (f"{self.name} is {self.status}"
-                f" with maximum current {self.maxCurrent} A")
-    # end statusStr()
-
-    def __str__(self) -> str:
-        return f"{self.name} id[{self.deviceId}]"
-    # end __str__()
-
-# end class JuiceBoxDetails
 
 
 class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
@@ -176,7 +146,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             raise JuiceBoxException.fromError(resp)
     # end logOut()
 
-    def getStateOfJuiceBoxes(self) -> list[JuiceBoxDetails]:
+    def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states."""
         url = 'https://home.juice.net/Portal/GetUserUnitsJson'
         headers = {
@@ -203,14 +173,14 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
             juiceBoxes = []
 
             for juiceBoxState in juiceBoxStates:
-                juiceBoxes.append(JuiceBoxDetails(juiceBoxState))
+                juiceBoxes.append(JbDetails(juiceBoxState))
 
             return juiceBoxes
         else:
             raise JuiceBoxException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
-    def setMaxCurrent(self, juiceBox: JuiceBoxDetails, maxCurrent: int) -> None:
+    def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
         # JuiceBox won't accept max of 0, so use 1 instead
         if maxCurrent < 1:
             maxCurrent = 1
@@ -244,10 +214,10 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         logging.info(f"{juiceBox.name} maximum current changed"
                      f" from {juiceBox.maxCurrent} to {maxCurrent} A")
         juiceBox.maxCurrent = maxCurrent
-    # end setMaxCurrent(JuiceBoxDetails, int)
+    # end setMaxCurrent(JbDetails, int)
 
-    def setNewMaximums(self, juiceBoxA: JuiceBoxDetails, maxAmpsA: int,
-                       juiceBoxB: JuiceBoxDetails) -> None:
+    def setNewMaximums(self, juiceBoxA: JbDetails, maxAmpsA: int,
+                       juiceBoxB: JbDetails) -> None:
         """Set JuiceBox maximum currents, decrease one before increasing the other
 
         :param juiceBoxA: One of the JuiceBoxes to set
@@ -261,7 +231,7 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         else:
             self.setMaxCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
             self.setMaxCurrent(juiceBoxA, maxAmpsA)
-    # end setNewMaximums(JuiceBoxDetails, int, JuiceBoxDetails)
+    # end setNewMaximums(JbDetails, int, JbDetails)
 
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
@@ -274,8 +244,8 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
 
     def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
-        specifiedJuiceBox: JuiceBoxDetails | None = None
-        otherJuiceBox: JuiceBoxDetails | None = None
+        specifiedJuiceBox: JbDetails | None = None
+        otherJuiceBox: JbDetails | None = None
 
         with self.session, self:
             self.logIn()
