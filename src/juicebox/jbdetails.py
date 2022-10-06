@@ -5,6 +5,7 @@ class JbDetails(object):
 
     deviceId: str
     name: str
+    isOffline: bool
     status: str
     maxCurrent: int
 
@@ -15,6 +16,7 @@ class JbDetails(object):
     def updateFromDict(self, juiceBoxState: dict) -> None:
         self.deviceId = juiceBoxState["unitID"]
         self.name = juiceBoxState["unitName"]
+        self.isOffline = juiceBoxState["IsOffline"]
         self.status = juiceBoxState["StatusText"]
         self.maxCurrent = juiceBoxState["allowed_C"]
     # end updateFromDict(dict)

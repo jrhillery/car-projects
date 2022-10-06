@@ -32,7 +32,7 @@ class JuiceBoxCtl(object):
                             epilog="Just displays status when no arguments are specified")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
                         help="name prefix of JuiceBox to set (other gets remaining current)")
-        ap.add_argument("-a", "--maxAmps", type=int, metavar="amps",
+        ap.add_argument("-m", "--maxAmps", type=int, metavar="amps",
                         help="maximum current to set (Amps)")
 
         return ap.parse_args()
@@ -48,7 +48,7 @@ class JuiceBoxCtl(object):
             juiceBoxes = self.jbIntrfc.getStateOfJuiceBoxes()
 
             for juiceBox in juiceBoxes:
-                if not juiceBox.status.startswith("Offline"):
+                if not juiceBox.isOffline:
                     logging.info(juiceBox.statusStr())
 
                     if self.specifiedJuiceBoxName:
