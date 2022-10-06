@@ -8,6 +8,7 @@ class JbDetails(object):
     isOffline: bool
     status: str
     maxCurrent: int
+    wireRating: int
 
     def __init__(self, juiceBoxState: dict):
         self.updateFromDict(juiceBoxState)
@@ -20,6 +21,15 @@ class JbDetails(object):
         self.status = juiceBoxState["StatusText"]
         self.maxCurrent = juiceBoxState["allowed_C"]
     # end updateFromDict(dict)
+
+    def limitToWireRating(self, maxCurrent: int) -> int:
+        if hasattr(self, "wireRating"):
+
+            if maxCurrent > self.wireRating:
+                return self.wireRating
+
+        return maxCurrent
+    # end limitToWireRating(int)
 
     def statusStr(self) -> str:
         return (f"{self.name} is {self.status}"

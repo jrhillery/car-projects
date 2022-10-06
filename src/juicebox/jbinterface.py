@@ -124,7 +124,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states."""
-        url = 'https://home.juice.net/Portal/GetUserUnitsJson'
+        url = "https://home.juice.net/Portal/GetUserUnitsJson"
         headers = {
             'Accept-Language': 'en-US,en;q=0.9',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -152,10 +152,38 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             raise JuiceBoxException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
+    def addMoreDetails(self, juiceBox: JbDetails) -> None:
+        url = "https://home.juice.net/Portal/Details"
+        headers = {
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://home.juice.net/Portal',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        params = {
+            'unitID': juiceBox.deviceId,
+        }
+
+        resp = ExtResponse(self.session.request("GET", url, params=params, headers=headers))
+
+        if resp.status_code == 200:
+            wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
+            juiceBox.wireRating = int(wireRatingElement.attr("value"))
+        else:
+            raise JuiceBoxException.fromError(resp)
+    # end addMoreDetails(JbDetails)
+
     def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
         # JuiceBox won't accept max of 0, so use 1 instead
         if maxCurrent < 1:
             maxCurrent = 1
+        maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
         url = 'https://home.juice.net/Portal/SetLimit'
         headers = {
@@ -196,12 +224,16 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         :param maxAmpsA: The desired maximum current for juiceBoxA
         :param juiceBoxB: The other JuiceBox to set (gets remaining current)
         """
+        maxAmpsA = juiceBoxA.limitToWireRating(maxAmpsA)
+        maxAmpsB = juiceBoxB.limitToWireRating(self.totalCurrent - maxAmpsA)
+        maxAmpsA = self.totalCurrent - maxAmpsB
+
         if maxAmpsA < juiceBoxA.maxCurrent:
             # decreasing juiceBoxA limit, so do it first
             self.setMaxCurrent(juiceBoxA, maxAmpsA)
-            self.setMaxCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
+            self.setMaxCurrent(juiceBoxB, maxAmpsB)
         else:
-            self.setMaxCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
+            self.setMaxCurrent(juiceBoxB, maxAmpsB)
             self.setMaxCurrent(juiceBoxA, maxAmpsA)
     # end setNewMaximums(JbDetails, int, JbDetails)
 

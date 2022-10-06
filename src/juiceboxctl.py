@@ -49,6 +49,7 @@ class JuiceBoxCtl(object):
 
             for juiceBox in juiceBoxes:
                 if not juiceBox.isOffline:
+                    self.jbIntrfc.addMoreDetails(juiceBox)
                     logging.info(juiceBox.statusStr())
 
                     if self.specifiedJuiceBoxName:
