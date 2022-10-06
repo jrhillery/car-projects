@@ -215,36 +215,35 @@ class JuiceBoxCtl(AbstractContextManager["JuiceBoxCtl"]):
         if maxCurrent < 1:
             maxCurrent = 1
 
-        if maxCurrent != juiceBox.maxCurrent:
-            url = 'https://home.juice.net/Portal/SetLimit'
-            headers = {
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'Origin': 'https://home.juice.net',
-                'Referer': 'https://home.juice.net/Portal/Details',
-                'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
-                'Request-Id': '|cnzEj.TYDgf',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest',
-                'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-            }
-            data = {
-                '__RequestVerificationToken': self.loToken,
-                'unitID': juiceBox.deviceId,
-                'allowedC': str(maxCurrent),
-            }
-            resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        url = 'https://home.juice.net/Portal/SetLimit'
+        headers = {
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin': 'https://home.juice.net',
+            'Referer': 'https://home.juice.net/Portal/Details',
+            'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
+            'Request-Id': '|cnzEj.TYDgf',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'X-Requested-With': 'XMLHttpRequest',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        data = {
+            '__RequestVerificationToken': self.loToken,
+            'unitID': juiceBox.deviceId,
+            'allowedC': maxCurrent,
+        }
+        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
-            if resp.status_code != 200:
-                raise JuiceBoxException.fromError(resp)
+        if resp.status_code != 200:
+            raise JuiceBoxException.fromError(resp)
 
-            logging.info(f"{juiceBox.name} maximum current changed"
-                         f" from {juiceBox.maxCurrent} to {maxCurrent} A")
-            juiceBox.maxCurrent = maxCurrent
+        logging.info(f"{juiceBox.name} maximum current changed"
+                     f" from {juiceBox.maxCurrent} to {maxCurrent} A")
+        juiceBox.maxCurrent = maxCurrent
     # end setMaxCurrent(JuiceBoxDetails, int)
 
     def setNewMaximums(self, juiceBoxA: JuiceBoxDetails, maxAmpsA: int,
