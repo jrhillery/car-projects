@@ -56,11 +56,10 @@ class JuiceBoxCtl(object):
         otherJuiceBox: JbDetails | None = None
 
         for juiceBox in juiceBoxes:
-            if not juiceBox.isOffline:
-                if juiceBox.name.startswith(self.specifiedJuiceBoxName):
-                    specifiedJuiceBox = juiceBox
-                else:
-                    otherJuiceBox = juiceBox
+            if juiceBox.name.startswith(self.specifiedJuiceBoxName):
+                specifiedJuiceBox = juiceBox
+            else:
+                otherJuiceBox = juiceBox
         # end for
 
         if not specifiedJuiceBox or not otherJuiceBox:
@@ -76,10 +75,10 @@ class JuiceBoxCtl(object):
         with self.jbIntrfc.session, self.jbIntrfc:
             self.jbIntrfc.logIn()
             juiceBoxes = self.jbIntrfc.getStateOfJuiceBoxes()
+            juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
             for juiceBox in juiceBoxes:
-                if not juiceBox.isOffline:
-                    logging.info(juiceBox.statusStr())
+                logging.info(juiceBox.statusStr())
             # end for
 
             if self.autoMax:
