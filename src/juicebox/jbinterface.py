@@ -30,15 +30,14 @@ class JuiceBoxException(HTTPError):
 class JbInterface(AbstractContextManager["JbInterface"]):
     """Provides an interface to authorized JuiceBox devices"""
 
-    def __init__(self):
+    def __init__(self, totalCurrent):
+        self.totalCurrent: int = totalCurrent
         self.session = Session()
         self.loToken: str | None = None
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
             self.loginCreds: dict = json.load(credFile)
-
-        self.totalCurrent: int = self.loginCreds["totalCurrent"]
     # end __init__()
 
     def logIn(self) -> None:

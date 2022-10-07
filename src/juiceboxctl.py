@@ -1,4 +1,5 @@
 
+import json
 import logging
 from argparse import ArgumentParser, Namespace
 
@@ -21,7 +22,12 @@ class JuiceBoxCtl(object):
             logging.error("Missing required JuiceBox name prefix when max current is specified")
             sys.exit(2)
 
-        self.jbIntrfc = JbInterface()
+        with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
+                  "r", encoding="utf-8") as mappingFile:
+            self.carMapping: dict = json.load(mappingFile)
+
+        self.totalCurrent: int = self.carMapping["totalCurrent"]
+        self.jbIntrfc = JbInterface(self.totalCurrent)
 
         if self.specifiedMaxAmps is not None:
             if self.specifiedMaxAmps < 0:

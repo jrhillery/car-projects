@@ -44,6 +44,13 @@ class CarDetails(object):
         return self.chargeLimit == self.limitMinPercent
     # end chargeLimitIsMin()
 
+    def chargeNeeded(self) -> int:
+        if self.chargeLimit <= self.batteryLevel:
+            return 0
+        else:
+            return self.chargeLimit - self.batteryLevel
+    # end chargeNeeded()
+
     def currentChargingStatus(self) -> str:
         return (f"{self.displayName} was {self.sleepStatus}"
                 f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago"
