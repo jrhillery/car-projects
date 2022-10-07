@@ -1,6 +1,7 @@
 
 import json
 import logging
+from collections.abc import ValuesView
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Type
@@ -145,14 +146,14 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
         if resp.status_code == 200:
-            juiceBoxStates: list[dict] = resp.json()["Units"].values()
+            juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
 
-            return [JbDetails(jbState) for jbState in juiceBoxStates]
+            return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
         else:
             raise JuiceBoxException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
-    def addMoreDetails(self, juiceBox: JbDetails) -> None:
+    def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         url = "https://home.juice.net/Portal/Details"
         headers = {
             'Accept-Language': 'en-US,en;q=0.9',
@@ -175,6 +176,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         if resp.status_code == 200:
             wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
             juiceBox.wireRating = int(wireRatingElement.attr("value"))
+
+            return juiceBox
         else:
             raise JuiceBoxException.fromError(resp)
     # end addMoreDetails(JbDetails)
