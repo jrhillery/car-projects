@@ -13,8 +13,14 @@ class JuiceBoxCtl(object):
     """Controls JuiceBox devices"""
 
     def __init__(self, args: Namespace | None = None):
-        self.specifiedJuiceBoxName: str | None = None if args is None else args.juiceBoxName
+        self.autoMax: bool = False if args is None else args.autoMax
         self.specifiedMaxAmps: int | None = None if args is None else args.maxAmps
+        self.specifiedJuiceBoxName: str | None = None if args is None else args.juiceBoxName
+
+        if self.specifiedMaxAmps is not None and self.specifiedJuiceBoxName is None:
+            logging.error("Missing required JuiceBox name prefix when max current is specified")
+            sys.exit(2)
+
         self.jbIntrfc = JbInterface()
 
         if self.specifiedMaxAmps is not None:
@@ -30,18 +36,42 @@ class JuiceBoxCtl(object):
         """Parse command line arguments"""
         ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
                             epilog="Just displays status when no arguments are specified")
+        group = ap.add_mutually_exclusive_group()
+        group.add_argument("-a", "--autoMax", action="store_true",
+                           help="automatically set maximums based on cars' charging needs")
+        group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=40, metavar="amps",
+                           help="maximum current to set (Amps)")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
                         help="name prefix of JuiceBox to set (other gets remaining current)")
-        ap.add_argument("-m", "--maxAmps", type=int, nargs="?", const=40, metavar="amps",
-                        help="maximum current to set (Amps)")
 
         return ap.parse_args()
     # end parseArgs()
 
-    def main(self) -> None:
-        logging.debug(f"Starting {' '.join(sys.argv)}")
+    def automaticallySetMax(self, juiceBoxes: list[JbDetails]) -> None:
+        pass
+    # end automaticallySetMax(list[JbDetails])
+
+    def specifyMaxCurrent(self, juiceBoxes: list[JbDetails]) -> None:
         specifiedJuiceBox: JbDetails | None = None
         otherJuiceBox: JbDetails | None = None
+
+        for juiceBox in juiceBoxes:
+            if not juiceBox.isOffline:
+                if juiceBox.name.startswith(self.specifiedJuiceBoxName):
+                    specifiedJuiceBox = juiceBox
+                else:
+                    otherJuiceBox = juiceBox
+        # end for
+
+        if not specifiedJuiceBox or not otherJuiceBox:
+            raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
+                                    f" found {[jb.name for jb in juiceBoxes]}")
+
+        self.jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
+    # end specifyMaxCurrent(list[JbDetails])
+
+    def main(self) -> None:
+        logging.debug(f"Starting {' '.join(sys.argv)}")
 
         with self.jbIntrfc.session, self.jbIntrfc:
             self.jbIntrfc.logIn()
@@ -50,21 +80,12 @@ class JuiceBoxCtl(object):
             for juiceBox in juiceBoxes:
                 if not juiceBox.isOffline:
                     logging.info(juiceBox.statusStr())
-
-                    if self.specifiedJuiceBoxName:
-                        if juiceBox.name.startswith(self.specifiedJuiceBoxName):
-                            specifiedJuiceBox = juiceBox
-                        else:
-                            otherJuiceBox = juiceBox
             # end for
 
-            if self.specifiedJuiceBoxName:
-                if not specifiedJuiceBox or not otherJuiceBox:
-                    raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
-                                            f" found {[jb.name for jb in juiceBoxes]}")
-                if self.specifiedMaxAmps is not None:
-                    self.jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps,
-                                                 otherJuiceBox)
+            if self.autoMax:
+                self.automaticallySetMax(juiceBoxes)
+            elif self.specifiedMaxAmps is not None:
+                self.specifyMaxCurrent(juiceBoxes)
         # end with
     # end main()
 
