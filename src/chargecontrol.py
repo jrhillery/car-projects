@@ -49,13 +49,11 @@ class ChargeControl(object):
             logException(e)
 
         try:
-            if dtls.pluggedIn() and dtls.chargingState != "Charging" \
-                    and dtls.batteryLevel < dtls.chargeLimit:
+            if dtls.pluggedIn() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
                 # this vehicle is plugged in, not charging and could use a charge
                 retries = 6
 
-                while dtls.chargingState == "Complete" \
-                        and dtls.batteryLevel < dtls.chargeLimit and retries:
+                while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
                     # wait for charging state to change from Complete
                     sleep(3.2)
                     self.carIntrfc.getCurrentState(dtls)
