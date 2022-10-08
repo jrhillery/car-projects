@@ -7,6 +7,8 @@ import sys
 
 from juicebox.jbdetails import JbDetails
 from juicebox.jbinterface import JbInterface, JuiceBoxException
+from tessie.cardetails import CarDetails
+from tessie.tessieinterface import TessieInterface
 from util.configure import Configure
 
 
@@ -24,9 +26,10 @@ class JuiceBoxCtl(object):
 
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
-            self.carMapping: dict = json.load(mappingFile)
+            carJuiceBoxMapping: dict = json.load(mappingFile)
 
-        self.totalCurrent: int = self.carMapping["totalCurrent"]
+        self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
+        self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
         self.jbIntrfc = JbInterface(self.totalCurrent)
 
         if self.specifiedMaxAmps is not None:
@@ -53,8 +56,36 @@ class JuiceBoxCtl(object):
         return ap.parse_args()
     # end parseArgs()
 
+    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
+        juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
+        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
+
+        return juiceBox
+    # end getJuiceBoxForCar(CarDetails, dict)
+
     def automaticallySetMax(self, juiceBoxes: list[JbDetails]) -> None:
-        pass
+        """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
+        vehicles = TessieInterface().getStateOfActiveVehicles()
+        totalChargeNeeded = 0.0
+
+        for carDetails in vehicles:
+            logging.info(carDetails.currentChargingStatus())
+            totalChargeNeeded += carDetails.chargeNeeded()
+        # end for
+
+        if len(vehicles) < 2:
+            raise JuiceBoxException(f"Unable to locate both cars,"
+                                    f" found {[car.displayName for car in vehicles]}")
+
+        if totalChargeNeeded:
+            juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
+            vehicles.sort(key=lambda car: car.chargeNeeded(), reverse=True)
+            carA = vehicles[0]
+            juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
+            juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
+            fairShareA = (self.totalCurrent * carA.chargeNeeded()) / totalChargeNeeded
+            self.jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
+        # end if
     # end automaticallySetMax(list[JbDetails])
 
     def specifyMaxCurrent(self, juiceBoxes: list[JbDetails]) -> None:
