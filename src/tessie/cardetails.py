@@ -11,6 +11,7 @@ class CarDetails(object):
     displayName: str
     chargeState: dict
     batteryLevel: int
+    chargeAmps: int
     chargeLimit: int
     limitMinPercent: int
     chargingState: str
@@ -26,6 +27,7 @@ class CarDetails(object):
         self.displayName = vehicleState["display_name"]
         self.chargeState = vehicleState["charge_state"]
         self.batteryLevel = self.chargeState["battery_level"]
+        self.chargeAmps = self.chargeState["charge_amps"]
         self.chargeLimit = self.chargeState["charge_limit_soc"]
         self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
         self.chargingState = self.chargeState["charging_state"]

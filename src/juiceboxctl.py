@@ -60,6 +60,11 @@ class JuiceBoxCtl(object):
         juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
         juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
 
+        if vehicle.pluggedIn() and vehicle.chargeAmps != juiceBox.maxCurrent:
+            logging.warning(f"Suspicion car-JuiceBox mapping;"
+                            f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
+                            f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
+
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
