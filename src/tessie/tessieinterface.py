@@ -112,7 +112,7 @@ class TessieInterface(object):
             try:
                 dtls.sleepStatus = response.json()["status"]
             except Exception as e:
-                logging.error(e)
+                logging.error("Status retrieval problem:", exc_info=e)
                 dtls.sleepStatus = "unknowable"
         else:
             logging.error(f"Encountered {response.unknownSummary()}")
@@ -127,7 +127,7 @@ class TessieInterface(object):
                 try:
                     dtls.batteryCapacity = response.json()["result"]["capacity"]
                 except Exception as e:
-                    logging.error(e)
+                    logging.error("Battery health retrieval problem:", exc_info=e)
             else:
                 logging.error(f"Encountered {response.unknownSummary()}")
         # end if

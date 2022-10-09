@@ -16,9 +16,9 @@ class JuiceBoxCtl(object):
     """Controls JuiceBox devices"""
 
     def __init__(self, args: Namespace | None = None):
-        self.autoMax: bool = False if args is None else args.autoMax
-        self.specifiedMaxAmps: int | None = None if args is None else args.maxAmps
-        self.specifiedJuiceBoxName: str | None = None if args is None else args.juiceBoxName
+        self.autoMax: bool = args.autoMax
+        self.specifiedMaxAmps: int | None = args.maxAmps
+        self.specifiedJuiceBoxName: str | None = args.juiceBoxName
 
         if self.specifiedMaxAmps is not None and self.specifiedJuiceBoxName is None:
             logging.error("Missing required JuiceBox name prefix when max current is specified")
