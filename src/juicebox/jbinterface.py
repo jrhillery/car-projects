@@ -50,9 +50,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
 
         resp = ExtResponse(self.session.request("GET", url, headers=headers))
@@ -73,9 +70,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
         data = {
             '__RequestVerificationToken': liToken.attr("value"),
@@ -107,13 +101,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
-        data = {
-            '__RequestVerificationToken': self.loToken,
-        }
+        data = {"__RequestVerificationToken": self.loToken}
 
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
         self.loToken = None
@@ -134,13 +123,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
             'X-Requested-With': 'XMLHttpRequest',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
-        data = {
-            '__RequestVerificationToken': self.loToken,
-        }
+        data = {"__RequestVerificationToken": self.loToken}
 
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
@@ -162,13 +146,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
-        params = {
-            'unitID': juiceBox.deviceId,
-        }
+        params = {"unitID": juiceBox.deviceId}
 
         resp = ExtResponse(self.session.request("GET", url, params=params, headers=headers))
 
@@ -199,9 +178,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
             'X-Requested-With': 'XMLHttpRequest',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
         }
         data = {
             '__RequestVerificationToken': self.loToken,
