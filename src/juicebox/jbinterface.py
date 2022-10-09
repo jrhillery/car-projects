@@ -46,14 +46,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
-        headers = {
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-        }
 
-        resp = ExtResponse(self.session.request("GET", url, headers=headers))
+        resp = ExtResponse(self.session.request("GET", url))
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
@@ -64,10 +58,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
         }
         data = {
             '__RequestVerificationToken': liToken.attr("value"),
@@ -92,10 +82,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
         }
         data = {"__RequestVerificationToken": self.loToken}
 
@@ -112,9 +98,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
             'X-Requested-With': 'XMLHttpRequest',
         }
         data = {"__RequestVerificationToken": self.loToken}
@@ -131,15 +114,9 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         url = "https://home.juice.net/Portal/Details"
-        headers = {
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
-        }
         params = {"unitID": juiceBox.deviceId}
 
-        resp = ExtResponse(self.session.request("GET", url, params=params, headers=headers))
+        resp = ExtResponse(self.session.request("GET", url, params=params))
 
         if resp.status_code == 200:
             wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
@@ -162,9 +139,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Origin': 'https://home.juice.net',
             'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
             'Request-Id': '|cnzEj.TYDgf',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
             'X-Requested-With': 'XMLHttpRequest',
         }
         data = {
