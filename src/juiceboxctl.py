@@ -106,7 +106,11 @@ class JuiceBoxCtl(object):
                 otherJuiceBox = juiceBox
         # end for
 
-        if not specifiedJuiceBox or not otherJuiceBox:
+        if not specifiedJuiceBox:
+            raise JuiceBoxException(
+                f"Unable to locate JuiceBox starting with {self.specifiedJuiceBoxName},"
+                f" found {[jb.name for jb in juiceBoxes]}")
+        if not otherJuiceBox:
             raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
                                     f" found {[jb.name for jb in juiceBoxes]}")
 
