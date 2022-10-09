@@ -47,11 +47,17 @@ class CarDetails(object):
     # end chargeLimitIsMin()
 
     def chargeNeeded(self) -> int:
+        """return the percent increase the battery needs to reach its charge limit"""
         if self.chargeLimit <= self.batteryLevel:
             return 0
         else:
             return self.chargeLimit - self.batteryLevel
     # end chargeNeeded()
+
+    def energyNeeded(self) -> float:
+        """return the energy needed to reach the charge limit, in kWh"""
+        return self.chargeNeeded() * 0.01 * self.batteryCapacity
+    # end energyNeeded()
 
     def currentChargingStatus(self) -> str:
         return (f"{self.displayName} was {self.sleepStatus}"

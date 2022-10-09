@@ -61,7 +61,7 @@ class JuiceBoxCtl(object):
         juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
 
         if vehicle.pluggedIn() and vehicle.chargeAmps != juiceBox.maxCurrent:
-            logging.warning(f"Suspicion car-JuiceBox mapping;"
+            logging.warning(f"Suspicious car-JuiceBox mapping;"
                             f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
                             f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
 
@@ -70,25 +70,27 @@ class JuiceBoxCtl(object):
 
     def automaticallySetMax(self, juiceBoxes: list[JbDetails]) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
-        vehicles = TessieInterface().getStateOfActiveVehicles()
-        totalChargeNeeded = 0.0
+        vehicles = TessieInterface().getStateOfActiveVehicles(withBatteryHealth=True)
+        totalEnergyNeeded = 0.0
 
         for carDetails in vehicles:
-            logging.info(carDetails.currentChargingStatus())
-            totalChargeNeeded += carDetails.chargeNeeded()
+            energyNeeded = carDetails.energyNeeded()
+            logging.info(carDetails.currentChargingStatus()
+                         + f" ({energyNeeded} kWh below charge limit)")
+            totalEnergyNeeded += energyNeeded
         # end for
 
         if len(vehicles) < 2:
             raise JuiceBoxException(f"Unable to locate both cars,"
                                     f" found {[car.displayName for car in vehicles]}")
 
-        if totalChargeNeeded:
+        if totalEnergyNeeded:
             juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
-            vehicles.sort(key=lambda car: car.chargeNeeded(), reverse=True)
+            vehicles.sort(key=lambda car: car.energyNeeded(), reverse=True)
             carA = vehicles[0]
             juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
             juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
-            fairShareA = (self.totalCurrent * carA.chargeNeeded()) / totalChargeNeeded
+            fairShareA = self.totalCurrent * (carA.energyNeeded() / totalEnergyNeeded)
             self.jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
         # end if
     # end automaticallySetMax(list[JbDetails])
