@@ -57,11 +57,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         headers = {"Cache-Control": "max-age=0"}
         data = {
-            '__RequestVerificationToken': liToken.attr("value"),
-            'Email': self.loginCreds["email"],
-            'Password': self.loginCreds["password"],
-            'IsGreenButtonAuth': 'False',
-            'RememberMe': 'false',
+            "__RequestVerificationToken": liToken.attr("value"),
+            "Email": self.loginCreds["email"],
+            "Password": self.loginCreds["password"],
+            "IsGreenButtonAuth": "False",
+            "RememberMe": "false",
         }
 
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
@@ -90,8 +90,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         """Get all active JuiceBoxes and their latest states."""
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         headers = {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
         }
         data = {"__RequestVerificationToken": self.loToken}
 
@@ -126,17 +126,17 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             maxCurrent = 1
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
-        url = 'https://home.juice.net/Portal/SetLimit'
+        url = "https://home.juice.net/Portal/SetLimit"
         headers = {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
             'Request-Id': '|cnzEj.TYDgf',
-            'X-Requested-With': 'XMLHttpRequest',
+            "X-Requested-With": "XMLHttpRequest",
         }
         data = {
-            '__RequestVerificationToken': self.loToken,
-            'unitID': juiceBox.deviceId,
-            'allowedC': maxCurrent,
+            "__RequestVerificationToken": self.loToken,
+            "unitID": juiceBox.deviceId,
+            "allowedC": maxCurrent,
         }
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
