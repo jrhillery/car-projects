@@ -76,7 +76,7 @@ class JuiceBoxCtl(object):
         for carDetails in vehicles:
             energyNeeded = carDetails.energyNeeded()
             logging.info(carDetails.currentChargingStatus()
-                         + f" ({energyNeeded} kWh below charge limit)")
+                         + f" ({energyNeeded:.1f} kWh below limit)")
             totalEnergyNeeded += energyNeeded
         # end for
 
