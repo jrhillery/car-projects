@@ -55,10 +55,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         liToken = PyQuery(resp.text).find(
             "form.form-vertical > input[name='__RequestVerificationToken']")
 
-        headers = {
-            'Cache-Control': 'max-age=0',
-            'Origin': 'https://home.juice.net',
-        }
+        headers = {"Cache-Control": "max-age=0"}
         data = {
             '__RequestVerificationToken': liToken.attr("value"),
             'Email': self.loginCreds["email"],
@@ -78,11 +75,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
     def logOut(self) -> None:
         """Log-out from JuiceNet"""
-        url = 'https://home.juice.net/Account/LogOff'
-        headers = {
-            'Cache-Control': 'max-age=0',
-            'Origin': 'https://home.juice.net',
-        }
+        url = "https://home.juice.net/Account/LogOff"
+        headers = {"Cache-Control": "max-age=0"}
         data = {"__RequestVerificationToken": self.loToken}
 
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
@@ -97,7 +91,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Origin': 'https://home.juice.net',
             'X-Requested-With': 'XMLHttpRequest',
         }
         data = {"__RequestVerificationToken": self.loToken}
@@ -136,7 +129,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         url = 'https://home.juice.net/Portal/SetLimit'
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Origin': 'https://home.juice.net',
             'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
             'Request-Id': '|cnzEj.TYDgf',
             'X-Requested-With': 'XMLHttpRequest',
