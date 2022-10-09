@@ -56,7 +56,10 @@ class CarDetails(object):
 
     def energyNeeded(self) -> float:
         """return the energy needed to reach the charge limit, in kWh"""
-        return self.chargeNeeded() * 0.01 * self.batteryCapacity
+        if self.pluggedIn():
+            return self.chargeNeeded() * 0.01 * self.batteryCapacity
+        else:
+            return 0.0
     # end energyNeeded()
 
     def currentChargingStatus(self) -> str:
