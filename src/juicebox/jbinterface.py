@@ -129,8 +129,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         url = "https://home.juice.net/Portal/SetLimit"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
-            'Request-Id': '|cnzEj.TYDgf',
             "X-Requested-With": "XMLHttpRequest",
         }
         data = {
