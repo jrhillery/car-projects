@@ -38,13 +38,15 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
             self.loginCreds: dict = json.load(credFile)
+
+        # provide some default request headers
+        self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     # end __init__()
 
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
@@ -61,7 +63,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             "form.form-vertical > input[name='__RequestVerificationToken']")
 
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Account/Login',
@@ -92,7 +93,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         """Log-out from JuiceNet"""
         url = 'https://home.juice.net/Account/LogOff'
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Portal',
@@ -115,7 +115,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         """Get all active JuiceBoxes and their latest states."""
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Portal',
@@ -139,7 +138,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         url = "https://home.juice.net/Portal/Details"
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
@@ -168,7 +166,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         url = 'https://home.juice.net/Portal/SetLimit'
         headers = {
-            'Accept-Language': 'en-US,en;q=0.9',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
             'Referer': 'https://home.juice.net/Portal/Details',
