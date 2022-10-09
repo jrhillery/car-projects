@@ -64,7 +64,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
-            'Referer': 'https://home.juice.net/Account/Login',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
@@ -93,7 +92,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Cache-Control': 'max-age=0',
             'Origin': 'https://home.juice.net',
-            'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
@@ -114,7 +112,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
-            'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
@@ -135,7 +132,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         url = "https://home.juice.net/Portal/Details"
         headers = {
-            'Referer': 'https://home.juice.net/Portal',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
@@ -164,7 +160,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://home.juice.net',
-            'Referer': 'https://home.juice.net/Portal/Details',
             'Request-Context': 'appId=cid-v1:72309e3b-8111-49c2-afbd-2dbe2d97b3c2',
             'Request-Id': '|cnzEj.TYDgf',
             'Sec-Fetch-Dest': 'empty',
