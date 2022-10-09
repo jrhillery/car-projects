@@ -14,7 +14,7 @@ from util.extresponse import ExtResponse
 from .jbdetails import JbDetails
 
 
-class JuiceBoxException(HTTPError):
+class JbException(HTTPError):
     """Class for handled exceptions"""
 
     @classmethod
@@ -24,7 +24,7 @@ class JuiceBoxException(HTTPError):
         return cls(badResponse.unknownSummary(), response=badResponse)
     # end fromError(ExtResponse)
 
-# end class JuiceBoxException
+# end class JbException
 
 
 class JbInterface(AbstractContextManager["JbInterface"]):
@@ -58,7 +58,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("GET", url, headers=headers))
 
         if resp.status_code != 200:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
 
         liToken = PyQuery(resp.text).find(
             "form.form-vertical > input[name='__RequestVerificationToken']")
@@ -88,7 +88,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
         if resp.status_code != 200:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
 
         self.loToken = PyQuery(resp.text).find(
             "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
@@ -119,7 +119,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         self.loToken = None
 
         if resp.status_code != 200:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
     # end logOut()
 
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
@@ -149,7 +149,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
             return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
         else:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
@@ -178,7 +178,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
             return juiceBox
         else:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
     # end addMoreDetails(JbDetails)
 
     def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
@@ -211,7 +211,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
         if resp.status_code != 200:
-            raise JuiceBoxException.fromError(resp)
+            raise JbException.fromError(resp)
 
         logging.info(f"{juiceBox.name} maximum current changed"
                      f" from {juiceBox.maxCurrent} to {maxCurrent} A")

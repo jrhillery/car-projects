@@ -6,7 +6,7 @@ from argparse import ArgumentParser, Namespace
 import sys
 
 from juicebox.jbdetails import JbDetails
-from juicebox.jbinterface import JbInterface, JuiceBoxException
+from juicebox.jbinterface import JbException, JbInterface
 from tessie.cardetails import CarDetails
 from tessie.tessieinterface import TessieInterface
 from util.configure import Configure
@@ -81,8 +81,8 @@ class JuiceBoxCtl(object):
         # end for
 
         if len(vehicles) < 2:
-            raise JuiceBoxException(f"Unable to locate both cars,"
-                                    f" found {[car.displayName for car in vehicles]}")
+            raise JbException(f"Unable to locate both cars,"
+                              f" found {[car.displayName for car in vehicles]}")
 
         if totalEnergyNeeded:
             juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
@@ -107,12 +107,12 @@ class JuiceBoxCtl(object):
         # end for
 
         if not specifiedJuiceBox:
-            raise JuiceBoxException(
+            raise JbException(
                 f"Unable to locate JuiceBox starting with {self.specifiedJuiceBoxName},"
                 f" found {[jb.name for jb in juiceBoxes]}")
         if not otherJuiceBox:
-            raise JuiceBoxException(f"Unable to locate both JuiceBoxes,"
-                                    f" found {[jb.name for jb in juiceBoxes]}")
+            raise JbException(f"Unable to locate both JuiceBoxes,"
+                              f" found {[jb.name for jb in juiceBoxes]}")
 
         self.jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
     # end specifyMaxCurrent(list[JbDetails])
