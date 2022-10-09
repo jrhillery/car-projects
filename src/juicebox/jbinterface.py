@@ -51,7 +51,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
         }
 
         resp = ExtResponse(self.session.request("GET", url, headers=headers))
@@ -70,7 +69,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
         }
         data = {
             '__RequestVerificationToken': liToken.attr("value"),
@@ -100,7 +98,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
         }
         data = {"__RequestVerificationToken": self.loToken}
 
@@ -143,7 +140,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
         }
         params = {"unitID": juiceBox.deviceId}
 
