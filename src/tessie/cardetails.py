@@ -6,7 +6,6 @@ from time import time
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
 
-    sleepStatus: str
     vin: str
     displayName: str
     chargeState: dict
@@ -16,13 +15,14 @@ class CarDetails(object):
     limitMinPercent: int
     chargingState: str
     lastSeen: float
+    sleepStatus: str
+    batteryCapacity: float
 
-    def __init__(self, sleepStatus: str, vehicleState: dict):
-        self.updateFromDict(sleepStatus, vehicleState)
+    def __init__(self, vehicleState: dict):
+        self.updateFromDict(vehicleState)
     # end __init__(str, dict)
 
-    def updateFromDict(self, sleepStatus: str, vehicleState: dict) -> None:
-        self.sleepStatus = sleepStatus
+    def updateFromDict(self, vehicleState: dict) -> None:
         self.vin = vehicleState["vin"]
         self.displayName = vehicleState["display_name"]
         self.chargeState = vehicleState["charge_state"]

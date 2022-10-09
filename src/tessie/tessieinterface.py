@@ -42,7 +42,7 @@ class TessieInterface(object):
             return json.load(tokenFile)["token"]
     # end loadToken()
 
-    def getStateOfActiveVehicles(self) -> list[CarDetails]:
+    def getStateOfActiveVehicles(self, withBatteryHealth: bool = False) -> list[CarDetails]:
         """Get all active vehicles and their latest state.
         This call always returns a complete set of data and doesn't impact vehicle sleep.
         If the vehicle is awake, the data is usually less than 10 seconds old.
@@ -57,14 +57,9 @@ class TessieInterface(object):
 
         try:
             allResults: list[dict] = resp.json()["results"]
-            carStates = []
 
-            for car in allResults:
-                # car has vin: str, is_active: bool, last_state: dict
-                carState: dict = car["last_state"]
-                carStates.append(CarDetails(self.getStatus(carState["vin"]), carState))
-
-            return carStates
+            return [self.addMoreDetails(CarDetails(car["last_state"]), withBatteryHealth)
+                    for car in allResults]
         except Exception as e:
             raise CcException.fromError(resp) from e
     # end getStateOfActiveVehicles()
@@ -87,7 +82,8 @@ class TessieInterface(object):
                     if carState["state"] == "asleep":
                         logging.info(f"{dtls.displayName} didn't wake up")
                     else:
-                        dtls.updateFromDict(self.getStatus(dtls.vin), carState)
+                        dtls.updateFromDict(carState)
+                        self.addMoreDetails(dtls, withBatteryHealth=False)
                         logging.info(dtls.currentChargingStatus())
 
                         return
@@ -105,23 +101,39 @@ class TessieInterface(object):
         # end while
     # end getCurrentState(CarDetails)
 
-    def getStatus(self, vin: str) -> str:
+    def addMoreDetails(self, dtls: CarDetails, withBatteryHealth: bool) -> CarDetails:
         """Get the status of the vehicle.
         The status may be asleep, waiting_for_sleep or awake."""
-        url = f"https://api.tessie.com/{vin}/status"
+        url = f"https://api.tessie.com/{dtls.vin}/status"
 
         response = ExtResponse(request("GET", url, headers=self.headers))
 
         if response.status_code == 200:
             try:
-                return response.json()["status"]
+                dtls.sleepStatus = response.json()["status"]
             except Exception as e:
                 logging.error(e)
+                dtls.sleepStatus = "unknowable"
+        else:
+            logging.error(f"Encountered {response.unknownSummary()}")
+            dtls.sleepStatus = "unknown"
 
-        logging.error(f"Encountered {response.unknownSummary()}")
+        if withBatteryHealth:
+            url = f"https://api.tessie.com/{dtls.vin}/battery_health"
 
-        return "unknown"
-    # end getStatus(CarDetails)
+            response = ExtResponse(request("GET", url, headers=self.headers))
+
+            if response.status_code == 200:
+                try:
+                    dtls.batteryCapacity = response.json()["result"]["capacity"]
+                except Exception as e:
+                    logging.error(e)
+            else:
+                logging.error(f"Encountered {response.unknownSummary()}")
+        # end if
+
+        return dtls
+    # end addMoreDetails(CarDetails, bool)
 
     def wake(self, dtls: CarDetails) -> None:
         """Attempt to wake the vehicle from sleep.
