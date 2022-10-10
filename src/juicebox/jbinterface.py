@@ -10,7 +10,6 @@ from pyquery import PyQuery
 from requests import HTTPError, Response, Session
 
 from util.configure import Configure
-from util.extresponse import ExtResponse
 from util.interpret import Interpret
 from .jbdetails import JbDetails
 
@@ -19,11 +18,11 @@ class JbException(HTTPError):
     """Class for handled exceptions"""
 
     @classmethod
-    def fromError(cls, badResponse: ExtResponse):
+    def fromError(cls, badResponse: Response):
         """Factory method for bad responses"""
 
         return cls(Interpret.responseErr(badResponse), response=badResponse)
-    # end fromError(ExtResponse)
+    # end fromError(Response)
 
     @classmethod
     def fromXcp(cls, xcption: BaseException, badResponse: Response):
@@ -55,7 +54,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
 
-        resp = ExtResponse(self.session.request("GET", url))
+        resp = self.session.request("GET", url)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
@@ -75,7 +74,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             "RememberMe": "false",
         }
 
-        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        resp = self.session.request("POST", url, headers=headers, data=data)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
@@ -93,7 +92,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         headers = {"Cache-Control": "max-age=0"}
         data = {"__RequestVerificationToken": self.loToken}
 
-        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        resp = self.session.request("POST", url, headers=headers, data=data)
         self.loToken = None
 
         if resp.status_code != 200:
@@ -109,7 +108,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         }
         data = {"__RequestVerificationToken": self.loToken}
 
-        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        resp = self.session.request("POST", url, headers=headers, data=data)
 
         if resp.status_code == 200:
             try:
@@ -126,7 +125,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         url = "https://home.juice.net/Portal/Details"
         params = {"unitID": juiceBox.deviceId}
 
-        resp = ExtResponse(self.session.request("GET", url, params=params))
+        resp = self.session.request("GET", url, params=params)
 
         if resp.status_code == 200:
             try:
@@ -156,7 +155,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             "unitID": juiceBox.deviceId,
             "allowedC": maxCurrent,
         }
-        resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
+        resp = self.session.request("POST", url, headers=headers, data=data)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
