@@ -21,27 +21,4 @@ class ExtResponse(Response):
         self.request = orig.request
     # end __init__(Response)
 
-    def decodeReason(self) -> str:
-        reason = ExtResponse.decodeText(self.reason)
-
-        if not reason:
-            reason = "Error"
-
-        return reason
-    # end decodeReason()
-
-    @staticmethod
-    def decodeText(text: bytes | str) -> str:
-        if isinstance(text, bytes):
-            # Some servers choose to localize their reason strings.
-            try:
-                string = text.decode("utf-8")
-            except UnicodeDecodeError:
-                string = text.decode("iso-8859-1")
-        else:
-            string = text
-
-        return string
-    # end decodeText(bytes | str)
-
 # end class ExtResponse
