@@ -36,8 +36,12 @@ class JbException(HTTPError):
 
 class JbInterface(AbstractContextManager["JbInterface"]):
     """Provides an interface to authorized JuiceBox devices"""
+    XHR_HEADERS = {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+    }
 
-    def __init__(self, totalCurrent):
+    def __init__(self, totalCurrent: int):
         self.totalCurrent: int = totalCurrent
         self.session = Session()
         self.loToken: str | None = None
@@ -48,7 +52,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         # provide another default request header
         self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
-    # end __init__()
+    # end __init__(int)
 
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
@@ -73,7 +77,6 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             "IsGreenButtonAuth": "False",
             "RememberMe": "false",
         }
-
         resp = self.session.request("POST", url, headers=headers, data=data)
 
         if resp.status_code != 200:
@@ -102,13 +105,9 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states."""
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
-        }
         data = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=headers, data=data)
+        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=data)
 
         if resp.status_code == 200:
             try:
@@ -146,16 +145,12 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
         url = "https://home.juice.net/Portal/SetLimit"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
-        }
         data = {
             "__RequestVerificationToken": self.loToken,
             "unitID": juiceBox.deviceId,
             "allowedC": maxCurrent,
         }
-        resp = self.session.request("POST", url, headers=headers, data=data)
+        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=data)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
