@@ -7,10 +7,11 @@ from types import TracebackType
 from typing import Type
 
 from pyquery import PyQuery
-from requests import HTTPError, Session
+from requests import HTTPError, Response, Session
 
 from util.configure import Configure
 from util.extresponse import ExtResponse
+from util.interpret import Interpret
 from .jbdetails import JbDetails
 
 
@@ -25,12 +26,11 @@ class JbException(HTTPError):
     # end fromError(ExtResponse)
 
     @classmethod
-    def fromXcp(cls, unableMsg: str, xcption: BaseException, badResponse: ExtResponse):
+    def fromXcp(cls, xcption: BaseException, badResponse: Response):
         """Factory method for Exceptions"""
-        message = f"Unable to {unableMsg}, {xcption.__class__.__name__}: {str(xcption)}"
 
-        return cls(message, response=badResponse)
-    # end fromXcp(str, BaseException, ExtResponse)
+        return cls(Interpret.responseXcp(badResponse, xcption), response=badResponse)
+    # end fromXcp(BaseException, Response)
 
 # end class JbException
 
@@ -64,7 +64,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             liToken = PyQuery(resp.text).find(
                 "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
         except Exception as e:
-            raise JbException.fromXcp("interpret Account Login GET response", e, resp) from e
+            raise JbException.fromXcp(e, resp) from e
 
         headers = {"Cache-Control": "max-age=0"}
         data = {
@@ -84,7 +84,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             self.loToken = PyQuery(resp.text).find(
                 "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
         except Exception as e:
-            raise JbException.fromXcp("interpret Account Login POST response", e, resp) from e
+            raise JbException.fromXcp(e, resp) from e
     # end logIn()
 
     def logOut(self) -> None:
@@ -115,8 +115,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             try:
                 juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
             except Exception as e:
-                raise JbException.fromXcp("interpret GetUserUnitsJson response",
-                                          e, resp) from e
+                raise JbException.fromXcp(e, resp) from e
 
             return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
         else:
@@ -134,7 +133,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
                 wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
                 juiceBox.wireRating = int(wireRatingElement.attr("value"))
             except Exception as e:
-                raise JbException.fromXcp("interpret Details response", e, resp) from e
+                raise JbException.fromXcp(e, resp) from e
         else:
             raise JbException.fromError(resp)
 
