@@ -1,6 +1,4 @@
 
-from threading import current_thread
-
 from requests import Response
 
 
@@ -22,11 +20,6 @@ class ExtResponse(Response):
         self.elapsed = orig.elapsed
         self.request = orig.request
     # end __init__(Response)
-
-    def unknownSummary(self) -> str:
-        return (f"{self.status_code} {self.decodeReason()} in {current_thread().name}:"
-                f" {self.text} for url {self.url}")
-    # end unknownSummary()
 
     def decodeReason(self) -> str:
         reason = ExtResponse.decodeText(self.reason)

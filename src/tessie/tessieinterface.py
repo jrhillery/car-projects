@@ -18,7 +18,7 @@ class CcException(HTTPError):
     def fromError(cls, badResponse: ExtResponse):
         """Factory method for bad responses"""
 
-        return cls(badResponse.unknownSummary(), response=badResponse)
+        return cls(Interpret.responseErr(badResponse), response=badResponse)
     # end fromError(ExtResponse)
 
     @classmethod
@@ -118,30 +118,30 @@ class TessieInterface(object):
         The status may be asleep, waiting_for_sleep or awake."""
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
-        response = ExtResponse(request("GET", url, headers=self.headers))
+        resp = ExtResponse(request("GET", url, headers=self.headers))
 
-        if response.status_code == 200:
+        if resp.status_code == 200:
             try:
-                dtls.sleepStatus = response.json()["status"]
+                dtls.sleepStatus = resp.json()["status"]
             except Exception as e:
                 logging.error("Status retrieval problem:", exc_info=e)
                 dtls.sleepStatus = "unknowable"
         else:
-            logging.error(f"Encountered {response.unknownSummary()}")
+            logging.error(f"Encountered {Interpret.responseErr(resp)}")
             dtls.sleepStatus = "unknown"
 
         if withBatteryHealth:
             url = f"https://api.tessie.com/{dtls.vin}/battery_health"
 
-            response = ExtResponse(request("GET", url, headers=self.headers))
+            resp = ExtResponse(request("GET", url, headers=self.headers))
 
-            if response.status_code == 200:
+            if resp.status_code == 200:
                 try:
-                    dtls.batteryCapacity = response.json()["result"]["capacity"]
+                    dtls.batteryCapacity = resp.json()["result"]["capacity"]
                 except Exception as e:
-                    raise CcException.fromXcp(e, response) from e
+                    raise CcException.fromXcp(e, resp) from e
             else:
-                raise CcException.fromError(response)
+                raise CcException.fromError(resp)
         # end if
 
         return dtls

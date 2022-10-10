@@ -22,7 +22,7 @@ class JbException(HTTPError):
     def fromError(cls, badResponse: ExtResponse):
         """Factory method for bad responses"""
 
-        return cls(badResponse.unknownSummary(), response=badResponse)
+        return cls(Interpret.responseErr(badResponse), response=badResponse)
     # end fromError(ExtResponse)
 
     @classmethod
