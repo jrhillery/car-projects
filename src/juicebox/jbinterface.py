@@ -24,6 +24,14 @@ class JbException(HTTPError):
         return cls(badResponse.unknownSummary(), response=badResponse)
     # end fromError(ExtResponse)
 
+    @classmethod
+    def fromXcp(cls, unableMsg: str, xcption: BaseException, badResponse: ExtResponse):
+        """Factory method for Exceptions"""
+        message = f"Unable to {unableMsg}, {xcption.__class__.__name__}: {str(xcption)}"
+
+        return cls(message, response=badResponse)
+    # end fromXcp(str, BaseException, ExtResponse)
+
 # end class JbException
 
 
@@ -39,7 +47,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
                   "r", encoding="utf-8") as credFile:
             self.loginCreds: dict = json.load(credFile)
 
-        # provide some default request headers
+        # provide another default request header
         self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     # end __init__()
 
@@ -52,12 +60,15 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         if resp.status_code != 200:
             raise JbException.fromError(resp)
 
-        liToken = PyQuery(resp.text).find(
-            "form.form-vertical > input[name='__RequestVerificationToken']")
+        try:
+            liToken = PyQuery(resp.text).find(
+                "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
+        except Exception as e:
+            raise JbException.fromXcp("interpret Account Login GET response", e, resp) from e
 
         headers = {"Cache-Control": "max-age=0"}
         data = {
-            "__RequestVerificationToken": liToken.attr("value"),
+            "__RequestVerificationToken": liToken,
             "Email": self.loginCreds["email"],
             "Password": self.loginCreds["password"],
             "IsGreenButtonAuth": "False",
@@ -69,8 +80,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         if resp.status_code != 200:
             raise JbException.fromError(resp)
 
-        self.loToken = PyQuery(resp.text).find(
-            "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
+        try:
+            self.loToken = PyQuery(resp.text).find(
+                "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
+        except Exception as e:
+            raise JbException.fromXcp("interpret Account Login POST response", e, resp) from e
     # end logIn()
 
     def logOut(self) -> None:
@@ -98,7 +112,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("POST", url, headers=headers, data=data))
 
         if resp.status_code == 200:
-            juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
+            try:
+                juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
+            except Exception as e:
+                raise JbException.fromXcp("interpret GetUserUnitsJson response",
+                                          e, resp) from e
 
             return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
         else:
@@ -112,12 +130,15 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = ExtResponse(self.session.request("GET", url, params=params))
 
         if resp.status_code == 200:
-            wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
-            juiceBox.wireRating = int(wireRatingElement.attr("value"))
-
-            return juiceBox
+            try:
+                wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
+                juiceBox.wireRating = int(wireRatingElement.attr("value"))
+            except Exception as e:
+                raise JbException.fromXcp("interpret Details response", e, resp) from e
         else:
             raise JbException.fromError(resp)
+
+        return juiceBox
     # end addMoreDetails(JbDetails)
 
     def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:

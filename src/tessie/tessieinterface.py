@@ -20,6 +20,14 @@ class CcException(HTTPError):
         return cls(badResponse.unknownSummary(), response=badResponse)
     # end fromError(ExtResponse)
 
+    @classmethod
+    def fromXcp(cls, unableMsg: str, xcption: BaseException, badResponse: ExtResponse):
+        """Factory method for Exceptions"""
+        message = f"Unable to {unableMsg}, {xcption.__class__.__name__}: {str(xcption)}"
+
+        return cls(message, response=badResponse)
+    # end fromXcp(str, BaseException, ExtResponse)
+
 # end class CcException
 
 
@@ -60,8 +68,10 @@ class TessieInterface(object):
 
             return [self.addMoreDetails(CarDetails(car["last_state"]), withBatteryHealth)
                     for car in allResults]
+        except CcException:
+            raise
         except Exception as e:
-            raise CcException.fromError(resp) from e
+            raise CcException.fromXcp("interpret get vehicles response", e, resp) from e
     # end getStateOfActiveVehicles()
 
     def getCurrentState(self, dtls: CarDetails) -> None:
@@ -87,8 +97,10 @@ class TessieInterface(object):
                         logging.info(dtls.currentChargingStatus())
 
                         return
+                except CcException:
+                    raise
                 except Exception as e:
-                    raise CcException.fromError(resp) from e
+                    raise CcException.fromXcp("interpret get state repsonse", e, resp) from e
             elif resp.status_code in {408, 500}:
                 # Request Timeout or Internal Server Error
                 logging.info(f"{dtls.displayName} encountered {resp.status_code}"
@@ -127,9 +139,10 @@ class TessieInterface(object):
                 try:
                     dtls.batteryCapacity = response.json()["result"]["capacity"]
                 except Exception as e:
-                    logging.error("Battery health retrieval problem:", exc_info=e)
+                    raise CcException.fromXcp("interpret battery health response",
+                                              e, response) from e
             else:
-                logging.error(f"Encountered {response.unknownSummary()}")
+                raise CcException.fromError(response)
         # end if
 
         return dtls
@@ -140,12 +153,15 @@ class TessieInterface(object):
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        response = ExtResponse(request("GET", url, headers=self.headers))
+        resp = ExtResponse(request("GET", url, headers=self.headers))
 
-        if response.status_code != 200:
-            raise CcException.fromError(response)
+        if resp.status_code != 200:
+            raise CcException.fromError(resp)
 
-        wakeOkay: bool = response.json()["result"]
+        try:
+            wakeOkay: bool = resp.json()["result"]
+        except Exception as e:
+            raise CcException.fromXcp("interpret wake response", e, resp) from e
 
         if wakeOkay:
             logging.info(f"{dtls.displayName} woke up")
