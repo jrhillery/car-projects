@@ -41,7 +41,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    def __init__(self, totalCurrent: int):
+    def __init__(self, minPluggedCurrent: int, totalCurrent: int):
+        self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent
         self.session = Session()
         self.loToken: str | None = None
@@ -52,7 +53,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         # provide another default request header
         self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
-    # end __init__(int)
+    # end __init__(int, int)
 
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
@@ -168,8 +169,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         :param maxAmpsA: The desired maximum current for juiceBoxA
         :param juiceBoxB: The other JuiceBox to set (gets remaining current)
         """
-        maxAmpsA = juiceBoxA.limitToWireRating(maxAmpsA)
-        maxAmpsB = juiceBoxB.limitToWireRating(self.totalCurrent - maxAmpsA)
+        maxAmpsA = self.limitCurrent(juiceBoxA, maxAmpsA)
+        maxAmpsB = self.limitCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
         maxAmpsA = self.totalCurrent - maxAmpsB
 
         if maxAmpsA < juiceBoxA.maxCurrent:
@@ -180,6 +181,16 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             self.setMaxCurrent(juiceBoxB, maxAmpsB)
             self.setMaxCurrent(juiceBoxA, maxAmpsA)
     # end setNewMaximums(JbDetails, int, JbDetails)
+
+    def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
+        maxCurrent = juiceBox.limitToWireRating(maxCurrent)
+
+        # Use a minimum charge current limit when plugged-in - Teslas seem to need this
+        if juiceBox.pluggedIn() and maxCurrent < self.minPluggedCurrent:
+            maxCurrent = self.minPluggedCurrent
+
+        return maxCurrent
+    # end limitCurrent(JbDetails, int)
 
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:

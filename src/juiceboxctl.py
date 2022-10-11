@@ -30,7 +30,7 @@ class JuiceBoxCtl(object):
 
         self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
         self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
-        self.jbIntrfc = JbInterface(self.totalCurrent)
+        self.jbIntrfc = JbInterface(carJuiceBoxMapping["minPluggedCurrent"], self.totalCurrent)
 
         if self.specifiedMaxAmps is not None:
             if self.specifiedMaxAmps < 0:

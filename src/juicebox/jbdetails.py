@@ -22,6 +22,11 @@ class JbDetails(object):
         self.maxCurrent = juiceBoxState["allowed_C"]
     # end updateFromDict(dict)
 
+    def pluggedIn(self) -> bool:
+
+        return (not self.isOffline) and (self.status != "Available")
+    # end pluggedIn()
+
     def limitToWireRating(self, maxCurrent: int) -> int:
         if hasattr(self, "wireRating"):
 

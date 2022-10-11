@@ -3,5 +3,6 @@
     "Nittany": "John's juicebox",
     "Electra": "Diane's juicebox"
   },
+  "minPluggedCurrent": 6,
   "totalCurrent": 40
 }
