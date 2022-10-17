@@ -55,9 +55,9 @@ class TessieInterface(object):
         If the vehicle is awake, the data is usually less than 10 seconds old.
         If the vehicle is asleep, the data is from the time the vehicle went to sleep."""
         url = "https://api.tessie.com/vehicles"
-        queryParams = {"only_active": "true"}
+        qryParms = {"only_active": "true"}
 
-        resp = request("GET", url, params=queryParams, headers=self.headers)
+        resp = request("GET", url, params=qryParms, headers=self.headers)
 
         if resp.status_code != 200:
             raise CcException.fromError(resp)
@@ -71,7 +71,7 @@ class TessieInterface(object):
             raise
         except Exception as e:
             raise CcException.fromXcp(e, resp) from e
-    # end getStateOfActiveVehicles()
+    # end getStateOfActiveVehicles(bool)
 
     def getCurrentState(self, dtls: CarDetails) -> None:
         """Get the latest state of the vehicle.
@@ -172,13 +172,13 @@ class TessieInterface(object):
                        waitForCompletion=True) -> None:
         """Set the charge limit."""
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
-        queryParams = {
+        qryParms = {
             "retry_duration": 60,
             "wait_for_completion": "true" if waitForCompletion else "false",
             "percent": percent
         }
 
-        resp = request("GET", url, params=queryParams, headers=self.headers)
+        resp = request("GET", url, params=qryParms, headers=self.headers)
         oldLimit = dtls.chargeLimit
         dtls.chargeLimit = percent
 
@@ -192,12 +192,12 @@ class TessieInterface(object):
     def startCharging(self, dtls: CarDetails) -> None:
         """Start charging."""
         url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
-        queryParams = {
+        qryParms = {
             "retry_duration": 60,
             "wait_for_completion": "true"
         }
 
-        resp = request("GET", url, params=queryParams, headers=self.headers)
+        resp = request("GET", url, params=qryParms, headers=self.headers)
         dtls.chargingState = "Charging"
 
         if resp.status_code != 200:

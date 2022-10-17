@@ -35,7 +35,7 @@ class JbException(HTTPError):
 
 
 class JbInterface(AbstractContextManager["JbInterface"]):
-    """Provides an interface to authorized JuiceBox devices"""
+    """Provide an interface to authorized JuiceBox devices"""
     XHR_HEADERS = {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-Requested-With": "XMLHttpRequest",
@@ -71,14 +71,14 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             raise JbException.fromXcp(e, resp) from e
 
         headers = {"Cache-Control": "max-age=0"}
-        data = {
+        body = {
             "__RequestVerificationToken": liToken,
             "Email": self.loginCreds["email"],
             "Password": self.loginCreds["password"],
             "IsGreenButtonAuth": "False",
             "RememberMe": "false",
         }
-        resp = self.session.request("POST", url, headers=headers, data=data)
+        resp = self.session.request("POST", url, headers=headers, data=body)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
@@ -94,9 +94,9 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         """Log-out from JuiceNet"""
         url = "https://home.juice.net/Account/LogOff"
         headers = {"Cache-Control": "max-age=0"}
-        data = {"__RequestVerificationToken": self.loToken}
+        body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=headers, data=data)
+        resp = self.session.request("POST", url, headers=headers, data=body)
         self.loToken = None
 
         if resp.status_code != 200:
@@ -106,9 +106,9 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states."""
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
-        data = {"__RequestVerificationToken": self.loToken}
+        body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=data)
+        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
 
         if resp.status_code == 200:
             try:
@@ -122,10 +122,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     # end getStateOfJuiceBoxes()
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
+        """Augment details of the specified JuiceBox"""
         url = "https://home.juice.net/Portal/Details"
-        params = {"unitID": juiceBox.deviceId}
+        qryParms = {"unitID": juiceBox.deviceId}
 
-        resp = self.session.request("GET", url, params=params)
+        resp = self.session.request("GET", url, params=qryParms)
 
         if resp.status_code == 200:
             try:
@@ -140,18 +141,19 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     # end addMoreDetails(JbDetails)
 
     def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
-        # JuiceBox won't accept max of 0, so use 1 instead
+        """Set the JuiceBox maximum current as close as possible to a specified maximum"""
+        # JuiceBox doesn't accept max of 0, so use 1 instead
         if maxCurrent < 1:
             maxCurrent = 1
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
         url = "https://home.juice.net/Portal/SetLimit"
-        data = {
+        body = {
             "__RequestVerificationToken": self.loToken,
             "unitID": juiceBox.deviceId,
             "allowedC": maxCurrent,
         }
-        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=data)
+        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
@@ -183,6 +185,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     # end setNewMaximums(JbDetails, int, JbDetails)
 
     def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
+        """Return a maximum current that does not exceed the wire rating of
+           the JuiceBox and complies with J1772's minimum plug-in current"""
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
         # Use a minimum charge current limit when plugged-in - Teslas seem to need this

@@ -23,11 +23,13 @@ class JbDetails(object):
     # end updateFromDict(dict)
 
     def pluggedIn(self) -> bool:
+        """Return true when a car is plugged in to this JuiceBox"""
 
         return (not self.isOffline) and (self.status != "Available")
     # end pluggedIn()
 
     def limitToWireRating(self, maxCurrent: int) -> int:
+        """Return a maximum current that does not exceed the wire rating of this JuiceBox"""
         if hasattr(self, "wireRating"):
 
             if maxCurrent > self.wireRating:
