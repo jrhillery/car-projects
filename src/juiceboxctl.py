@@ -95,7 +95,9 @@ class JuiceBoxCtl(object):
             juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
             fairShareA = self.totalCurrent * (carA.energyNeeded() / totalEnergyNeeded)
             jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
-        # end if
+        else:
+            # Share current equally when no car needs energy
+            jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
     # end automaticallySetMax(list[JbDetails])
 
     def specifyMaxCurrent(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
