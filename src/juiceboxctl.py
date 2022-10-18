@@ -57,6 +57,7 @@ class JuiceBoxCtl(object):
     # end parseArgs()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
+        """Retrieve JuiceBox details corresponding to a given car"""
         juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
         juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
 
@@ -98,9 +99,11 @@ class JuiceBoxCtl(object):
         else:
             # Share current equally when no car needs energy
             jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
-    # end automaticallySetMax(list[JbDetails])
+    # end automaticallySetMax(JbInterface, list[JbDetails])
 
     def specifyMaxCurrent(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
+        """Set the specified JuiceBox maximum current to a given value
+           (the other JuiceBox gets remaining current)"""
         specifiedJuiceBox: JbDetails | None = None
         otherJuiceBox: JbDetails | None = None
 
@@ -120,7 +123,7 @@ class JuiceBoxCtl(object):
                               f" found {[jb.name for jb in juiceBoxes]}")
 
         jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
-    # end specifyMaxCurrent(list[JbDetails])
+    # end specifyMaxCurrent(JbInterface, list[JbDetails])
 
     def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
