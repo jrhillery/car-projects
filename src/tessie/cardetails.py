@@ -66,7 +66,7 @@ class CarDetails(object):
         return (f"{self.displayName} was {self.sleepStatus}"
                 f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago"
                 f" with charging {self.chargingState}"
-                f", charge limit {self.chargeLimit}%"
+                f", limit {self.chargeLimit}%"
                 f" and battery {self.batteryLevel}%")
     # end currentChargingStatus()
 
