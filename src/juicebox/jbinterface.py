@@ -135,8 +135,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
 
         if resp.status_code == 200:
             try:
-                wireRatingElement = PyQuery(resp.text).find("input#wire_rating")
-                juiceBox.wireRating = int(wireRatingElement.attr("value"))
+                pQry = PyQuery(resp.text)
+                juiceBox.wireRating = int(pQry.find("input#wire_rating").attr("value"))
             except Exception as e:
                 raise JbException.fromXcp(e, resp) from e
         else:
@@ -152,20 +152,23 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             maxCurrent = 1
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
-        url = "https://home.juice.net/Portal/SetLimit"
-        body = {
-            "__RequestVerificationToken": self.loToken,
-            "unitID": juiceBox.deviceId,
-            "allowedC": maxCurrent,
-        }
-        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
+        if maxCurrent != juiceBox.maxCurrent:
+            url = "https://home.juice.net/Portal/SetLimit"
+            body = {
+                "__RequestVerificationToken": self.loToken,
+                "unitID": juiceBox.deviceId,
+                "allowedC": maxCurrent,
+            }
+            resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
 
-        if resp.status_code != 200:
-            raise JbException.fromError(resp)
+            if resp.status_code != 200:
+                raise JbException.fromError(resp)
 
-        logging.info(f"{juiceBox.name} maximum current changed"
-                     f" from {juiceBox.maxCurrent} to {maxCurrent} A")
-        juiceBox.maxCurrent = maxCurrent
+            logging.info(f"{juiceBox.name} maximum current changed"
+                         f" from {juiceBox.maxCurrent} to {maxCurrent} A")
+            juiceBox.maxCurrent = maxCurrent
+        else:
+            logging.info(f"{juiceBox.name} maximum current already set to {maxCurrent} A")
     # end setMaxCurrent(JbDetails, int)
 
     def setNewMaximums(self, juiceBoxA: JbDetails, maxAmpsA: int,
