@@ -47,13 +47,31 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         self.session = Session()
         self.loToken: str | None = None
 
-        with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
-                  "r", encoding="utf-8") as credFile:
-            self.loginCreds: dict = json.load(credFile)
-
         # provide another default request header
         self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
     # end __init__(int, int)
+
+    @staticmethod
+    def logInBody(resp: Response) -> dict[str, str]:
+        """Return a log-in post request body"""
+        try:
+            liToken: str = PyQuery(resp.text).find(
+                "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
+        except Exception as e:
+            raise JbException.fromXcp(e, resp) from e
+
+        with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
+                  "r", encoding="utf-8") as credFile:
+            loginCreds: dict[str, str] = json.load(credFile)
+
+        return {
+            "__RequestVerificationToken": liToken,
+            "Email": loginCreds["email"],
+            "Password": loginCreds["password"],
+            "IsGreenButtonAuth": "False",
+            "RememberMe": "false",
+        }
+    # end logInBody(Response)
 
     def logIn(self) -> None:
         """Log-in to JuiceNet"""
@@ -64,21 +82,8 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         if resp.status_code != 200:
             raise JbException.fromError(resp)
 
-        try:
-            liToken = PyQuery(resp.text).find(
-                "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
-        except Exception as e:
-            raise JbException.fromXcp(e, resp) from e
-
         headers = {"Cache-Control": "max-age=0"}
-        body = {
-            "__RequestVerificationToken": liToken,
-            "Email": self.loginCreds["email"],
-            "Password": self.loginCreds["password"],
-            "IsGreenButtonAuth": "False",
-            "RememberMe": "false",
-        }
-        resp = self.session.request("POST", url, headers=headers, data=body)
+        resp = self.session.request("POST", url, headers=headers, data=self.logInBody(resp))
 
         if resp.status_code != 200:
             raise JbException.fromError(resp)
