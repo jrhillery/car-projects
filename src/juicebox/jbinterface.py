@@ -199,8 +199,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
     def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
                  traceback: TracebackType | None) -> bool | None:
 
-        if self.loToken:
-            self.logOut()
+        try:
+            if self.loToken:
+                self.logOut()
+        finally:
+            self.session.close()
 
         return None
     # end __exit__(Type[BaseException] | None, BaseException | None, TracebackType | None)

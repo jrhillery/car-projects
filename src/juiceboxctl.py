@@ -21,7 +21,7 @@ class JuiceBoxCtl(object):
         self.specifiedJuiceBoxName: str | None = args.juiceBoxName
 
         if self.specifiedMaxAmps is not None and self.specifiedJuiceBoxName is None:
-            logging.error("Missing required JuiceBox name prefix when max current is specified")
+            logging.error("Missing required JuiceBox name prefix when specifying max current")
             sys.exit(2)
 
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
@@ -29,15 +29,15 @@ class JuiceBoxCtl(object):
             carJuiceBoxMapping: dict = json.load(mappingFile)
 
         self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
+        self.minPluggedCurrent: int = carJuiceBoxMapping["minPluggedCurrent"]
         self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
-        self.jbIntrfc = JbInterface(carJuiceBoxMapping["minPluggedCurrent"], self.totalCurrent)
 
         if self.specifiedMaxAmps is not None:
             if self.specifiedMaxAmps < 0:
                 self.specifiedMaxAmps = 0
 
-            if self.specifiedMaxAmps > self.jbIntrfc.totalCurrent:
-                self.specifiedMaxAmps = self.jbIntrfc.totalCurrent
+            if self.specifiedMaxAmps > self.totalCurrent:
+                self.specifiedMaxAmps = self.totalCurrent
     # end __init__(Namespace)
 
     @staticmethod
@@ -68,7 +68,7 @@ class JuiceBoxCtl(object):
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
-    def automaticallySetMax(self, juiceBoxes: list[JbDetails]) -> None:
+    def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
         vehicles = TessieInterface().getStateOfActiveVehicles(withBatteryHealth=True)
         totalEnergyNeeded = 0.0
@@ -94,11 +94,11 @@ class JuiceBoxCtl(object):
             juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
             juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
             fairShareA = self.totalCurrent * (carA.energyNeeded() / totalEnergyNeeded)
-            self.jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
+            jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
         # end if
     # end automaticallySetMax(list[JbDetails])
 
-    def specifyMaxCurrent(self, juiceBoxes: list[JbDetails]) -> None:
+    def specifyMaxCurrent(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         specifiedJuiceBox: JbDetails | None = None
         otherJuiceBox: JbDetails | None = None
 
@@ -117,15 +117,15 @@ class JuiceBoxCtl(object):
             raise JbException(f"Unable to locate both JuiceBoxes,"
                               f" found {[jb.name for jb in juiceBoxes]}")
 
-        self.jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
+        jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
     # end specifyMaxCurrent(list[JbDetails])
 
     def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        with self.jbIntrfc.session, self.jbIntrfc:
-            self.jbIntrfc.logIn()
-            juiceBoxes = self.jbIntrfc.getStateOfJuiceBoxes()
+        with JbInterface(self.minPluggedCurrent, self.totalCurrent) as jbIntrfc:
+            jbIntrfc.logIn()
+            juiceBoxes = jbIntrfc.getStateOfJuiceBoxes()
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
             for juiceBox in juiceBoxes:
@@ -133,9 +133,9 @@ class JuiceBoxCtl(object):
             # end for
 
             if self.autoMax:
-                self.automaticallySetMax(juiceBoxes)
+                self.automaticallySetMax(jbIntrfc, juiceBoxes)
             elif self.specifiedMaxAmps is not None:
-                self.specifyMaxCurrent(juiceBoxes)
+                self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
         # end with
     # end main()
 
