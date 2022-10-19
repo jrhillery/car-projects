@@ -7,8 +7,7 @@ import sys
 from math import isqrt
 from time import sleep
 
-from tessie.cardetails import CarDetails
-from tessie.tessieinterface import TessieInterface
+from tessie import CarDetails, TessieInterface
 from util import Configure
 
 
