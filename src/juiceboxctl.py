@@ -5,8 +5,7 @@ from argparse import ArgumentParser, Namespace
 
 import sys
 
-from juicebox.jbdetails import JbDetails
-from juicebox.jbinterface import JbException, JbInterface
+from juicebox import JbDetails, JbException, JbInterface
 from tessie import CarDetails, TessieInterface
 from util import Configure
 
