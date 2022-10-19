@@ -2,31 +2,11 @@
 import json
 import logging
 
-from requests import HTTPError, request, Response
+from requests import request
 from time import sleep
 
-from util import Configure, Interpret
-from .cardetails import CarDetails
-
-
-class CcException(HTTPError):
-    """Detected exceptions"""
-
-    @classmethod
-    def fromError(cls, badResponse: Response):
-        """Factory method for bad responses"""
-
-        return cls(Interpret.responseErr(badResponse), response=badResponse)
-    # end fromError(Response)
-
-    @classmethod
-    def fromXcp(cls, xcption: BaseException, badResponse: Response):
-        """Factory method for Exceptions"""
-
-        return cls(Interpret.responseXcp(badResponse, xcption), response=badResponse)
-    # end fromXcp(BaseException, Response)
-
-# end class CcException
+from util import Configure, HTTPException, Interpret
+from . import CarDetails
 
 
 class TessieInterface(object):
@@ -59,17 +39,17 @@ class TessieInterface(object):
         resp = request("GET", url, params=qryParms, headers=self.headers)
 
         if resp.status_code != 200:
-            raise CcException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         try:
             allResults: list[dict] = resp.json()["results"]
 
             return [self.addMoreDetails(CarDetails(car["last_state"]), withBatteryHealth)
                     for car in allResults]
-        except CcException:
+        except HTTPException:
             raise
         except Exception as e:
-            raise CcException.fromXcp(e, resp) from e
+            raise HTTPException.fromXcp(e, resp) from e
     # end getStateOfActiveVehicles(bool)
 
     def getCurrentState(self, dtls: CarDetails) -> None:
@@ -95,17 +75,17 @@ class TessieInterface(object):
                         logging.info(dtls.currentChargingStatus())
 
                         return
-                except CcException:
+                except HTTPException:
                     raise
                 except Exception as e:
-                    raise CcException.fromXcp(e, resp) from e
+                    raise HTTPException.fromXcp(e, resp) from e
             elif resp.status_code in {408, 500}:
                 # Request Timeout or Internal Server Error
                 logging.info(f"{dtls.displayName} encountered {resp.status_code}"
                              f" {Interpret.decodeReason(resp)}: {resp.json()['error']}"
                              f" for url {resp.url}")
             else:
-                raise CcException.fromError(resp)
+                raise HTTPException.fromError(resp)
             sleep(60)
             retries -= 1
         # end while
@@ -137,9 +117,9 @@ class TessieInterface(object):
                 try:
                     dtls.batteryCapacity = resp.json()["result"]["capacity"]
                 except Exception as e:
-                    raise CcException.fromXcp(e, resp) from e
+                    raise HTTPException.fromXcp(e, resp) from e
             else:
-                raise CcException.fromError(resp)
+                raise HTTPException.fromError(resp)
         # end if
 
         return dtls
@@ -153,12 +133,12 @@ class TessieInterface(object):
         resp = request("GET", url, headers=self.headers)
 
         if resp.status_code != 200:
-            raise CcException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         try:
             wakeOkay: bool = resp.json()["result"]
         except Exception as e:
-            raise CcException.fromXcp(e, resp) from e
+            raise HTTPException.fromXcp(e, resp) from e
 
         if wakeOkay:
             logging.info(f"{dtls.displayName} woke up")
@@ -182,7 +162,7 @@ class TessieInterface(object):
         dtls.chargeLimit = percent
 
         if resp.status_code != 200:
-            raise CcException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
@@ -200,7 +180,7 @@ class TessieInterface(object):
         dtls.chargingState = "Charging"
 
         if resp.status_code != 200:
-            raise CcException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         logging.info(f"{dtls.displayName} charging started")
     # end startCharging(CarDetails)

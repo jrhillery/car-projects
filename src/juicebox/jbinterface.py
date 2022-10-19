@@ -7,30 +7,10 @@ from types import TracebackType
 from typing import Type
 
 from pyquery import PyQuery
-from requests import HTTPError, Response, Session
+from requests import Response, Session
 
-from util import Configure, Interpret
-from .jbdetails import JbDetails
-
-
-class JbException(HTTPError):
-    """Class for handled exceptions"""
-
-    @classmethod
-    def fromError(cls, badResponse: Response):
-        """Factory method for bad responses"""
-
-        return cls(Interpret.responseErr(badResponse), response=badResponse)
-    # end fromError(Response)
-
-    @classmethod
-    def fromXcp(cls, xcption: BaseException, badResponse: Response):
-        """Factory method for Exceptions"""
-
-        return cls(Interpret.responseXcp(badResponse, xcption), response=badResponse)
-    # end fromXcp(BaseException, Response)
-
-# end class JbException
+from util import Configure, HTTPException
+from . import JbDetails
 
 
 class JbInterface(AbstractContextManager["JbInterface"]):
@@ -57,7 +37,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             liToken: str = PyQuery(resp.text).find(
                 "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
         except Exception as e:
-            raise JbException.fromXcp(e, resp) from e
+            raise HTTPException.fromXcp(e, resp) from e
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -79,19 +59,19 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         resp = self.session.request("GET", url)
 
         if resp.status_code != 200:
-            raise JbException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         headers = {"Cache-Control": "max-age=0"}
         resp = self.session.request("POST", url, headers=headers, data=self.logInBody(resp))
 
         if resp.status_code != 200:
-            raise JbException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         try:
             self.loToken = PyQuery(resp.text).find(
                 "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
         except Exception as e:
-            raise JbException.fromXcp(e, resp) from e
+            raise HTTPException.fromXcp(e, resp) from e
     # end logIn()
 
     def logOut(self) -> None:
@@ -104,7 +84,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         self.loToken = None
 
         if resp.status_code != 200:
-            raise JbException.fromError(resp)
+            raise HTTPException.fromError(resp)
     # end logOut()
 
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
@@ -118,11 +98,11 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             try:
                 juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
             except Exception as e:
-                raise JbException.fromXcp(e, resp) from e
+                raise HTTPException.fromXcp(e, resp) from e
 
             return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
         else:
-            raise JbException.fromError(resp)
+            raise HTTPException.fromError(resp)
     # end getStateOfJuiceBoxes()
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
@@ -137,9 +117,9 @@ class JbInterface(AbstractContextManager["JbInterface"]):
                 pQry = PyQuery(resp.text)
                 juiceBox.wireRating = int(pQry.find("input#wire_rating").attr("value"))
             except Exception as e:
-                raise JbException.fromXcp(e, resp) from e
+                raise HTTPException.fromXcp(e, resp) from e
         else:
-            raise JbException.fromError(resp)
+            raise HTTPException.fromError(resp)
 
         return juiceBox
     # end addMoreDetails(JbDetails)
@@ -161,7 +141,7 @@ class JbInterface(AbstractContextManager["JbInterface"]):
             resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
 
             if resp.status_code != 200:
-                raise JbException.fromError(resp)
+                raise HTTPException.fromError(resp)
 
             logging.info(f"{juiceBox.name} maximum current changed"
                          f" from {juiceBox.maxCurrent} to {maxCurrent} A")
