@@ -5,8 +5,7 @@ import logging
 from requests import HTTPError, request, Response
 from time import sleep
 
-from util.configure import Configure
-from util.interpret import Interpret
+from util import Configure, Interpret
 from .cardetails import CarDetails
 
 

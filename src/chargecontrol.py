@@ -9,7 +9,7 @@ from time import sleep
 
 from tessie.cardetails import CarDetails
 from tessie.tessieinterface import TessieInterface
-from util.configure import Configure
+from util import Configure
 
 
 class ChargeControl(object):

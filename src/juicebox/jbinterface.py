@@ -9,8 +9,7 @@ from typing import Type
 from pyquery import PyQuery
 from requests import HTTPError, Response, Session
 
-from util.configure import Configure
-from util.interpret import Interpret
+from util import Configure, Interpret
 from .jbdetails import JbDetails
 
 

@@ -9,7 +9,7 @@ from juicebox.jbdetails import JbDetails
 from juicebox.jbinterface import JbException, JbInterface
 from tessie.cardetails import CarDetails
 from tessie.tessieinterface import TessieInterface
-from util.configure import Configure
+from util import Configure
 
 
 class JuiceBoxCtl(object):
