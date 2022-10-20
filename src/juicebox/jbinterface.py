@@ -1,7 +1,6 @@
 
 import json
 import logging
-from collections.abc import ValuesView
 
 from pyquery import PyQuery
 from requests import Response, Session
@@ -93,7 +92,8 @@ class JbInterface(object):
 
         if resp.status_code == 200:
             try:
-                juiceBoxStates: ValuesView[dict] = resp.json()["Units"].values()
+                unitMap: dict[str, dict] = resp.json()["Units"]
+                juiceBoxStates = unitMap.values()
             except Exception as e:
                 raise HTTPException.fromXcp(e, resp) from e
 
