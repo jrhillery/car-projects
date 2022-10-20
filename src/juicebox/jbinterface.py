@@ -2,9 +2,6 @@
 import json
 import logging
 from collections.abc import ValuesView
-from contextlib import AbstractContextManager
-from types import TracebackType
-from typing import Type
 
 from pyquery import PyQuery
 from requests import Response, Session
@@ -13,7 +10,7 @@ from util import Configure, HTTPException
 from . import JbDetails
 
 
-class JbInterface(AbstractContextManager["JbInterface"]):
+class JbInterface(object):
     """Provide an interface to authorized JuiceBox devices"""
     XHR_HEADERS = {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -183,16 +180,12 @@ class JbInterface(AbstractContextManager["JbInterface"]):
         return maxCurrent
     # end limitCurrent(JbDetails, int)
 
-    def __exit__(self, exc_type: Type[BaseException] | None, exc_value: BaseException | None,
-                 traceback: TracebackType | None) -> bool | None:
-
+    def close(self) -> None:
         try:
             if self.loToken:
                 self.logOut()
         finally:
             self.session.close()
-
-        return None
-    # end __exit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
+    # end close()
 
 # end class JbInterface
