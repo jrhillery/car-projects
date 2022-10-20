@@ -31,7 +31,7 @@ class JbInterface(object):
         """Return a log-in post request body"""
         try:
             liToken: str = PyQuery(resp.text).find(
-                "form.form-vertical > input[name='__RequestVerificationToken']").attr("value")
+                "form.form-vertical > input[name='__RequestVerificationToken']").val()
         except Exception as e:
             raise HTTPException.fromXcp(e, resp) from e
 
@@ -65,7 +65,7 @@ class JbInterface(object):
 
         try:
             self.loToken = PyQuery(resp.text).find(
-                "form#logoutForm > input[name='__RequestVerificationToken']").attr("value")
+                "form#logoutForm > input[name='__RequestVerificationToken']").val()
         except Exception as e:
             raise HTTPException.fromXcp(e, resp) from e
     # end logIn()
@@ -112,7 +112,7 @@ class JbInterface(object):
         if resp.status_code == 200:
             try:
                 pQry = PyQuery(resp.text)
-                juiceBox.wireRating = int(pQry.find("input#wire_rating").attr("value"))
+                juiceBox.wireRating = int(pQry.find("input#wire_rating").val())
             except Exception as e:
                 raise HTTPException.fromXcp(e, resp) from e
         else:
