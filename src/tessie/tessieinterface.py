@@ -115,7 +115,9 @@ class TessieInterface(object):
 
             if resp.status_code == 200:
                 try:
-                    dtls.batteryCapacity = resp.json()["result"]["capacity"]
+                    result = resp.json()["result"]
+                    dtls.batteryMaxRange = result["max_range"]
+                    dtls.batteryCapacity = result["capacity"]
                 except Exception as e:
                     raise HTTPException.fromXcp(e, resp) from e
             else:

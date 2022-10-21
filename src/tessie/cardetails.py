@@ -10,12 +10,14 @@ class CarDetails(object):
     displayName: str
     chargeState: dict
     batteryLevel: int
+    batteryRange: float
     chargeAmps: int
     chargeLimit: int
     limitMinPercent: int
     chargingState: str
     lastSeen: float
     sleepStatus: str
+    batteryMaxRange: float
     batteryCapacity: float
 
     def __init__(self, vehicleState: dict):
@@ -27,6 +29,7 @@ class CarDetails(object):
         self.displayName = vehicleState["display_name"]
         self.chargeState = vehicleState["charge_state"]
         self.batteryLevel = self.chargeState["battery_level"]
+        self.batteryRange = self.chargeState["battery_range"]
         self.chargeAmps = self.chargeState["charge_amps"]
         self.chargeLimit = self.chargeState["charge_limit_soc"]
         self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
@@ -54,10 +57,21 @@ class CarDetails(object):
             return self.chargeLimit - self.batteryLevel
     # end chargeNeeded()
 
+    def rangeNeeded(self) -> float:
+        """return the range increase the battery needs to reach its charge limit"""
+        rangeLimit = self.chargeLimit * 0.01 * self.batteryMaxRange
+
+        if rangeLimit <= self.batteryRange:
+            return 0.0
+        else:
+            return rangeLimit - self.batteryRange
+    # end rangeNeeded()
+
     def energyNeeded(self) -> float:
         """return the energy needed to reach the charge limit, in kWh"""
         if self.pluggedIn():
             return self.chargeNeeded() * 0.01 * self.batteryCapacity
+            # also tried: self.rangeNeeded() / self.batteryMaxRange * self.batteryCapacity
         else:
             return 0.0
     # end energyNeeded()
