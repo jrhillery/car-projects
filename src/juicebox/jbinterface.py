@@ -29,7 +29,11 @@ class JbInterface(object):
 
     @staticmethod
     def logInBody(resp: Response) -> dict[str, str]:
-        """Return a log-in post request body"""
+        """Return a log-in post request body
+
+        :param resp: The response from an initial account login get request
+        :return: A dictionary representing the body of a log-in post request
+        """
         try:
             liToken: str = PyQuery(resp.text).find(
                 "form.form-vertical > input[name='__RequestVerificationToken']").val()
@@ -84,7 +88,10 @@ class JbInterface(object):
     # end logOut()
 
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
-        """Get all active JuiceBoxes and their latest states."""
+        """Get all active JuiceBoxes and their latest states
+
+        :return: A list with details of each JuiceBox in the account
+        """
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
 
@@ -103,7 +110,11 @@ class JbInterface(object):
     # end getStateOfJuiceBoxes()
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
-        """Augment details of the specified JuiceBox"""
+        """Augment details of the specified JuiceBox
+
+        :param juiceBox: Details of the JuiceBox to augment
+        :return: The updated JuiceBox details
+        """
         url = "https://home.juice.net/Portal/Details"
         qryParms = {"unitID": juiceBox.deviceId}
 
@@ -122,9 +133,13 @@ class JbInterface(object):
     # end addMoreDetails(JbDetails)
 
     def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
-        """Set the JuiceBox maximum current as close as possible to a specified maximum"""
-        # JuiceBox doesn't accept max of 0, so use 1 instead
+        """Set the JuiceBox maximum current as close as possible to a specified maximum
+
+        :param juiceBox: Details of the JuiceBox to set
+        :param maxCurrent: Requested new maximum current limit
+        """
         if maxCurrent < 1:
+            # JuiceBox doesn't accept max of 0, so use 1 instead
             maxCurrent = 1
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
@@ -151,9 +166,9 @@ class JbInterface(object):
                        juiceBoxB: JbDetails) -> None:
         """Set JuiceBox maximum currents, decrease one before increasing the other
 
-        :param juiceBoxA: One of the JuiceBoxes to set
+        :param juiceBoxA: Details of one of the JuiceBoxes to set
         :param maxAmpsA: The desired maximum current for juiceBoxA
-        :param juiceBoxB: The other JuiceBox to set (gets remaining current)
+        :param juiceBoxB: Details of the other JuiceBox to set (gets remaining current)
         """
         maxAmpsA = self.limitCurrent(juiceBoxA, maxAmpsA)
         maxAmpsB = self.limitCurrent(juiceBoxB, self.totalCurrent - maxAmpsA)
@@ -170,7 +185,12 @@ class JbInterface(object):
 
     def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
         """Return a maximum current that does not exceed the wire rating of
-           the JuiceBox and complies with J1772's minimum plug-in current"""
+           the JuiceBox and complies with J1772's minimum plug-in current
+
+        :param juiceBox: Details of the relevant JuiceBox
+        :param maxCurrent: The desired maximum current
+        :return: The maximum current that satisfies restrictions
+        """
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
         # Use a minimum charge current limit when plugged-in - Teslas seem to need this
@@ -181,6 +201,7 @@ class JbInterface(object):
     # end limitCurrent(JbDetails, int)
 
     def close(self) -> None:
+        """Close this instance and free up resources"""
         try:
             if self.loToken:
                 self.logOut()
