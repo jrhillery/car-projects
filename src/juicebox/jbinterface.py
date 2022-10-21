@@ -11,6 +11,7 @@ from . import JbDetails
 
 class JbInterface(object):
     """Provide an interface to authorized JuiceBox devices"""
+    NOT_CACHED_HEADER = {"Cache-Control": "max-age=0"}
     XHR_HEADERS = {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-Requested-With": "XMLHttpRequest",
@@ -56,9 +57,9 @@ class JbInterface(object):
 
         if resp.status_code != 200:
             raise HTTPException.fromError(resp)
+        body = self.logInBody(resp)
 
-        headers = {"Cache-Control": "max-age=0"}
-        resp = self.session.request("POST", url, headers=headers, data=self.logInBody(resp))
+        resp = self.session.request("POST", url, headers=self.NOT_CACHED_HEADER, data=body)
 
         if resp.status_code != 200:
             raise HTTPException.fromError(resp)
@@ -73,10 +74,9 @@ class JbInterface(object):
     def logOut(self) -> None:
         """Log-out from JuiceNet"""
         url = "https://home.juice.net/Account/LogOff"
-        headers = {"Cache-Control": "max-age=0"}
         body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=headers, data=body)
+        resp = self.session.request("POST", url, headers=self.NOT_CACHED_HEADER, data=body)
         self.loToken = None
 
         if resp.status_code != 200:
@@ -88,7 +88,7 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
+        resp = self.session.request("POST", url, headers=self.XHR_HEADERS, data=body)
 
         if resp.status_code == 200:
             try:
@@ -135,7 +135,7 @@ class JbInterface(object):
                 "unitID": juiceBox.deviceId,
                 "allowedC": maxCurrent,
             }
-            resp = self.session.request("POST", url, headers=JbInterface.XHR_HEADERS, data=body)
+            resp = self.session.request("POST", url, headers=self.XHR_HEADERS, data=body)
 
             if resp.status_code != 200:
                 raise HTTPException.fromError(resp)
