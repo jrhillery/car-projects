@@ -16,6 +16,7 @@ class CarDetails(object):
     limitMinPercent: int
     chargingState: str
     lastSeen: float
+
     sleepStatus: str
     battMaxRange: float
     battCapacity: float

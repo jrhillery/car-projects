@@ -70,10 +70,12 @@ class JuiceBoxCtl(object):
 
     def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
-        vehicles = TessieInterface().getStateOfActiveVehicles(withBatteryHealth=True)
+        tsIntrfc = TessieInterface()
+        vehicles = tsIntrfc.getStateOfActiveVehicles()
         totalEnergyNeeded = 0.0
 
         for carDetails in vehicles:
+            tsIntrfc.addBatteryHealth(carDetails)
             energyNeeded = carDetails.energyNeeded()
             msg = carDetails.currentChargingStatus()
 
