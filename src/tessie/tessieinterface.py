@@ -121,8 +121,9 @@ class TessieInterface(object):
         :return: The updated vehicle details
         """
         url = f"https://api.tessie.com/{dtls.vin}/battery_health"
+        qryParms = {"distance_format": "mi"}
 
-        resp = request("GET", url, headers=self.headers)
+        resp = request("GET", url, params=qryParms, headers=self.headers)
 
         if resp.status_code == 200:
             try:
