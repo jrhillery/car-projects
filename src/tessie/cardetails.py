@@ -68,14 +68,23 @@ class CarDetails(object):
             return rangeLimit - self.battRange
     # end rangeNeeded()
 
-    def energyNeeded(self) -> float:
-        """return the energy needed to reach the charge limit, in kWh"""
+    def energyNeededC(self) -> float:
+        """return the energy needed to reach the charge limit, in kWh
+           - this estimate is based on the reported battery charge level"""
         if self.pluggedIn():
             return self.chargeNeeded() * 0.01 * self.battCapacity
-            # also tried: self.rangeNeeded() / self.battMaxRange * self.battCapacity
         else:
             return 0.0
-    # end energyNeeded()
+    # end energyNeededC()
+
+    def energyNeededR(self) -> float:
+        """return the energy needed to reach the charge limit, in kWh
+           - this estimate is based on the reported battery range"""
+        if self.pluggedIn():
+            return self.rangeNeeded() / self.battMaxRange * self.battCapacity
+        else:
+            return 0.0
+    # end energyNeededR()
 
     def currentChargingStatus(self) -> str:
         return (f"{self.displayName} was {self.sleepStatus}"

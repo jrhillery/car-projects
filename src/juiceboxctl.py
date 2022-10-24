@@ -76,12 +76,11 @@ class JuiceBoxCtl(object):
 
         for carDetails in vehicles:
             tsIntrfc.addBatteryHealth(carDetails)
-            energyNeeded = carDetails.energyNeeded()
+            energyNeeded = carDetails.energyNeededC()
             msg = carDetails.currentChargingStatus()
 
             if carDetails.pluggedIn():
-                msg += f" ({energyNeeded:.1f} kWh < limit)"
-            msg += f" {{{carDetails.battCapacity * 1000 / carDetails.battMaxRange:.0f} Wh/mi"
+                msg += f" ({energyNeeded:.1f} - {carDetails.energyNeededR():.1f} kWh < limit)"
             logging.info(msg)
             totalEnergyNeeded += energyNeeded
         # end for
@@ -92,11 +91,11 @@ class JuiceBoxCtl(object):
 
         if totalEnergyNeeded:
             juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
-            vehicles.sort(key=lambda car: car.energyNeeded(), reverse=True)
+            vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
             carA = vehicles[0]
             juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
             juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
-            fairShareA = self.totalCurrent * (carA.energyNeeded() / totalEnergyNeeded)
+            fairShareA = self.totalCurrent * (carA.energyNeededC() / totalEnergyNeeded)
             jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
         else:
             # Share current equally when no car needs energy
