@@ -60,7 +60,7 @@ class CarDetails(object):
 
     def rangeNeeded(self) -> float:
         """return the range increase the battery needs to reach its charge limit"""
-        rangeLimit = self.chargeLimit * 0.01 * self.battMaxRange
+        rangeLimit = self.chargeLimit * self.battRange / self.battLevel
 
         if rangeLimit <= self.battRange:
             return 0.0
