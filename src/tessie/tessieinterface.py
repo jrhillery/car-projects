@@ -91,7 +91,7 @@ class TessieInterface(object):
     # end getCurrentState(CarDetails)
 
     def addMoreDetails(self, dtls: CarDetails) -> CarDetails:
-        """Augment details of a specified vehicle with the status of the vehicle.
+        """Augment details of a specified vehicle with its status and location.
            The status may be asleep, waiting_for_sleep or awake.
 
         :param dtls: Details of the vehicle to augment
@@ -105,11 +105,27 @@ class TessieInterface(object):
             try:
                 dtls.sleepStatus = resp.json()["status"]
             except Exception as e:
-                logging.error("Status retrieval problem:", exc_info=e)
+                logging.error(f"Status retrieval problem: {Interpret.responseXcp(resp, e)}",
+                              exc_info=e)
                 dtls.sleepStatus = "unknowable"
         else:
             logging.error(f"Encountered {Interpret.responseErr(resp)}")
             dtls.sleepStatus = "unknown"
+
+        url = f"https://api.tessie.com/{dtls.vin}/location"
+
+        resp = request("GET", url, headers=self.headers)
+
+        if resp.status_code == 200:
+            try:
+                dtls.savedLocation = resp.json()["saved_location"]
+            except Exception as e:
+                logging.error(f"Location retrieval problem: {Interpret.responseXcp(resp, e)}",
+                              exc_info=e)
+                dtls.savedLocation = None
+        else:
+            logging.error(f"Encountered {Interpret.responseErr(resp)}")
+            dtls.savedLocation = None
 
         return dtls
     # end addMoreDetails(CarDetails)

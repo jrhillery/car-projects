@@ -6,6 +6,7 @@ from time import time
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
 
+    # fields set in CarDetails.updateFromDict
     vin: str
     displayName: str
     chargeState: dict
@@ -17,7 +18,11 @@ class CarDetails(object):
     chargingState: str
     lastSeen: float
 
+    # fields set in TessieInterface.addMoreDetails
     sleepStatus: str
+    savedLocation: str | None
+
+    # fields set in TessieInterface.addBatteryHealth
     battMaxRange: float
     battCapacity: float
 
@@ -41,6 +46,14 @@ class CarDetails(object):
     def pluggedIn(self) -> bool:
         return self.chargingState != "Disconnected"
     # end pluggedIn()
+
+    def atHome(self) -> bool:
+        return self.savedLocation == "Home"
+    # end atHome()
+
+    def pluggedInAtHome(self) -> bool:
+        return self.pluggedIn() and self.atHome()
+    # end pluggedInAtHome()
 
     def awake(self) -> bool:
         return self.sleepStatus == "awake"
