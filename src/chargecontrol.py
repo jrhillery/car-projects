@@ -38,18 +38,19 @@ class ChargeControl(object):
     # end parseArgs()
 
     def startChargingWhenReady(self, dtls: CarDetails) -> None:
-        """Start charging if plugged in, not charging and could use a charge"""
+        """Start charging if plugged in at home, not charging and could use a charge"""
 
         try:
-            if dtls.pluggedIn():
+            if dtls.pluggedInAtHome():
                 # make sure we have the current battery level and charge limit
                 self.carIntrfc.getCurrentState(dtls)
         except Exception as e:
             logException(e)
 
         try:
-            if dtls.pluggedIn() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
-                # this vehicle is plugged in, not charging and could use a charge
+            if dtls.pluggedInAtHome() \
+                    and dtls.chargingState != "Charging" and dtls.chargeNeeded():
+                # this vehicle is plugged in at home, not charging and could use a charge
                 retries = 6
 
                 while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
@@ -68,7 +69,7 @@ class ChargeControl(object):
         """Raise the charge limit to mean if minimum then start charging when ready"""
 
         try:
-            if (dtls.chargeLimitIsMin() or dtls.pluggedIn()) and not dtls.awake():
+            if (dtls.chargeLimitIsMin() or dtls.pluggedInAtHome()) and not dtls.awake():
                 # try to wake up this car
                 self.carIntrfc.wake(dtls)
         except Exception as e:
@@ -89,11 +90,11 @@ class ChargeControl(object):
     # end enableCarCharging(CarDetails)
 
     def disableCarCharging(self, dtls: CarDetails) -> None:
-        """Lower the charge limit to minimum if plugged in and not minimum already"""
+        """Lower the charge limit to minimum if plugged in at home and not minimum already"""
 
         try:
-            if dtls.pluggedIn() and not dtls.chargeLimitIsMin():
-                # this vehicle is plugged in and not set to charge limit minimum already
+            if dtls.pluggedInAtHome() and not dtls.chargeLimitIsMin():
+                # this vehicle is plugged in at home and not set to minimum limit already
 
                 if not dtls.awake():
                     self.carIntrfc.wake(dtls)

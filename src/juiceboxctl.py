@@ -60,7 +60,7 @@ class JuiceBoxCtl(object):
         juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
         juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
 
-        if vehicle.pluggedIn() and vehicle.chargeAmps != juiceBox.maxCurrent:
+        if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
             logging.warning(f"Suspicious car-JuiceBox mapping;"
                             f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
                             f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
@@ -79,7 +79,7 @@ class JuiceBoxCtl(object):
             energyNeeded = carDetails.energyNeededC()
             msg = carDetails.currentChargingStatus()
 
-            if carDetails.pluggedIn():
+            if energyNeeded:
                 msg += f" ({energyNeeded:.1f} - {carDetails.energyNeededR():.1f} kWh < limit)"
             logging.info(msg)
             totalEnergyNeeded += energyNeeded
