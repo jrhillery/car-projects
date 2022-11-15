@@ -16,6 +16,7 @@ class JuiceBoxCtl(object):
 
     def __init__(self, args: Namespace | None = None):
         self.autoMax: bool = args.autoMax
+        self.equalAmps: bool = args.equalAmps
         self.specifiedMaxAmps: int | None = args.maxAmps
         self.specifiedJuiceBoxName: str | None = args.juiceBoxName
 
@@ -44,6 +45,8 @@ class JuiceBoxCtl(object):
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-a", "--autoMax", action="store_true",
                            help="automatically set maximums based on cars' charging needs")
+        group.add_argument("-e", "--equalAmps", action="store_true",
+                           help="share current equally")
         group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=99, metavar="amps",
                            help="maximum current to set (Amps)")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
@@ -96,8 +99,13 @@ class JuiceBoxCtl(object):
             jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
         else:
             # Share current equally when no car needs energy
-            jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
+            self.shareCurrentEqually(jbIntrfc, juiceBoxes)
     # end automaticallySetMax(JbInterface, list[JbDetails])
+
+    def shareCurrentEqually(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
+        """Share current equally between all JuiceBoxes"""
+        jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
+    # end shareCurrentEqually(JbInterface, list[JbDetails])
 
     def specifyMaxCurrent(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         """Set the specified JuiceBox maximum current to a given value
@@ -131,14 +139,16 @@ class JuiceBoxCtl(object):
             juiceBoxes = jbIntrfc.getStateOfJuiceBoxes()
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
-            for juiceBox in juiceBoxes:
-                logging.info(juiceBox.statusStr())
-            # end for
-
             if self.autoMax:
                 self.automaticallySetMax(jbIntrfc, juiceBoxes)
+            elif self.equalAmps:
+                self.shareCurrentEqually(jbIntrfc, juiceBoxes)
             elif self.specifiedMaxAmps is not None:
                 self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
+            else:
+                for juiceBox in juiceBoxes:
+                    logging.info(juiceBox.statusStr())
+                # end for
         # end with
     # end main()
 
