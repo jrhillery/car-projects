@@ -23,6 +23,10 @@ class JuiceBoxCtl(object):
             logging.error("Missing required JuiceBox name prefix when specifying max current")
             sys.exit(2)
 
+        if self.specifiedMaxAmps is not None:
+            if self.specifiedMaxAmps < 0:
+                self.specifiedMaxAmps = 0
+
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
             carJuiceBoxMapping: dict = json.load(mappingFile)
@@ -30,13 +34,6 @@ class JuiceBoxCtl(object):
         self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
         self.minPluggedCurrent: int = carJuiceBoxMapping["minPluggedCurrent"]
         self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
-
-        if self.specifiedMaxAmps is not None:
-            if self.specifiedMaxAmps < 0:
-                self.specifiedMaxAmps = 0
-
-            if self.specifiedMaxAmps > self.totalCurrent:
-                self.specifiedMaxAmps = self.totalCurrent
     # end __init__(Namespace)
 
     @staticmethod
@@ -47,7 +44,7 @@ class JuiceBoxCtl(object):
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-a", "--autoMax", action="store_true",
                            help="automatically set maximums based on cars' charging needs")
-        group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=40, metavar="amps",
+        group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=99, metavar="amps",
                            help="maximum current to set (Amps)")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
                         help="name prefix of JuiceBox to set (other gets remaining current)")
