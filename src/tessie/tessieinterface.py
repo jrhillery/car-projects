@@ -170,8 +170,18 @@ class TessieInterface(object):
             raise HTTPException.fromXcp(e, resp) from e
 
         if wakeOkay:
-            logging.info(f"{dtls.displayName} woke up")
-            dtls.sleepStatus = "woke"
+            # wait for this vehicle's sleep status to show awake
+            retries = 10
+
+            while retries:
+                self.getCurrentState(dtls)
+
+                if dtls.awake():
+                    return
+                sleep(4)
+                retries -= 1
+            # end while
+            logging.info(f"{dtls.displayName} never woke up")
         else:
             logging.info(f"{dtls.displayName} timed out while waking up")
     # end wake(CarDetails)
