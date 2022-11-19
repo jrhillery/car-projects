@@ -100,8 +100,14 @@ class CarDetails(object):
     # end energyNeededR()
 
     def currentChargingStatus(self) -> str:
+        deltaSecs = time() - self.lastSeen
+
+        if deltaSecs < 0.0:
+            # our clock must not have been synchronized with the car's
+            deltaSecs = 0.0
+
         return (f"{self.displayName} was {self.sleepStatus}"
-                f" {timedelta(seconds=int(time() - self.lastSeen + 0.5))} ago"
+                f" {timedelta(seconds=int(deltaSecs + 0.5))} ago"
                 f" with charging {self.chargingState}"
                 f", limit {self.chargeLimit}%"
                 f" and battery {self.battLevel}%")
