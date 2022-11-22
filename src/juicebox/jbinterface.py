@@ -57,22 +57,21 @@ class JbInterface(object):
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
 
-        resp = self.session.request("GET", url)
+        with self.session.request("GET", url) as resp:
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, "login get")
+            body = self.logInBody(resp)
 
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, "login get")
-        body = self.logInBody(resp)
+        with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
+                                  data=body) as resp:
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, "login post")
 
-        resp = self.session.request("POST", url, headers=self.NOT_CACHED_HEADER, data=body)
-
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, "login post")
-
-        try:
-            self.loToken = PyQuery(resp.text).find(
-                "form#logoutForm > input[name='__RequestVerificationToken']").val()
-        except Exception as e:
-            raise HTTPException.fromXcp(e, resp, "verification token") from e
+            try:
+                self.loToken = PyQuery(resp.text).find(
+                    "form#logoutForm > input[name='__RequestVerificationToken']").val()
+            except Exception as e:
+                raise HTTPException.fromXcp(e, resp, "verification token") from e
     # end logIn()
 
     def logOut(self) -> None:
@@ -80,11 +79,12 @@ class JbInterface(object):
         url = "https://home.juice.net/Account/LogOff"
         body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=self.NOT_CACHED_HEADER, data=body)
-        self.loToken = None
+        with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
+                                  data=body) as resp:
+            self.loToken = None
 
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, "account logoff")
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, "account logoff")
     # end logOut()
 
     def getStateOfJuiceBoxes(self) -> list[JbDetails]:
@@ -95,18 +95,17 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
 
-        resp = self.session.request("POST", url, headers=self.XHR_HEADERS, data=body)
+        with self.session.request("POST", url, headers=self.XHR_HEADERS, data=body) as resp:
+            if resp.status_code == 200:
+                try:
+                    unitMap: dict[str, dict] = resp.json()["Units"]
+                    juiceBoxStates = unitMap.values()
+                except Exception as e:
+                    raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
 
-        if resp.status_code == 200:
-            try:
-                unitMap: dict[str, dict] = resp.json()["Units"]
-                juiceBoxStates = unitMap.values()
-            except Exception as e:
-                raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
-
-            return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
-        else:
-            raise HTTPException.fromError(resp, "all active JuiceBoxes")
+                return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
+            else:
+                raise HTTPException.fromError(resp, "all active JuiceBoxes")
     # end getStateOfJuiceBoxes()
 
     def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
@@ -118,16 +117,15 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/Details"
         qryParms = {"unitID": juiceBox.deviceId}
 
-        resp = self.session.request("GET", url, params=qryParms)
-
-        if resp.status_code == 200:
-            try:
-                pQry = PyQuery(resp.text)
-                juiceBox.wireRating = int(pQry.find("input#wire_rating").val())
-            except Exception as e:
-                raise HTTPException.fromXcp(e, resp, juiceBox.name) from e
-        else:
-            raise HTTPException.fromError(resp, juiceBox.name)
+        with self.session.request("GET", url, params=qryParms) as resp:
+            if resp.status_code == 200:
+                try:
+                    pQry = PyQuery(resp.text)
+                    juiceBox.wireRating = int(pQry.find("input#wire_rating").val())
+                except Exception as e:
+                    raise HTTPException.fromXcp(e, resp, juiceBox.name) from e
+            else:
+                raise HTTPException.fromError(resp, juiceBox.name)
 
         return juiceBox
     # end addMoreDetails(JbDetails)
@@ -150,10 +148,9 @@ class JbInterface(object):
                 "unitID": juiceBox.deviceId,
                 "allowedC": maxCurrent,
             }
-            resp = self.session.request("POST", url, headers=self.XHR_HEADERS, data=body)
-
-            if resp.status_code != 200:
-                raise HTTPException.fromError(resp, juiceBox.name)
+            with self.session.request("POST", url, headers=self.XHR_HEADERS, data=body) as resp:
+                if resp.status_code != 200:
+                    raise HTTPException.fromError(resp, juiceBox.name)
 
             logging.info(f"{juiceBox.name} maximum current changed"
                          f" from {juiceBox.maxCurrent} to {maxCurrent} A")

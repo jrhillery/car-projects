@@ -38,19 +38,18 @@ class TessieInterface(object):
         url = "https://api.tessie.com/vehicles"
         qryParms = {"only_active": "true"}
 
-        resp = request("GET", url, params=qryParms, headers=self.headers)
+        with request("GET", url, params=qryParms, headers=self.headers) as resp:
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, "all active vehicles")
 
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, "all active vehicles")
+            try:
+                allResults: list[dict] = resp.json()["results"]
 
-        try:
-            allResults: list[dict] = resp.json()["results"]
-
-            return [self.addMoreDetails(CarDetails(car["last_state"])) for car in allResults]
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException.fromXcp(e, resp, "all active vehicles") from e
+                return [self.addMoreDetails(CarDetails(car["last_state"])) for car in allResults]
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException.fromXcp(e, resp, "all active vehicles") from e
     # end getStateOfActiveVehicles()
 
     def getCurrentState(self, dtls: CarDetails) -> None:
@@ -101,35 +100,33 @@ class TessieInterface(object):
         """
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
-        resp = request("GET", url, headers=self.headers)
-
-        if resp.status_code == 200:
-            try:
-                dtls.sleepStatus = resp.json()["status"]
-            except Exception as e:
-                logging.error(f"Status retrieval problem:"
-                              f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
-                              exc_info=e)
-                dtls.sleepStatus = "unknowable"
-        else:
-            logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
-            dtls.sleepStatus = "unknown"
+        with request("GET", url, headers=self.headers) as resp:
+            if resp.status_code == 200:
+                try:
+                    dtls.sleepStatus = resp.json()["status"]
+                except Exception as e:
+                    logging.error(f"Status retrieval problem:"
+                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  exc_info=e)
+                    dtls.sleepStatus = "unknowable"
+            else:
+                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
+                dtls.sleepStatus = "unknown"
 
         url = f"https://api.tessie.com/{dtls.vin}/location"
 
-        resp = request("GET", url, headers=self.headers)
-
-        if resp.status_code == 200:
-            try:
-                dtls.savedLocation = resp.json()["saved_location"]
-            except Exception as e:
-                logging.error(f"Location retrieval problem:"
-                              f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
-                              exc_info=e)
+        with request("GET", url, headers=self.headers) as resp:
+            if resp.status_code == 200:
+                try:
+                    dtls.savedLocation = resp.json()["saved_location"]
+                except Exception as e:
+                    logging.error(f"Location retrieval problem:"
+                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  exc_info=e)
+                    dtls.savedLocation = None
+            else:
+                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
                 dtls.savedLocation = None
-        else:
-            logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
-            dtls.savedLocation = None
 
         return dtls
     # end addMoreDetails(CarDetails)
@@ -143,17 +140,16 @@ class TessieInterface(object):
         url = f"https://api.tessie.com/{dtls.vin}/battery_health"
         qryParms = {"distance_format": "mi"}
 
-        resp = request("GET", url, params=qryParms, headers=self.headers)
-
-        if resp.status_code == 200:
-            try:
-                result = resp.json()["result"]
-                dtls.battMaxRange = result["max_range"]
-                dtls.battCapacity = result["capacity"]
-            except Exception as e:
-                raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
-        else:
-            raise HTTPException.fromError(resp, dtls.displayName)
+        with request("GET", url, params=qryParms, headers=self.headers) as resp:
+            if resp.status_code == 200:
+                try:
+                    result = resp.json()["result"]
+                    dtls.battMaxRange = result["max_range"]
+                    dtls.battCapacity = result["capacity"]
+                except Exception as e:
+                    raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
+            else:
+                raise HTTPException.fromError(resp, dtls.displayName)
 
         return dtls
     # end addBatteryHealth(CarDetails)
@@ -163,15 +159,14 @@ class TessieInterface(object):
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        resp = request("GET", url, headers=self.headers)
+        with request("GET", url, headers=self.headers) as resp:
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, dtls.displayName)
 
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, dtls.displayName)
-
-        try:
-            wakeOkay: bool = resp.json()["result"]
-        except Exception as e:
-            raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
+            try:
+                wakeOkay: bool = resp.json()["result"]
+            except Exception as e:
+                raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
 
         if wakeOkay:
             # wait for this vehicle's sleep status to show awake
@@ -200,12 +195,12 @@ class TessieInterface(object):
             "percent": percent
         }
 
-        resp = request("GET", url, params=qryParms, headers=self.headers)
-        oldLimit = dtls.chargeLimit
-        dtls.chargeLimit = percent
+        with request("GET", url, params=qryParms, headers=self.headers) as resp:
+            oldLimit = dtls.chargeLimit
+            dtls.chargeLimit = percent
 
-        if resp.status_code != 200:
-            raise HTTPException.fromError(resp, dtls.displayName)
+            if resp.status_code != 200:
+                raise HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
