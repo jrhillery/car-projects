@@ -1,33 +1,45 @@
 
-from threading import current_thread
-
+from aiohttp import ClientResponse
 from requests import Response
+
+
+class AInterpret(object):
+    @staticmethod
+    async def responseErr(resp: ClientResponse, target: str) -> str:
+        return (f"{resp.status} {Interpret.decodeReason(resp)}"
+                f" accessing {target}: {await resp.text()} for url {resp.url}")
+    # end responseErr(ClientResponse, str)
+
+    @staticmethod
+    async def responseXcp(resp: ClientResponse, xcp: BaseException, target: str) -> str:
+        return (f"Exception {xcp.__class__.__name__}: {str(xcp)}"
+                f" accessing {target}: {await resp.text()} for url {resp.url}")
+    # end responseXcp(ClientResponse, BaseException, str)
+# end class AInterpret
 
 
 class Interpret(object):
     @staticmethod
-    def responseErr(resp: Response) -> str:
-
+    def responseErr(resp: Response, target: str) -> str:
         return (f"{resp.status_code} {Interpret.decodeReason(resp)}"
-                f" in {current_thread().name}: {resp.text} for url {resp.url}")
-    # end responseErr(Response)
+                f" accessing {target}: {resp.text} for url {resp.url}")
+    # end responseErr(Response, str)
 
     @staticmethod
-    def responseXcp(resp: Response, xcp: BaseException) -> str:
-
+    def responseXcp(resp: Response, xcp: BaseException, target: str) -> str:
         return (f"Exception {xcp.__class__.__name__}: {str(xcp)}"
-                f" in {current_thread().name}: {resp.text} for url {resp.url}")
-    # end responseXcp(Response, BaseException)
+                f" accessing {target}: {resp.text} for url {resp.url}")
+    # end responseXcp(Response, BaseException, str)
 
     @staticmethod
-    def decodeReason(resp: Response) -> str:
+    def decodeReason(resp: Response | ClientResponse) -> str:
         reason = Interpret.decodeText(resp.reason)
 
         if not reason:
             reason = "Error"
 
         return reason
-    # end decodeReason(Response)
+    # end decodeReason(Response | ClientResponse)
 
     @staticmethod
     def decodeText(text: bytes | str) -> str:

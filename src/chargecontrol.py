@@ -1,6 +1,8 @@
 
+import asyncio
 import logging
 from argparse import ArgumentParser, Namespace
+from contextlib import aclosing
 from threading import current_thread, Thread
 
 import sys
@@ -13,12 +15,12 @@ from util import Configure
 
 class ChargeControl(object):
     """Controls vehicles charging activity"""
+    carIntrfc: TessieInterface
 
     def __init__(self, args: Namespace):
         self.disable: bool = args.disable
         self.enable: bool = args.enable
         self.setLimit: int | None = args.setLimit
-        self.carIntrfc = TessieInterface()
     # end __init__(Namespace)
 
     @staticmethod
@@ -131,27 +133,30 @@ class ChargeControl(object):
             logException(e)
     # end setChargeLimit(CarDetails)
 
-    def main(self) -> None:
+    async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
-        vehicles = self.carIntrfc.getStateOfActiveVehicles()
-        workMethod = self.enableCarCharging if self.enable \
-            else self.disableCarCharging if self.disable \
-            else self.setChargeLimit if self.setLimit \
-            else None
-        workers = []
 
-        for carDetails in vehicles:
-            logging.info(carDetails.currentChargingStatus())
+        async with aclosing(TessieInterface()) as carIntrfc:
+            self.carIntrfc = carIntrfc
+            vehicles = carIntrfc.getStateOfActiveVehicles()
+            workMethod = self.enableCarCharging if self.enable \
+                else self.disableCarCharging if self.disable \
+                else self.setChargeLimit if self.setLimit \
+                else None
+            workers = []
 
-            if workMethod:
-                thrd = Thread(target=workMethod, args=(carDetails, ),
-                              name=f"{carDetails.displayName}-Thread")
-                workers.append(thrd)
-                thrd.start()
-        # end for
+            for carDetails in vehicles:
+                logging.info(carDetails.currentChargingStatus())
 
-        for worker in workers:
-            worker.join()
+                if workMethod:
+                    thrd = Thread(target=workMethod, args=(carDetails, ),
+                                  name=f"{carDetails.displayName}-Thread")
+                    workers.append(thrd)
+                    thrd.start()
+            # end for
+
+            for worker in workers:
+                worker.join()
     # end main()
 
 # end class ChargeControl
@@ -169,6 +174,6 @@ if __name__ == "__main__":
     Configure.logToFile()
     try:
         chrgCtl = ChargeControl(clArgs)
-        chrgCtl.main()
+        asyncio.run(chrgCtl.main())
     except Exception as xcpt:
         logException(xcpt)
