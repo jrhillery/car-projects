@@ -30,6 +30,11 @@ class TessieInterface(object):
             return json.load(tokenFile)["token"]
     # end loadToken()
 
+    async def setSession(self) -> None:
+        if not hasattr(self, "session"):
+            self.session = ClientSession(headers=self.headers)
+    # end setSession()
+
     def getStateOfActiveVehicles(self) -> list[CarDetails]:
         """Get all active vehicles and their latest state.
         This call always returns a complete set of data and doesn't impact vehicle sleep.

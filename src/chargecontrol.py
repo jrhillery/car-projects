@@ -3,7 +3,6 @@ import asyncio
 import logging
 from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
-from threading import current_thread, Thread
 
 import sys
 from math import isqrt
@@ -67,7 +66,7 @@ class ChargeControl(object):
             logException(e)
     # end startChargingWhenReady(CarDetails)
 
-    def enableCarCharging(self, dtls: CarDetails) -> None:
+    async def enableCarCharging(self, dtls: CarDetails) -> None:
         """Raise the charge limit to mean if minimum then start charging when ready"""
 
         try:
@@ -91,7 +90,7 @@ class ChargeControl(object):
         self.startChargingWhenReady(dtls)
     # end enableCarCharging(CarDetails)
 
-    def disableCarCharging(self, dtls: CarDetails) -> None:
+    async def disableCarCharging(self, dtls: CarDetails) -> None:
         """Lower the charge limit to minimum if plugged in at home and not minimum already"""
 
         try:
@@ -106,7 +105,7 @@ class ChargeControl(object):
             logException(e)
     # end disableCarCharging(CarDetails)
 
-    def setChargeLimit(self, dtls: CarDetails) -> None:
+    async def setChargeLimit(self, dtls: CarDetails) -> None:
         """Set the charge limit if minimum"""
 
         try:
@@ -137,26 +136,23 @@ class ChargeControl(object):
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
         async with aclosing(TessieInterface()) as carIntrfc:
+            carIntrfc: TessieInterface
+            await carIntrfc.setSession()
             self.carIntrfc = carIntrfc
             vehicles = carIntrfc.getStateOfActiveVehicles()
             workMethod = self.enableCarCharging if self.enable \
                 else self.disableCarCharging if self.disable \
                 else self.setChargeLimit if self.setLimit \
                 else None
-            workers = []
+            async with asyncio.TaskGroup() as tasks:
+                for carDetails in vehicles:
+                    logging.info(carDetails.currentChargingStatus())
 
-            for carDetails in vehicles:
-                logging.info(carDetails.currentChargingStatus())
-
-                if workMethod:
-                    thrd = Thread(target=workMethod, args=(carDetails, ),
-                                  name=f"{carDetails.displayName}-Thread")
-                    workers.append(thrd)
-                    thrd.start()
-            # end for
-
-            for worker in workers:
-                worker.join()
+                    if workMethod:
+                        tasks.create_task(workMethod(carDetails),
+                                          name=f"{carDetails.displayName}-task")
+                # end for
+            # end async with (tasks are awaited)
     # end main()
 
 # end class ChargeControl
@@ -164,7 +160,9 @@ class ChargeControl(object):
 
 def logException(exceptn: BaseException) -> None:
     logging.error(exceptn)
-    logging.debug(f"{exceptn.__class__.__name__} suppressed in {current_thread().name}:",
+    curTask = asyncio.current_task()
+    curTaskName = "" if curTask is None else f" in {curTask.get_name()}"
+    logging.debug(f"{exceptn.__class__.__name__} suppressed{curTaskName}:",
                   exc_info=exceptn)
 # end logException(BaseException)
 
