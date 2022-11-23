@@ -1,8 +1,9 @@
 
+import asyncio
 import json
 import logging
 from argparse import ArgumentParser, Namespace
-from contextlib import closing
+from contextlib import aclosing, closing
 
 import sys
 
@@ -68,22 +69,25 @@ class JuiceBoxCtl(object):
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
-    def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
+    async def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
-        tsIntrfc = TessieInterface()
-        vehicles = tsIntrfc.getStateOfActiveVehicles()
-        totalEnergyNeeded = 0.0
+        async with aclosing(TessieInterface()) as tsIntrfc:
+            tsIntrfc: TessieInterface
+            await tsIntrfc.setSession()
+            vehicles = await tsIntrfc.getStateOfActiveVehicles()
+            totalEnergyNeeded = 0.0
 
-        for carDetails in vehicles:
-            tsIntrfc.addBatteryHealth(carDetails)
-            energyNeeded = carDetails.energyNeededC()
-            msg = carDetails.currentChargingStatus()
+            for carDetails in vehicles:
+                await tsIntrfc.addBatteryHealth(carDetails)
+                energyNeeded = carDetails.energyNeededC()
+                msg = carDetails.currentChargingStatus()
 
-            if energyNeeded:
-                msg += f" ({energyNeeded:.1f} kWh < limit)"
-            logging.info(msg)
-            totalEnergyNeeded += energyNeeded
-        # end for
+                if energyNeeded:
+                    msg += f" ({energyNeeded:.1f} kWh < limit)"
+                logging.info(msg)
+                totalEnergyNeeded += energyNeeded
+            # end for
+        # end async with (tsIntrfc is closed)
 
         if len(vehicles) < 2:
             raise Exception(f"Unable to locate both cars,"
@@ -131,7 +135,7 @@ class JuiceBoxCtl(object):
         jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
     # end specifyMaxCurrent(JbInterface, list[JbDetails])
 
-    def main(self) -> None:
+    async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
         with closing(JbInterface(self.minPluggedCurrent, self.totalCurrent)) as jbIntrfc:
@@ -140,7 +144,7 @@ class JuiceBoxCtl(object):
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
             if self.autoMax:
-                self.automaticallySetMax(jbIntrfc, juiceBoxes)
+                await self.automaticallySetMax(jbIntrfc, juiceBoxes)
             elif self.equalAmps:
                 self.shareCurrentEqually(jbIntrfc, juiceBoxes)
             elif self.specifiedMaxAmps is not None:
@@ -160,7 +164,7 @@ if __name__ == "__main__":
     Configure.logToFile()
     try:
         juiceCtl = JuiceBoxCtl(clArgs)
-        juiceCtl.main()
+        asyncio.run(juiceCtl.main())
     except Exception as xcpt:
         logging.error(xcpt)
         logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)

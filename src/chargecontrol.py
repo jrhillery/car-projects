@@ -6,7 +6,6 @@ from contextlib import aclosing
 
 import sys
 from math import isqrt
-from time import sleep
 
 from tessie import CarDetails, TessieInterface
 from util import Configure
@@ -38,13 +37,13 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    def startChargingWhenReady(self, dtls: CarDetails) -> None:
+    async def startChargingWhenReady(self, dtls: CarDetails) -> None:
         """Start charging if plugged in at home, not charging and could use a charge"""
 
         try:
             if dtls.pluggedInAtHome():
                 # make sure we have the current battery level and charge limit
-                self.carIntrfc.getCurrentState(dtls)
+                await self.carIntrfc.getCurrentState(dtls)
         except Exception as e:
             logException(e)
 
@@ -56,12 +55,12 @@ class ChargeControl(object):
 
                 while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
                     # wait for charging state to change from Complete
-                    sleep(3.2)
-                    self.carIntrfc.getCurrentState(dtls)
+                    await asyncio.sleep(3.2)
+                    await self.carIntrfc.getCurrentState(dtls)
                     retries -= 1
                 # end while
 
-                self.carIntrfc.startCharging(dtls)
+                await self.carIntrfc.startCharging(dtls)
         except Exception as e:
             logException(e)
     # end startChargingWhenReady(CarDetails)
@@ -72,7 +71,7 @@ class ChargeControl(object):
         try:
             if (dtls.chargeLimitIsMin() or dtls.pluggedInAtHome()) and not dtls.awake():
                 # try to wake up this car
-                self.carIntrfc.wake(dtls)
+                await self.carIntrfc.wake(dtls)
         except Exception as e:
             logException(e)
 
@@ -83,11 +82,11 @@ class ChargeControl(object):
                 # arithmeticMeanLimitPercent = (dtls.limitMinPercent + limitStdPercent) // 2
                 geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
 
-                self.carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
+                await self.carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
         except Exception as e:
             logException(e)
 
-        self.startChargingWhenReady(dtls)
+        await self.startChargingWhenReady(dtls)
     # end enableCarCharging(CarDetails)
 
     async def disableCarCharging(self, dtls: CarDetails) -> None:
@@ -98,9 +97,9 @@ class ChargeControl(object):
                 # this vehicle is plugged in at home and not set to minimum limit already
 
                 if not dtls.awake():
-                    self.carIntrfc.wake(dtls)
-                self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
-                                              waitForCompletion=False)
+                    await self.carIntrfc.wake(dtls)
+                await self.carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
+                                                    waitForCompletion=False)
         except Exception as e:
             logException(e)
     # end disableCarCharging(CarDetails)
@@ -118,7 +117,7 @@ class ChargeControl(object):
                                  f" so no change made to {dtls.displayName}")
                 else:
                     if not dtls.awake():
-                        self.carIntrfc.wake(dtls)
+                        await self.carIntrfc.wake(dtls)
                     limitMaxPercent: int = dtls.chargeState["charge_limit_soc_max"]
 
                     if self.setLimit > limitMaxPercent:
@@ -126,8 +125,8 @@ class ChargeControl(object):
                                      f" -- maximum is {limitMaxPercent}%")
                         self.setLimit = limitMaxPercent
 
-                    self.carIntrfc.setChargeLimit(dtls, self.setLimit,
-                                                  waitForCompletion=False)
+                    await self.carIntrfc.setChargeLimit(dtls, self.setLimit,
+                                                        waitForCompletion=False)
         except Exception as e:
             logException(e)
     # end setChargeLimit(CarDetails)
@@ -139,7 +138,7 @@ class ChargeControl(object):
             carIntrfc: TessieInterface
             await carIntrfc.setSession()
             self.carIntrfc = carIntrfc
-            vehicles = carIntrfc.getStateOfActiveVehicles()
+            vehicles = await carIntrfc.getStateOfActiveVehicles()
             workMethod = self.enableCarCharging if self.enable \
                 else self.disableCarCharging if self.disable \
                 else self.setChargeLimit if self.setLimit \
