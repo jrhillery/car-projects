@@ -139,17 +139,21 @@ class ChargeControl(object):
             await carIntrfc.setSession()
             self.carIntrfc = carIntrfc
             vehicles = await carIntrfc.getStateOfActiveVehicles()
-            workMethod = self.enableCarCharging if self.enable \
-                else self.disableCarCharging if self.disable \
-                else self.setChargeLimit if self.setLimit \
-                else None
-            async with asyncio.TaskGroup() as tasks:
-                for carDetails in vehicles:
-                    logging.info(carDetails.currentChargingStatus())
 
-                    if workMethod:
-                        tasks.create_task(workMethod(carDetails),
-                                          name=f"{carDetails.displayName}-task")
+            async with asyncio.TaskGroup() as tasks:
+                for dtls in vehicles:
+                    logging.info(dtls.currentChargingStatus())
+                    tName = f"{dtls.displayName}-task"
+
+                    match True:
+                        case _ if self.enable:
+                            tasks.create_task(self.enableCarCharging(dtls), name=tName)
+                        case _ if self.disable:
+                            tasks.create_task(self.disableCarCharging(dtls), name=tName)
+                        case _ if self.setLimit:
+                            tasks.create_task(self.setChargeLimit(dtls), name=tName)
+                    # end match
+
                 # end for
             # end async with (tasks are awaited)
     # end main()
