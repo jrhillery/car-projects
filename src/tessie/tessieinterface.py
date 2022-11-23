@@ -14,10 +14,7 @@ class TessieInterface(object):
     session: ClientSession
 
     def __init__(self):
-        self.headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {TessieInterface.loadToken()}"
-        }
+        pass
     # end __init__()
 
     @staticmethod
@@ -31,7 +28,11 @@ class TessieInterface(object):
 
     async def setSession(self) -> None:
         if not hasattr(self, "session"):
-            self.session = ClientSession(headers=self.headers)
+            headers = {
+                "Accept": "application/json",
+                "Authorization": f"Bearer {TessieInterface.loadToken()}"
+            }
+            self.session = ClientSession(headers=headers)
     # end setSession()
 
     async def getStateOfActiveVehicles(self) -> list[CarDetails]:
