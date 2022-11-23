@@ -11,11 +11,21 @@ from . import CarDetails
 
 class TessieInterface(object):
     """Provides an interface through Tessie to authorized vehicles"""
-    session: ClientSession
 
-    def __init__(self):
-        pass
-    # end __init__()
+    def __init__(self, session: ClientSession):
+        self.session = session
+    # end __init__(ClientSession)
+
+    @classmethod
+    async def create(cls):
+        """Factory method"""
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {TessieInterface.loadToken()}"
+        }
+
+        return cls(ClientSession(headers=headers))
+    # end create()
 
     @staticmethod
     def loadToken() -> str:
@@ -25,15 +35,6 @@ class TessieInterface(object):
 
             return json.load(tokenFile)["token"]
     # end loadToken()
-
-    async def setSession(self) -> None:
-        if not hasattr(self, "session"):
-            headers = {
-                "Accept": "application/json",
-                "Authorization": f"Bearer {TessieInterface.loadToken()}"
-            }
-            self.session = ClientSession(headers=headers)
-    # end setSession()
 
     async def getStateOfActiveVehicles(self) -> list[CarDetails]:
         """Get all active vehicles and their latest state.
@@ -231,8 +232,7 @@ class TessieInterface(object):
 
     async def aclose(self) -> None:
         """Close this instance and free up resources"""
-        if hasattr(self, "session"):
-            await self.session.close()
+        await self.session.close()
     # end aclose()
 
 # end class TessieInterface

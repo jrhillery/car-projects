@@ -135,9 +135,8 @@ class ChargeControl(object):
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        async with aclosing(TessieInterface()) as carIntrfc:
+        async with aclosing(await TessieInterface.create()) as carIntrfc:
             carIntrfc: TessieInterface
-            await carIntrfc.setSession()
             vehicles = await carIntrfc.getStateOfActiveVehicles()
 
             async with asyncio.TaskGroup() as tasks:
