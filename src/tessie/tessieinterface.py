@@ -52,9 +52,11 @@ class TessieInterface(object):
                 allResults: list[dict] = (await resp.json())["results"]
                 vehicles = [CarDetails(car["last_state"]) for car in allResults]
 
-                for car in vehicles:
-                    await self.addSleepStatus(car)
-                    await self.addLocation(car)
+                async with asyncio.TaskGroup() as tg:
+                    for car in vehicles:
+                        tg.create_task(self.addSleepStatus(car))
+                        tg.create_task(self.addLocation(car))
+                # end async with (tasks are awaited)
 
                 return vehicles
             except HTTPException:
@@ -81,8 +83,10 @@ class TessieInterface(object):
                             logging.info(f"{dtls.displayName} didn't wake up")
                         else:
                             dtls.updateFromDict(carState)
-                            await self.addSleepStatus(dtls)
-                            await self.addLocation(dtls)
+                            async with asyncio.TaskGroup() as tg:
+                                tg.create_task(self.addSleepStatus(dtls))
+                                tg.create_task(self.addLocation(dtls))
+                            # end async with (tasks are awaited)
                             logging.info(dtls.currentChargingStatus())
 
                             return
