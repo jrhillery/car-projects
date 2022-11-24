@@ -50,9 +50,13 @@ class TessieInterface(object):
 
             try:
                 allResults: list[dict] = (await resp.json())["results"]
+                vehicles = [CarDetails(car["last_state"]) for car in allResults]
 
-                return [await self.addMoreDetails(CarDetails(car["last_state"]))
-                        for car in allResults]
+                for car in vehicles:
+                    await self.addSleepStatus(car)
+                    await self.addLocation(car)
+
+                return vehicles
             except HTTPException:
                 raise
             except Exception as e:
@@ -77,7 +81,8 @@ class TessieInterface(object):
                             logging.info(f"{dtls.displayName} didn't wake up")
                         else:
                             dtls.updateFromDict(carState)
-                            await self.addMoreDetails(dtls)
+                            await self.addSleepStatus(dtls)
+                            await self.addLocation(dtls)
                             logging.info(dtls.currentChargingStatus())
 
                             return
@@ -98,8 +103,8 @@ class TessieInterface(object):
         # end while
     # end getCurrentState(CarDetails)
 
-    async def addMoreDetails(self, dtls: CarDetails) -> CarDetails:
-        """Augment details of a specified vehicle with its status and location.
+    async def addSleepStatus(self, dtls: CarDetails) -> CarDetails:
+        """Augment details of a specified vehicle with its status.
            The status may be asleep, waiting_for_sleep or awake.
 
         :param dtls: Details of the vehicle to augment
@@ -120,6 +125,15 @@ class TessieInterface(object):
                 logging.error(f"Encountered {AInterpret.responseErr(resp, dtls.displayName)}")
                 dtls.sleepStatus = "unknown"
 
+        return dtls
+    # end addSleepStatus(CarDetails)
+
+    async def addLocation(self, dtls: CarDetails) -> CarDetails:
+        """Augment details of a specified vehicle with its location.
+
+        :param dtls: Details of the vehicle to augment
+        :return: The updated vehicle details
+        """
         url = f"https://api.tessie.com/{dtls.vin}/location"
 
         async with self.session.request("GET", url) as resp:
@@ -136,7 +150,7 @@ class TessieInterface(object):
                 dtls.savedLocation = None
 
         return dtls
-    # end addMoreDetails(CarDetails)
+    # end addLocation(CarDetails)
 
     async def addBatteryHealth(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with battery health information.
