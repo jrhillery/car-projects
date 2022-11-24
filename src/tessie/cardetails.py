@@ -18,8 +18,10 @@ class CarDetails(object):
     chargingState: str
     lastSeen: float
 
-    # fields set in TessieInterface.addMoreDetails
+    # field set in TessieInterface.addSleepStatus
     sleepStatus: str
+
+    # field set in TessieInterface.addLocation
     savedLocation: str | None
 
     # fields set in TessieInterface.addBatteryHealth
@@ -47,12 +49,8 @@ class CarDetails(object):
         return self.chargingState != "Disconnected"
     # end pluggedIn()
 
-    def atHome(self) -> bool:
-        return self.savedLocation == "Home"
-    # end atHome()
-
     def pluggedInAtHome(self) -> bool:
-        return self.pluggedIn() and self.atHome()
+        return self.pluggedIn() and self.savedLocation == "Home"
     # end pluggedInAtHome()
 
     def awake(self) -> bool:
