@@ -56,7 +56,7 @@ class ChargeControl(object):
                 while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
                     # wait for charging state to change from Complete
                     await asyncio.sleep(3.2)
-                    await carIntrfc.getCurrentState(dtls)
+                    await carIntrfc.getCurrentState(dtls, attempts=1)
                     retries -= 1
                 # end while
 

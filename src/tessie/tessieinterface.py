@@ -65,15 +65,14 @@ class TessieInterface(object):
                 raise HTTPException.fromAsyncXcp(e, resp, "all active vehicles") from e
     # end getStateOfActiveVehicles()
 
-    async def getCurrentState(self, dtls: CarDetails) -> None:
+    async def getCurrentState(self, dtls: CarDetails, attempts: int = 10) -> None:
         """Get the latest state of the vehicle.
         This call retrieves data using a live connection, which may return
         {"state": "asleep"} or network errors depending on vehicle connectivity."""
         url = f"https://api.tessie.com/{dtls.vin}/state"
         qryParms = {"use_cache": "false"}
-        retries = 10
 
-        while retries:
+        while attempts:
             async with self.session.request("GET", url, params=qryParms) as resp:
                 if resp.status == 200:
                     try:
@@ -102,10 +101,10 @@ class TessieInterface(object):
                                  f" for url {resp.url}")
                 else:
                     raise HTTPException.fromAsyncError(resp, dtls.displayName)
-            await asyncio.sleep(60)
-            retries -= 1
+            if attempts := attempts - 1:
+                await asyncio.sleep(60)
         # end while
-    # end getCurrentState(CarDetails)
+    # end getCurrentState(CarDetails, int)
 
     async def addSleepStatus(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with its status.
@@ -198,7 +197,7 @@ class TessieInterface(object):
             retries = 10
 
             while retries:
-                await self.getCurrentState(dtls)
+                await self.getCurrentState(dtls, attempts=1)
 
                 if dtls.awake():
                     return
