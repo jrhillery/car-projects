@@ -5,7 +5,7 @@ import logging
 
 from aiohttp import ClientSession
 
-from util import AInterpret, Configure, HTTPException, Interpret
+from util import AInterpret, Configure, HTTPException
 from . import CarDetails
 
 
@@ -97,7 +97,7 @@ class TessieInterface(object):
                 elif resp.status in {408, 500}:
                     # Request Timeout or Internal Server Error
                     logging.info(f"{dtls.displayName} encountered {resp.status}"
-                                 f" {Interpret.decodeReason(resp)}:"
+                                 f" {AInterpret.decodeReason(resp)}:"
                                  f" {(await resp.json())['error']}"
                                  f" for url {resp.url}")
                 else:

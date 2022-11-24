@@ -15,6 +15,12 @@ class AInterpret(object):
         return (f"Exception {xcp.__class__.__name__}: {str(xcp)}"
                 f" accessing {target}: {await resp.text()} for url {resp.url}")
     # end responseXcp(ClientResponse, BaseException, str)
+
+    @staticmethod
+    def decodeReason(resp: ClientResponse) -> str:
+        return Interpret.decodeReason(resp)
+    # end decodeReason(ClientResponse)
+
 # end class AInterpret
 
 
