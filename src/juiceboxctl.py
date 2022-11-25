@@ -137,7 +137,8 @@ class JuiceBoxCtl(object):
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        with closing(JbInterface(self.minPluggedCurrent, self.totalCurrent)) as jbIntrfc:
+        with closing(JbInterface.create(self.minPluggedCurrent,
+                                        self.totalCurrent)) as jbIntrfc:
             jbIntrfc.logIn()
             juiceBoxes = jbIntrfc.getStateOfJuiceBoxes()
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]

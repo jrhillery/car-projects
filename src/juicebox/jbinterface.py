@@ -17,15 +17,27 @@ class JbInterface(object):
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    def __init__(self, minPluggedCurrent: int, totalCurrent: int):
+    def __init__(self, minPluggedCurrent: int, totalCurrent: int, session: Session):
         self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent
-        self.session = Session()
+        self.session = session
         self.loToken: str | None = None
+    # end __init__(int, int, Session)
+
+    @classmethod
+    def create(cls, minPluggedCurrent: int, totalCurrent: int):
+        """Factory method
+
+        :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
+        :param totalCurrent: The total current avaible to all Juiceboxes
+        """
+        session = Session()
 
         # provide another default request header
-        self.session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
-    # end __init__(int, int)
+        session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
+
+        return cls(minPluggedCurrent, totalCurrent, session)
+    # end create(int, int)
 
     @staticmethod
     def logInBody(resp: Response) -> dict[str, str]:
@@ -190,7 +202,7 @@ class JbInterface(object):
         """
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
-        # Use a minimum charge current limit when plugged-in - Teslas seem to need this
+        # Use a minimum charge current limit when plugged in - Teslas seem to need this
         if juiceBox.pluggedIn() and maxCurrent < self.minPluggedCurrent:
             maxCurrent = self.minPluggedCurrent
 
