@@ -91,16 +91,21 @@ class ChargeControl(object):
 
     @staticmethod
     async def disableCarCharging(carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Lower the charge limit to minimum if plugged in at home and not minimum already"""
+        """Stop charging and lower the charge limit to minimum
+           if plugged in at home and not minimum already"""
 
         try:
-            if dtls.pluggedInAtHome() and not dtls.chargeLimitIsMin():
-                # this vehicle is plugged in at home and not set to minimum limit already
+            if dtls.pluggedInAtHome():
+                # this vehicle is plugged in at home
 
                 if not dtls.awake():
                     await carIntrfc.wake(dtls)
-                await carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
-                                               waitForCompletion=False)
+                await carIntrfc.stopCharging(dtls)
+
+                if not dtls.chargeLimitIsMin():
+                    # this vehicle is not set to minimum limit already
+                    await carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
+                                                   waitForCompletion=False)
         except Exception as e:
             logException(e)
     # end disableCarCharging(TessieInterface, CarDetails)

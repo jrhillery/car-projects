@@ -247,6 +247,23 @@ class TessieInterface(object):
         logging.info(f"{dtls.displayName} charging started")
     # end startCharging(CarDetails)
 
+    async def stopCharging(self, dtls: CarDetails) -> None:
+        """Stop charging."""
+        url = f"https://api.tessie.com/{dtls.vin}/command/stop_charging"
+        qryParms = {
+            "retry_duration": 60,
+            "wait_for_completion": "true"
+        }
+
+        async with self.session.get(url, params=qryParms) as resp:
+            dtls.chargingState = "Stopping"
+
+            if resp.status != 200:
+                raise HTTPException.fromAsyncError(resp, dtls.displayName)
+
+        logging.info(f"{dtls.displayName} charging stopped")
+    # end stopCharging(CarDetails)
+
     async def aclose(self) -> None:
         """Close this instance and free up resources"""
         await self.session.close()
