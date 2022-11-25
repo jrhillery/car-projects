@@ -139,20 +139,22 @@ class JuiceBoxCtl(object):
 
         with closing(JbInterface.create(self.minPluggedCurrent,
                                         self.totalCurrent)) as jbIntrfc:
+            jbIntrfc: JbInterface
             jbIntrfc.logIn()
             juiceBoxes = jbIntrfc.getStateOfJuiceBoxes()
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
-            if self.autoMax:
-                await self.automaticallySetMax(jbIntrfc, juiceBoxes)
-            elif self.equalAmps:
-                self.shareCurrentEqually(jbIntrfc, juiceBoxes)
-            elif self.specifiedMaxAmps is not None:
-                self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
-            else:
-                for juiceBox in juiceBoxes:
-                    logging.info(juiceBox.statusStr())
-                # end for
+            match True:
+                case _ if self.autoMax:
+                    await self.automaticallySetMax(jbIntrfc, juiceBoxes)
+                case _ if self.equalAmps:
+                    self.shareCurrentEqually(jbIntrfc, juiceBoxes)
+                case _ if self.specifiedMaxAmps is not None:
+                    self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
+                case _:
+                    for juiceBox in juiceBoxes:
+                        logging.info(juiceBox.statusStr())
+            # end match
         # end with
     # end main()
 
