@@ -3,8 +3,8 @@ import json
 import logging
 from time import perf_counter
 
+from aiohttp import ClientResponse, ClientSession
 from pyquery import PyQuery
-from requests import Response, Session
 
 from util import Configure, HTTPException
 from . import JbDetails
@@ -18,12 +18,12 @@ class JbInterface(object):
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    def __init__(self, minPluggedCurrent: int, totalCurrent: int, session: Session):
+    def __init__(self, minPluggedCurrent: int, totalCurrent: int, session: ClientSession):
         self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent
         self.session = session
         self.loToken: str | None = None
-    # end __init__(int, int, Session)
+    # end __init__(int, int, ClientSession)
 
     @classmethod
     def create(cls, minPluggedCurrent: int, totalCurrent: int):
@@ -32,26 +32,25 @@ class JbInterface(object):
         :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
         :param totalCurrent: The total current avaible to all Juiceboxes
         """
-        session = Session()
+        headers = {
+            "Accept-Language": "en-US,en;q=0.9"
+        }
 
-        # provide another default request header
-        session.headers.update({"Accept-Language": "en-US,en;q=0.9"})
-
-        return cls(minPluggedCurrent, totalCurrent, session)
+        return cls(minPluggedCurrent, totalCurrent, ClientSession(headers=headers))
     # end create(int, int)
 
     @staticmethod
-    def logInBody(resp: Response) -> dict[str, str]:
+    async def logInBody(resp: ClientResponse) -> dict[str, str]:
         """Return a log-in post request body
 
         :param resp: The response from an initial account login get request
         :return: A dictionary representing the body of a log-in post request
         """
         try:
-            liToken: str = PyQuery(resp.text).find(
+            liToken: str = PyQuery(await resp.text()).find(
                 "form.form-vertical > input[name='__RequestVerificationToken']").val()
         except Exception as e:
-            raise HTTPException.fromXcp(e, resp, "account login") from e
+            raise HTTPException.fromAsyncXcp(e, resp, "account login") from e
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -64,27 +63,27 @@ class JbInterface(object):
             "IsGreenButtonAuth": "False",
             "RememberMe": "false",
         }
-    # end logInBody(Response)
+    # end logInBody(ClientResponse)
 
     async def logIn(self) -> None:
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
 
-        with self.session.request("GET", url) as resp:
-            if resp.status_code != 200:
-                raise HTTPException.fromError(resp, "login get")
-            body = self.logInBody(resp)
+        async with self.session.request("GET", url) as resp:
+            if resp.status != 200:
+                raise HTTPException.fromAsyncError(resp, "login get")
+            body = await self.logInBody(resp)
 
-        with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
-                                  data=body) as resp:
-            if resp.status_code != 200:
-                raise HTTPException.fromError(resp, "login post")
+        async with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
+                                        data=body) as resp:
+            if resp.status != 200:
+                raise HTTPException.fromAsyncError(resp, "login post")
 
             try:
-                self.loToken = PyQuery(resp.text).find(
+                self.loToken = PyQuery(await resp.text()).find(
                     "form#logoutForm > input[name='__RequestVerificationToken']").val()
             except Exception as e:
-                raise HTTPException.fromXcp(e, resp, "verification token") from e
+                raise HTTPException.fromAsyncXcp(e, resp, "verification token") from e
     # end logIn()
 
     async def logOut(self) -> None:
@@ -92,12 +91,12 @@ class JbInterface(object):
         url = "https://home.juice.net/Account/LogOff"
         body = {"__RequestVerificationToken": self.loToken}
 
-        with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
-                                  data=body) as resp:
+        async with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
+                                        data=body) as resp:
             self.loToken = None
 
-            if resp.status_code != 200:
-                raise HTTPException.fromError(resp, "account logoff")
+            if resp.status != 200:
+                raise HTTPException.fromAsyncError(resp, "account logoff")
     # end logOut()
 
     async def getStateOfJuiceBoxes(self) -> list[JbDetails]:
@@ -108,13 +107,14 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
 
-        with self.session.request("POST", url, headers=self.XHR_HEADERS, data=body) as resp:
-            if resp.status_code == 200:
+        async with self.session.request("POST", url, headers=self.XHR_HEADERS,
+                                        data=body) as resp:
+            if resp.status == 200:
                 try:
-                    unitMap: dict[str, dict] = resp.json()["Units"]
+                    unitMap: dict[str, dict] = (await resp.json())["Units"]
                     juiceBoxStates = unitMap.values()
                 except Exception as e:
-                    raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
+                    raise HTTPException.fromAsyncXcp(e, resp, "all active JuiceBoxes") from e
 
                 juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
                 start = perf_counter()
@@ -125,7 +125,7 @@ class JbInterface(object):
 
                 return juiceBoxes
             else:
-                raise HTTPException.fromError(resp, "all active JuiceBoxes")
+                raise HTTPException.fromAsyncError(resp, "all active JuiceBoxes")
     # end getStateOfJuiceBoxes()
 
     async def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
@@ -137,15 +137,15 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/Details"
         qryParms = {"unitID": juiceBox.deviceId}
 
-        with self.session.request("GET", url, params=qryParms) as resp:
-            if resp.status_code == 200:
+        async with self.session.request("GET", url, params=qryParms) as resp:
+            if resp.status == 200:
                 try:
-                    pQry = PyQuery(resp.text)
+                    pQry = PyQuery(await resp.text())
                     juiceBox.wireRating = int(pQry.find("input#wire_rating").val())
                 except Exception as e:
-                    raise HTTPException.fromXcp(e, resp, juiceBox.name) from e
+                    raise HTTPException.fromAsyncXcp(e, resp, juiceBox.name) from e
             else:
-                raise HTTPException.fromError(resp, juiceBox.name)
+                raise HTTPException.fromAsyncError(resp, juiceBox.name)
 
         return juiceBox
     # end addMoreDetails(JbDetails)
@@ -168,9 +168,10 @@ class JbInterface(object):
                 "unitID": juiceBox.deviceId,
                 "allowedC": maxCurrent,
             }
-            with self.session.request("POST", url, headers=self.XHR_HEADERS, data=body) as resp:
-                if resp.status_code != 200:
-                    raise HTTPException.fromError(resp, juiceBox.name)
+            async with self.session.request("POST", url, headers=self.XHR_HEADERS,
+                                            data=body) as resp:
+                if resp.status != 200:
+                    raise HTTPException.fromAsyncError(resp, juiceBox.name)
 
             logging.info(f"{juiceBox.name} maximum current changed"
                          f" from {juiceBox.maxCurrent} to {maxCurrent} A")
@@ -223,7 +224,7 @@ class JbInterface(object):
             if self.loToken:
                 await self.logOut()
         finally:
-            self.session.close()
+            await self.session.close()
     # end aclose()
 
 # end class JbInterface
