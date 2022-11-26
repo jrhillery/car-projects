@@ -2,10 +2,9 @@
 import asyncio
 import json
 import logging
-from argparse import ArgumentParser, Namespace
-from contextlib import aclosing, closing
-
 import sys
+from argparse import ArgumentParser, Namespace
+from contextlib import aclosing
 
 from juicebox import JbDetails, JbInterface
 from tessie import CarDetails, TessieInterface
@@ -99,18 +98,20 @@ class JuiceBoxCtl(object):
             juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
             juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
             fairShareA = self.totalCurrent * (carA.energyNeededC() / totalEnergyNeeded)
-            jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
+            await jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
         else:
             # Share current equally when no car needs energy
-            self.shareCurrentEqually(jbIntrfc, juiceBoxes)
+            await self.shareCurrentEqually(jbIntrfc, juiceBoxes)
     # end automaticallySetMax(JbInterface, list[JbDetails])
 
-    def shareCurrentEqually(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
+    async def shareCurrentEqually(self, jbIntrfc: JbInterface,
+                                  juiceBoxes: list[JbDetails]) -> None:
         """Share current equally between all JuiceBoxes"""
-        jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
+        await jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
     # end shareCurrentEqually(JbInterface, list[JbDetails])
 
-    def specifyMaxCurrent(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
+    async def specifyMaxCurrent(self, jbIntrfc: JbInterface,
+                                juiceBoxes: list[JbDetails]) -> None:
         """Set the specified JuiceBox maximum current to a given value
            (the other JuiceBox gets remaining current)"""
         specifiedJuiceBox: JbDetails | None = None
@@ -131,31 +132,31 @@ class JuiceBoxCtl(object):
             raise Exception(f"Unable to locate both JuiceBoxes,"
                             f" found {[jb.name for jb in juiceBoxes]}")
 
-        jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
+        await jbIntrfc.setNewMaximums(specifiedJuiceBox, self.specifiedMaxAmps, otherJuiceBox)
     # end specifyMaxCurrent(JbInterface, list[JbDetails])
 
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        with closing(JbInterface.create(self.minPluggedCurrent,
-                                        self.totalCurrent)) as jbIntrfc:
+        async with aclosing(JbInterface.create(self.minPluggedCurrent,
+                                               self.totalCurrent)) as jbIntrfc:
             jbIntrfc: JbInterface
-            jbIntrfc.logIn()
-            juiceBoxes = jbIntrfc.getStateOfJuiceBoxes()
+            await jbIntrfc.logIn()
+            juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
             juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
             match True:
                 case _ if self.autoMax:
                     await self.automaticallySetMax(jbIntrfc, juiceBoxes)
                 case _ if self.equalAmps:
-                    self.shareCurrentEqually(jbIntrfc, juiceBoxes)
+                    await self.shareCurrentEqually(jbIntrfc, juiceBoxes)
                 case _ if self.specifiedMaxAmps is not None:
-                    self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
+                    await self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
                 case _:
                     for juiceBox in juiceBoxes:
                         logging.info(juiceBox.statusStr())
             # end match
-        # end with
+        # end async with (jbIntrfc is closed)
     # end main()
 
 # end class JuiceBoxCtl

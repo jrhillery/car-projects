@@ -1,6 +1,7 @@
 
 import json
 import logging
+from time import perf_counter
 
 from pyquery import PyQuery
 from requests import Response, Session
@@ -65,7 +66,7 @@ class JbInterface(object):
         }
     # end logInBody(Response)
 
-    def logIn(self) -> None:
+    async def logIn(self) -> None:
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
 
@@ -86,7 +87,7 @@ class JbInterface(object):
                 raise HTTPException.fromXcp(e, resp, "verification token") from e
     # end logIn()
 
-    def logOut(self) -> None:
+    async def logOut(self) -> None:
         """Log-out from JuiceNet"""
         url = "https://home.juice.net/Account/LogOff"
         body = {"__RequestVerificationToken": self.loToken}
@@ -99,7 +100,7 @@ class JbInterface(object):
                 raise HTTPException.fromError(resp, "account logoff")
     # end logOut()
 
-    def getStateOfJuiceBoxes(self) -> list[JbDetails]:
+    async def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states
 
         :return: A list with details of each JuiceBox in the account
@@ -115,12 +116,19 @@ class JbInterface(object):
                 except Exception as e:
                     raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
 
-                return [self.addMoreDetails(JbDetails(jbState)) for jbState in juiceBoxStates]
+                juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
+                start = perf_counter()
+
+                for jb in juiceBoxes:
+                    await self.addMoreDetails(jb)
+                print(f"add more details: {perf_counter() - start:.7f}s")
+
+                return juiceBoxes
             else:
                 raise HTTPException.fromError(resp, "all active JuiceBoxes")
     # end getStateOfJuiceBoxes()
 
-    def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
+    async def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         """Augment details of the specified JuiceBox
 
         :param juiceBox: Details of the JuiceBox to augment
@@ -142,7 +150,7 @@ class JbInterface(object):
         return juiceBox
     # end addMoreDetails(JbDetails)
 
-    def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
+    async def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
         """Set the JuiceBox maximum current as close as possible to a specified maximum
 
         :param juiceBox: Details of the JuiceBox to set
@@ -171,8 +179,8 @@ class JbInterface(object):
             logging.info(f"{juiceBox.name} maximum current already set to {maxCurrent} A")
     # end setMaxCurrent(JbDetails, int)
 
-    def setNewMaximums(self, juiceBoxA: JbDetails, maxAmpsA: int,
-                       juiceBoxB: JbDetails) -> None:
+    async def setNewMaximums(self, juiceBoxA: JbDetails, maxAmpsA: int,
+                             juiceBoxB: JbDetails) -> None:
         """Set JuiceBox maximum currents, decrease one before increasing the other
 
         :param juiceBoxA: Details of one of the JuiceBoxes to set
@@ -185,11 +193,11 @@ class JbInterface(object):
 
         if maxAmpsA < juiceBoxA.maxCurrent:
             # decreasing juiceBoxA limit, so do it first
-            self.setMaxCurrent(juiceBoxA, maxAmpsA)
-            self.setMaxCurrent(juiceBoxB, maxAmpsB)
+            await self.setMaxCurrent(juiceBoxA, maxAmpsA)
+            await self.setMaxCurrent(juiceBoxB, maxAmpsB)
         else:
-            self.setMaxCurrent(juiceBoxB, maxAmpsB)
-            self.setMaxCurrent(juiceBoxA, maxAmpsA)
+            await self.setMaxCurrent(juiceBoxB, maxAmpsB)
+            await self.setMaxCurrent(juiceBoxA, maxAmpsA)
     # end setNewMaximums(JbDetails, int, JbDetails)
 
     def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
@@ -209,13 +217,13 @@ class JbInterface(object):
         return maxCurrent
     # end limitCurrent(JbDetails, int)
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         """Close this instance and free up resources"""
         try:
             if self.loToken:
-                self.logOut()
+                await self.logOut()
         finally:
             self.session.close()
-    # end close()
+    # end aclose()
 
 # end class JbInterface
