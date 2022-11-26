@@ -1,7 +1,7 @@
 
+import asyncio
 import json
 import logging
-from time import perf_counter
 
 from aiohttp import ClientResponse, ClientSession
 from pyquery import PyQuery
@@ -117,11 +117,11 @@ class JbInterface(object):
                     raise HTTPException.fromAsyncXcp(e, resp, "all active JuiceBoxes") from e
 
                 juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
-                start = perf_counter()
 
-                for jb in juiceBoxes:
-                    await self.addMoreDetails(jb)
-                print(f"add more details: {perf_counter() - start:.7f}s")
+                async with asyncio.TaskGroup() as tg:
+                    for jb in juiceBoxes:
+                        tg.create_task(self.addMoreDetails(jb))
+                # end async with (tasks are awaited)
 
                 return juiceBoxes
             else:
