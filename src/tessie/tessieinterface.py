@@ -37,7 +37,7 @@ class TessieInterface(object):
         url = "https://api.tessie.com/vehicles"
         qryParms = {"only_active": "true"}
 
-        async with self.session.request("GET", url, params=qryParms) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             if resp.status != 200:
                 raise HTTPException.fromAsyncError(resp, "all active vehicles")
 
@@ -66,7 +66,7 @@ class TessieInterface(object):
         qryParms = {"use_cache": "false"}
 
         while attempts:
-            async with self.session.request("GET", url, params=qryParms) as resp:
+            async with self.session.get(url, params=qryParms) as resp:
                 if resp.status == 200:
                     try:
                         carState: dict = await resp.json()
@@ -108,7 +108,7 @@ class TessieInterface(object):
         """
         url = f"https://api.tessie.com/{dtls.vin}/status"
 
-        async with self.session.request("GET", url) as resp:
+        async with self.session.get(url) as resp:
             if resp.status == 200:
                 try:
                     dtls.sleepStatus = (await resp.json())["status"]
@@ -132,7 +132,7 @@ class TessieInterface(object):
         """
         url = f"https://api.tessie.com/{dtls.vin}/location"
 
-        async with self.session.request("GET", url) as resp:
+        async with self.session.get(url) as resp:
             if resp.status == 200:
                 try:
                     dtls.savedLocation = (await resp.json())["saved_location"]
@@ -157,7 +157,7 @@ class TessieInterface(object):
         url = f"https://api.tessie.com/{dtls.vin}/battery_health"
         qryParms = {"distance_format": "mi"}
 
-        async with self.session.request("GET", url, params=qryParms) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             if resp.status == 200:
                 try:
                     result = (await resp.json())["result"]
@@ -176,7 +176,7 @@ class TessieInterface(object):
         Logs a message indicating if woke up, or timed out (30s)."""
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        async with self.session.request("GET", url) as resp:
+        async with self.session.get(url) as resp:
             if resp.status != 200:
                 raise HTTPException.fromAsyncError(resp, dtls.displayName)
 
@@ -212,7 +212,7 @@ class TessieInterface(object):
             "percent": percent
         }
 
-        async with self.session.request("GET", url, params=qryParms) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             oldLimit = dtls.chargeLimit
             dtls.chargeLimit = percent
 
@@ -231,7 +231,7 @@ class TessieInterface(object):
             "wait_for_completion": "true"
         }
 
-        async with self.session.request("GET", url, params=qryParms) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             dtls.chargingState = "Charging"
 
             if resp.status != 200:

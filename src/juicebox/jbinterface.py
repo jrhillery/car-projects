@@ -64,13 +64,12 @@ class JbInterface(object):
         """Log-in to JuiceNet"""
         url = "https://home.juice.net/Account/Login"
 
-        async with self.session.request("GET", url) as resp:
+        async with self.session.get(url) as resp:
             if resp.status != 200:
                 raise HTTPException.fromAsyncError(resp, "login get")
             body = await self.logInBody(resp)
 
-        async with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
-                                        data=body) as resp:
+        async with self.session.post(url, data=body, headers=self.NOT_CACHED_HEADER) as resp:
             if resp.status != 200:
                 raise HTTPException.fromAsyncError(resp, "login post")
 
@@ -86,8 +85,7 @@ class JbInterface(object):
         url = "https://home.juice.net/Account/LogOff"
         body = {"__RequestVerificationToken": self.loToken}
 
-        async with self.session.request("POST", url, headers=self.NOT_CACHED_HEADER,
-                                        data=body) as resp:
+        async with self.session.post(url, data=body, headers=self.NOT_CACHED_HEADER) as resp:
             self.loToken = None
 
             if resp.status != 200:
@@ -102,8 +100,7 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
 
-        async with self.session.request("POST", url, headers=self.XHR_HEADERS,
-                                        data=body) as resp:
+        async with self.session.post(url, data=body, headers=self.XHR_HEADERS) as resp:
             if resp.status == 200:
                 try:
                     unitMap: dict[str, dict] = (await resp.json())["Units"]
@@ -132,7 +129,7 @@ class JbInterface(object):
         url = "https://home.juice.net/Portal/Details"
         qryParms = {"unitID": juiceBox.deviceId}
 
-        async with self.session.request("GET", url, params=qryParms) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             if resp.status == 200:
                 try:
                     pQry = PyQuery(await resp.text())
@@ -163,8 +160,7 @@ class JbInterface(object):
                 "unitID": juiceBox.deviceId,
                 "allowedC": maxCurrent,
             }
-            async with self.session.request("POST", url, headers=self.XHR_HEADERS,
-                                            data=body) as resp:
+            async with self.session.post(url, data=body, headers=self.XHR_HEADERS) as resp:
                 if resp.status != 200:
                     raise HTTPException.fromAsyncError(resp, juiceBox.name)
 
