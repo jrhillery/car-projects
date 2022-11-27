@@ -70,7 +70,7 @@ class JuiceBoxCtl(object):
 
     async def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
-        async with aclosing(await TessieInterface.create()) as tsIntrfc:
+        async with aclosing(TessieInterface()) as tsIntrfc:
             tsIntrfc: TessieInterface
             vehicles = await tsIntrfc.getStateOfActiveVehicles()
             totalEnergyNeeded = 0.0
@@ -138,8 +138,8 @@ class JuiceBoxCtl(object):
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        async with aclosing(JbInterface.create(self.minPluggedCurrent,
-                                               self.totalCurrent)) as jbIntrfc:
+        async with aclosing(JbInterface(self.minPluggedCurrent,
+                                        self.totalCurrent)) as jbIntrfc:
             jbIntrfc: JbInterface
             await jbIntrfc.logIn()
             juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()

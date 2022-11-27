@@ -18,26 +18,20 @@ class JbInterface(object):
         "X-Requested-With": "XMLHttpRequest",
     }
 
-    def __init__(self, minPluggedCurrent: int, totalCurrent: int, session: ClientSession):
-        self.minPluggedCurrent: int = minPluggedCurrent
-        self.totalCurrent: int = totalCurrent
-        self.session = session
-        self.loToken: str | None = None
-    # end __init__(int, int, ClientSession)
-
-    @classmethod
-    def create(cls, minPluggedCurrent: int, totalCurrent: int):
-        """Factory method
+    def __init__(self, minPluggedCurrent: int, totalCurrent: int):
+        """Constructor
 
         :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
         :param totalCurrent: The total current avaible to all Juiceboxes
         """
+        self.minPluggedCurrent: int = minPluggedCurrent
+        self.totalCurrent: int = totalCurrent
         headers = {
             "Accept-Language": "en-US,en;q=0.9"
         }
-
-        return cls(minPluggedCurrent, totalCurrent, ClientSession(headers=headers))
-    # end create(int, int)
+        self.session = ClientSession(headers=headers)
+        self.loToken: str | None = None
+    # end __init__(int, int, ClientSession)
 
     @staticmethod
     async def logInBody(resp: ClientResponse) -> dict[str, str]:

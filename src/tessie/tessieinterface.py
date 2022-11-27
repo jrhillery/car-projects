@@ -12,20 +12,13 @@ from . import CarDetails
 class TessieInterface(object):
     """Provides an interface through Tessie to authorized vehicles"""
 
-    def __init__(self, session: ClientSession):
-        self.session = session
-    # end __init__(ClientSession)
-
-    @classmethod
-    async def create(cls):
-        """Factory method"""
+    def __init__(self):
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {TessieInterface.loadToken()}"
         }
-
-        return cls(ClientSession(headers=headers))
-    # end create()
+        self.session = ClientSession(headers=headers)
+    # end __init__()
 
     @staticmethod
     def loadToken() -> str:
