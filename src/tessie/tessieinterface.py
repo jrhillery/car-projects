@@ -5,7 +5,7 @@ import logging
 
 from aiohttp import ClientSession
 
-from util import AInterpret, Configure, HTTPException
+from util import Configure, HTTPException, Interpret
 from . import CarDetails
 
 
@@ -89,7 +89,7 @@ class TessieInterface(object):
                 elif resp.status in {408, 500}:
                     # Request Timeout or Internal Server Error
                     logging.info(f"{dtls.displayName} encountered {resp.status}"
-                                 f" {AInterpret.decodeReason(resp)}:"
+                                 f" {Interpret.decodeReason(resp)}:"
                                  f" {(await resp.json())['error']}"
                                  f" for url {resp.url}")
                 else:
@@ -114,11 +114,11 @@ class TessieInterface(object):
                     dtls.sleepStatus = (await resp.json())["status"]
                 except Exception as e:
                     logging.error(f"Status retrieval problem:"
-                                  f" {AInterpret.responseXcp(resp, e, dtls.displayName)}",
+                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
                     dtls.sleepStatus = "unknowable"
             else:
-                logging.error(f"Encountered {AInterpret.responseErr(resp, dtls.displayName)}")
+                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
                 dtls.sleepStatus = "unknown"
 
         return dtls
@@ -138,11 +138,11 @@ class TessieInterface(object):
                     dtls.savedLocation = (await resp.json())["saved_location"]
                 except Exception as e:
                     logging.error(f"Location retrieval problem:"
-                                  f" {AInterpret.responseXcp(resp, e, dtls.displayName)}",
+                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
                     dtls.savedLocation = None
             else:
-                logging.error(f"Encountered {AInterpret.responseErr(resp, dtls.displayName)}")
+                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
                 dtls.savedLocation = None
 
         return dtls

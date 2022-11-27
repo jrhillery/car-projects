@@ -2,10 +2,10 @@
 from aiohttp import ClientResponse
 
 
-class AInterpret(object):
+class Interpret(object):
     @staticmethod
     async def responseErr(resp: ClientResponse, target: str) -> str:
-        return (f"{resp.status} {AInterpret.decodeReason(resp)}"
+        return (f"{resp.status} {Interpret.decodeReason(resp)}"
                 f" accessing {target}: {await resp.text()} for url {resp.url}")
     # end responseErr(ClientResponse, str)
 
@@ -17,7 +17,7 @@ class AInterpret(object):
 
     @staticmethod
     def decodeReason(resp: ClientResponse) -> str:
-        reason = AInterpret.decodeText(resp.reason)
+        reason = Interpret.decodeText(resp.reason)
 
         if not reason:
             reason = "Error"
