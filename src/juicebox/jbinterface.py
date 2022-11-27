@@ -27,7 +27,8 @@ class JbInterface(object):
         self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent
         headers = {
-            "Accept-Language": "en-US,en;q=0.9"
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
         }
         self.session = ClientSession(headers=headers)
         self.loToken: str | None = None
