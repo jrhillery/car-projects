@@ -1,14 +1,13 @@
 
 from aiohttp import ClientResponse
-from requests import Response
 
-from . import AInterpret, Interpret
+from . import AInterpret
 
 
 class HTTPException(Exception):
     """Class for handled exceptions dealing with HTTP responses"""
 
-    def __init__(self, msg: str, response: Response | ClientResponse):
+    def __init__(self, msg: str, response: ClientResponse):
         super().__init__(msg)
         self.response = response
     # end __init__(str, Response | ClientResponse)
@@ -26,19 +25,5 @@ class HTTPException(Exception):
 
         return cls(await AInterpret.responseXcp(resp, xcption, target), resp)
     # end fromAsyncXcp(BaseException, ClientResponse, str)
-
-    @classmethod
-    def fromError(cls, badResponse: Response, target: str):
-        """Factory method for bad responses"""
-
-        return cls(Interpret.responseErr(badResponse, target), badResponse)
-    # end fromError(Response, str)
-
-    @classmethod
-    def fromXcp(cls, xcption: BaseException, resp: Response, target: str):
-        """Factory method for Exceptions"""
-
-        return cls(Interpret.responseXcp(resp, xcption, target), resp)
-    # end fromXcp(BaseException, Response, str)
 
 # end class HTTPException
