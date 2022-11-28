@@ -143,7 +143,6 @@ class JuiceBoxCtl(object):
             jbIntrfc: JbInterface
             await jbIntrfc.logIn()
             juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
-            juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
             match True:
                 case _ if self.autoMax:

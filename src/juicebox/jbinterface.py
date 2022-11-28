@@ -95,7 +95,7 @@ class JbInterface(object):
     async def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states
 
-        :return: A list with details of each JuiceBox in the account
+        :return: A list with details of each online JuiceBox in the account
         """
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
         body = {"__RequestVerificationToken": self.loToken}
@@ -109,6 +109,7 @@ class JbInterface(object):
                     raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
 
                 juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
+                juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
 
                 async with asyncio.TaskGroup() as tg:
                     for jb in juiceBoxes:
