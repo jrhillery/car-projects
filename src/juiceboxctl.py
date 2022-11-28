@@ -94,11 +94,10 @@ class JuiceBoxCtl(object):
         if totalEnergyNeeded:
             juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
             vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
-            carA = vehicles[0]
-            juiceBoxA = self.getJuiceBoxForCar(carA, juiceBoxMap)
-            juiceBoxB = self.getJuiceBoxForCar(vehicles[1], juiceBoxMap)
-            fairShareA = self.totalCurrent * (carA.energyNeededC() / totalEnergyNeeded)
-            await jbIntrfc.setNewMaximums(juiceBoxA, int(fairShareA + 0.5), juiceBoxB)
+            jbs = [self.getJuiceBoxForCar(car, juiceBoxMap) for car in vehicles]
+            fairShare0 = self.totalCurrent * (vehicles[0].energyNeededC() / totalEnergyNeeded)
+
+            await jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually(jbIntrfc, juiceBoxes)
