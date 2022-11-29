@@ -45,7 +45,7 @@ class JbInterface(object):
             liToken: str = PyQuery(await resp.text()).find(
                 "form.form-vertical > input[name='__RequestVerificationToken']").val()
         except Exception as e:
-            raise HTTPException.fromXcp(e, resp, "account login") from e
+            raise await HTTPException.fromXcp(e, resp, "account login") from e
 
         with open(Configure.findParmPath().joinpath("juicenetlogincreds.json"),
                   "r", encoding="utf-8") as credFile:
@@ -66,18 +66,18 @@ class JbInterface(object):
 
         async with self.session.get(url) as resp:
             if resp.status != 200:
-                raise HTTPException.fromError(resp, "login get")
+                raise await HTTPException.fromError(resp, "login get")
             body = await self.logInBody(resp)
 
         async with self.session.post(url, data=body, headers=self.NOT_CACHED_HEADER) as resp:
             if resp.status != 200:
-                raise HTTPException.fromError(resp, "login post")
+                raise await HTTPException.fromError(resp, "login post")
 
             try:
                 self.loToken = PyQuery(await resp.text()).find(
                     "form#logoutForm > input[name='__RequestVerificationToken']").val()
             except Exception as e:
-                raise HTTPException.fromXcp(e, resp, "verification token") from e
+                raise await HTTPException.fromXcp(e, resp, "verification token") from e
     # end logIn()
 
     async def logOut(self) -> None:
@@ -89,7 +89,7 @@ class JbInterface(object):
             self.loToken = None
 
             if resp.status != 200:
-                raise HTTPException.fromError(resp, "account logoff")
+                raise await HTTPException.fromError(resp, "account logoff")
     # end logOut()
 
     async def getStateOfJuiceBoxes(self) -> list[JbDetails]:
@@ -106,7 +106,7 @@ class JbInterface(object):
                     unitMap: dict[str, dict] = (await resp.json())["Units"]
                     juiceBoxStates = unitMap.values()
                 except Exception as e:
-                    raise HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
+                    raise await HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
 
                 juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
                 juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
@@ -118,7 +118,7 @@ class JbInterface(object):
 
                 return juiceBoxes
             else:
-                raise HTTPException.fromError(resp, "all active JuiceBoxes")
+                raise await HTTPException.fromError(resp, "all active JuiceBoxes")
     # end getStateOfJuiceBoxes()
 
     async def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
@@ -136,9 +136,9 @@ class JbInterface(object):
                     pQry = PyQuery(await resp.text())
                     juiceBox.wireRating = int(pQry.find("input#wire_rating").val())
                 except Exception as e:
-                    raise HTTPException.fromXcp(e, resp, juiceBox.name) from e
+                    raise await HTTPException.fromXcp(e, resp, juiceBox.name) from e
             else:
-                raise HTTPException.fromError(resp, juiceBox.name)
+                raise await HTTPException.fromError(resp, juiceBox.name)
 
         return juiceBox
     # end addMoreDetails(JbDetails)
@@ -163,7 +163,7 @@ class JbInterface(object):
             }
             async with self.session.post(url, data=body, headers=self.XHR_HEADERS) as resp:
                 if resp.status != 200:
-                    raise HTTPException.fromError(resp, juiceBox.name)
+                    raise await HTTPException.fromError(resp, juiceBox.name)
 
             logging.info(f"{juiceBox.name} maximum current changed"
                          f" from {juiceBox.maxCurrent} to {maxCurrent} A")

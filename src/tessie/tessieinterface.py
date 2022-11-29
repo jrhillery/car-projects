@@ -39,7 +39,7 @@ class TessieInterface(object):
 
         async with self.session.get(url, params=qryParms) as resp:
             if resp.status != 200:
-                raise HTTPException.fromError(resp, "all active vehicles")
+                raise await HTTPException.fromError(resp, "all active vehicles")
 
             try:
                 allResults: list[dict] = (await resp.json())["results"]
@@ -55,7 +55,7 @@ class TessieInterface(object):
             except HTTPException:
                 raise
             except Exception as e:
-                raise HTTPException.fromXcp(e, resp, "all active vehicles") from e
+                raise await HTTPException.fromXcp(e, resp, "all active vehicles") from e
     # end getStateOfActiveVehicles()
 
     async def getCurrentState(self, dtls: CarDetails, attempts: int = 10) -> None:
@@ -85,7 +85,7 @@ class TessieInterface(object):
                     except HTTPException:
                         raise
                     except Exception as e:
-                        raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
+                        raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
                 elif resp.status in {408, 500}:
                     # Request Timeout or Internal Server Error
                     logging.info(f"{dtls.displayName} encountered {resp.status}"
@@ -93,7 +93,7 @@ class TessieInterface(object):
                                  f" {(await resp.json())['error']}"
                                  f" for url {resp.url}")
                 else:
-                    raise HTTPException.fromError(resp, dtls.displayName)
+                    raise await HTTPException.fromError(resp, dtls.displayName)
             if attempts := attempts - 1:
                 await asyncio.sleep(60)
         # end while
@@ -164,9 +164,9 @@ class TessieInterface(object):
                     dtls.battMaxRange = result["max_range"]
                     dtls.battCapacity = result["capacity"]
                 except Exception as e:
-                    raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
+                    raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
             else:
-                raise HTTPException.fromError(resp, dtls.displayName)
+                raise await HTTPException.fromError(resp, dtls.displayName)
 
         return dtls
     # end addBatteryHealth(CarDetails)
@@ -178,12 +178,12 @@ class TessieInterface(object):
 
         async with self.session.get(url) as resp:
             if resp.status != 200:
-                raise HTTPException.fromError(resp, dtls.displayName)
+                raise await HTTPException.fromError(resp, dtls.displayName)
 
             try:
                 wakeOkay: bool = (await resp.json())["result"]
             except Exception as e:
-                raise HTTPException.fromXcp(e, resp, dtls.displayName) from e
+                raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
 
         if wakeOkay:
             # wait for this vehicle's sleep status to show awake
@@ -217,7 +217,7 @@ class TessieInterface(object):
             dtls.chargeLimit = percent
 
             if resp.status != 200:
-                raise HTTPException.fromError(resp, dtls.displayName)
+                raise await HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
@@ -235,7 +235,7 @@ class TessieInterface(object):
             dtls.chargingState = "Charging"
 
             if resp.status != 200:
-                raise HTTPException.fromError(resp, dtls.displayName)
+                raise await HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charging started")
     # end startCharging(CarDetails)
@@ -252,7 +252,7 @@ class TessieInterface(object):
             dtls.chargingState = "Stopping"
 
             if resp.status != 200:
-                raise HTTPException.fromError(resp, dtls.displayName)
+                raise await HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charging stopped")
     # end stopCharging(CarDetails)
