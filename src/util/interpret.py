@@ -1,4 +1,6 @@
 
+from asyncio import current_task
+
 from aiohttp import ClientResponse
 
 
@@ -6,14 +8,22 @@ class Interpret(object):
     @staticmethod
     async def responseErr(resp: ClientResponse, target: str) -> str:
         return (f"{resp.status} {Interpret.decodeReason(resp)}"
-                f" accessing {target}: {await resp.text()} for url {resp.url}")
+                + await Interpret.responseContext(resp, target))
     # end responseErr(ClientResponse, str)
 
     @staticmethod
     async def responseXcp(resp: ClientResponse, xcp: BaseException, target: str) -> str:
         return (f"Exception {xcp.__class__.__name__}: {str(xcp)}"
-                f" accessing {target}: {await resp.text()} for url {resp.url}")
+                + await Interpret.responseContext(resp, target))
     # end responseXcp(ClientResponse, BaseException, str)
+
+    @staticmethod
+    async def responseContext(resp: ClientResponse, target: str) -> str:
+        curTask = current_task()
+        curTaskName = "" if curTask is None else f" in {curTask.get_name()}"
+
+        return f" accessing {target}{curTaskName}: {await resp.text()} for url {resp.url}"
+    # end responseContext(ClientResponse, str)
 
     @staticmethod
     def decodeReason(resp: ClientResponse) -> str:

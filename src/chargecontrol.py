@@ -149,15 +149,6 @@ class ChargeControl(object):
 # end class ChargeControl
 
 
-def logException(exceptn: BaseException) -> None:
-    logging.error(exceptn)
-    curTask = asyncio.current_task()
-    curTaskName = "" if curTask is None else f" in {curTask.get_name()}"
-    logging.debug(f"{exceptn.__class__.__name__} suppressed{curTaskName}:",
-                  exc_info=exceptn)
-# end logException(BaseException)
-
-
 if __name__ == "__main__":
     clArgs = ChargeControl.parseArgs()
     Configure.logToFile()
@@ -165,4 +156,5 @@ if __name__ == "__main__":
         chrgCtl = ChargeControl(clArgs)
         asyncio.run(chrgCtl.main())
     except Exception as xcpt:
-        logException(xcpt)
+        logging.error(xcpt)
+        logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)
