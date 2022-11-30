@@ -1,14 +1,13 @@
 
 import asyncio
 import logging
+import sys
 from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
-
-import sys
 from math import isqrt
 
 from tessie import CarDetails, TessieInterface
-from util import Configure
+from util import Configure, ExceptionGroupHandler
 
 
 class ChargeControl(object):
@@ -155,6 +154,7 @@ if __name__ == "__main__":
     try:
         chrgCtl = ChargeControl(clArgs)
         asyncio.run(chrgCtl.main())
-    except Exception as xcpt:
-        logging.error(xcpt)
-        logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)
+    except Exception as xcption:
+        for xcpt in ExceptionGroupHandler.iterGroup(xcption):
+            logging.error(xcpt)
+            logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)

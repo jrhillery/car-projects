@@ -8,7 +8,7 @@ from contextlib import aclosing
 
 from juicebox import JbDetails, JbInterface
 from tessie import CarDetails, TessieInterface
-from util import Configure
+from util import Configure, ExceptionGroupHandler
 
 
 class JuiceBoxCtl(object):
@@ -166,6 +166,7 @@ if __name__ == "__main__":
     try:
         juiceCtl = JuiceBoxCtl(clArgs)
         asyncio.run(juiceCtl.main())
-    except Exception as xcpt:
-        logging.error(xcpt)
-        logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)
+    except Exception as xcption:
+        for xcpt in ExceptionGroupHandler.iterGroup(xcption):
+            logging.error(xcpt)
+            logging.debug(f"{xcpt.__class__.__name__} suppressed:", exc_info=xcpt)
