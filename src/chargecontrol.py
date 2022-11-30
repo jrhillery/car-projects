@@ -120,25 +120,22 @@ class ChargeControl(object):
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        async with aclosing(TessieInterface()) as carIntrfc:
-            carIntrfc: TessieInterface
-            vehicles = await carIntrfc.getStateOfActiveVehicles()
+        async with aclosing(TessieInterface()) as tsIntrfc:
+            tsIntrfc: TessieInterface
+            vehicles = await tsIntrfc.getStateOfActiveVehicles()
 
-            async with asyncio.TaskGroup() as tasks:
+            async with asyncio.TaskGroup() as tg:
                 for dtls in vehicles:
                     logging.info(dtls.currentChargingStatus())
                     tName = f"{dtls.displayName}-task"
 
                     match True:
                         case _ if self.enable:
-                            tasks.create_task(
-                                self.enableCarCharging(carIntrfc, dtls), name=tName)
+                            tg.create_task(self.enableCarCharging(tsIntrfc, dtls), name=tName)
                         case _ if self.disable:
-                            tasks.create_task(
-                                self.disableCarCharging(carIntrfc, dtls), name=tName)
+                            tg.create_task(self.disableCarCharging(tsIntrfc, dtls), name=tName)
                         case _ if self.setLimit:
-                            tasks.create_task(
-                                self.setChargeLimit(carIntrfc, dtls), name=tName)
+                            tg.create_task(self.setChargeLimit(tsIntrfc, dtls), name=tName)
                     # end match
                 # end for
             # end async with (tasks are awaited)
