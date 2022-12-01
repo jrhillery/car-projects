@@ -10,7 +10,7 @@ class HTTPException(Exception):
     def __init__(self, msg: str, response: ClientResponse):
         super().__init__(msg)
         self.response = response
-    # end __init__(str, Response | ClientResponse)
+    # end __init__(str, ClientResponse)
 
     @classmethod
     async def fromError(cls, badResponse: ClientResponse, target: str):
