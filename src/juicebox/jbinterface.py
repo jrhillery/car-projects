@@ -113,7 +113,7 @@ class JbInterface(object):
 
                 async with asyncio.TaskGroup() as tg:
                     for jb in juiceBoxes:
-                        tg.create_task(self.addMoreDetails(jb))
+                        tg.create_task(self.addMoreDetails(jb), name=f"{jb.name}-task")
                 # end async with (tasks are awaited)
 
                 return juiceBoxes

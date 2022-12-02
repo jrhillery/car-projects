@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 
-from aiohttp import ClientSession
+from aiohttp import ClientResponse, ClientSession
 
 from util import Configure, HTTPException, Interpret
 from . import CarDetails
@@ -47,8 +47,8 @@ class TessieInterface(object):
 
                 async with asyncio.TaskGroup() as tg:
                     for car in vehicles:
-                        tg.create_task(self.addSleepStatus(car))
-                        tg.create_task(self.addLocation(car))
+                        tg.create_task(self.addSleepStatus(car), name="Sleep-tasks")
+                        tg.create_task(self.addLocation(car), name="Location-tasks")
                 # end async with (tasks are awaited)
 
                 return vehicles
@@ -57,6 +57,12 @@ class TessieInterface(object):
             except Exception as e:
                 raise await HTTPException.fromXcp(e, resp, "all active vehicles") from e
     # end getStateOfActiveVehicles()
+
+    @staticmethod
+    async def respErrLog(resp: ClientResponse, dtls: CarDetails) -> str:
+
+        return f"Encountered {await Interpret.responseErr(resp, dtls.displayName)}"
+    # end respErrLog(ClientResponse, CarDetails)
 
     async def getCurrentState(self, dtls: CarDetails, attempts: int = 10) -> None:
         """Get the latest state of a specified vehicle - uses a live connection, which may
@@ -75,8 +81,8 @@ class TessieInterface(object):
                         else:
                             dtls.updateFromDict(carState)
                             async with asyncio.TaskGroup() as tg:
-                                tg.create_task(self.addSleepStatus(dtls))
-                                tg.create_task(self.addLocation(dtls))
+                                tg.create_task(self.addSleepStatus(dtls), name="Sleep-task")
+                                tg.create_task(self.addLocation(dtls), name="Location-task")
                             # end async with (tasks are awaited)
 
                             return logging.info(dtls.currentChargingStatus())
@@ -86,7 +92,7 @@ class TessieInterface(object):
                         raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
                 elif resp.status in {408, 500}:
                     # Request Timeout or Internal Server Error
-                    logging.info(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
+                    logging.info(await self.respErrLog(resp, dtls))
                 else:
                     raise await HTTPException.fromError(resp, dtls.displayName)
             if attempts := attempts - 1:
@@ -109,11 +115,11 @@ class TessieInterface(object):
                     dtls.sleepStatus = (await resp.json())["status"]
                 except Exception as e:
                     logging.error(f"Status retrieval problem:"
-                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
                     dtls.sleepStatus = "unknowable"
             else:
-                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
+                logging.error(await self.respErrLog(resp, dtls))
                 dtls.sleepStatus = "unknown"
 
         return dtls
@@ -133,11 +139,11 @@ class TessieInterface(object):
                     dtls.savedLocation = (await resp.json())["saved_location"]
                 except Exception as e:
                     logging.error(f"Location retrieval problem:"
-                                  f" {Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
                     dtls.savedLocation = None
             else:
-                logging.error(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
+                logging.error(await self.respErrLog(resp, dtls))
                 dtls.savedLocation = None
 
         return dtls
