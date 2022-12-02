@@ -86,10 +86,7 @@ class TessieInterface(object):
                         raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
                 elif resp.status in {408, 500}:
                     # Request Timeout or Internal Server Error
-                    logging.info(f"{dtls.displayName} encountered {resp.status}"
-                                 f" {Interpret.decodeReason(resp)}:"
-                                 f" {(await resp.json())['error']}"
-                                 f" for url {resp.url}")
+                    logging.info(f"Encountered {Interpret.responseErr(resp, dtls.displayName)}")
                 else:
                     raise await HTTPException.fromError(resp, dtls.displayName)
             if attempts := attempts - 1:

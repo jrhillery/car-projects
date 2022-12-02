@@ -21,8 +21,15 @@ class Interpret(object):
     async def responseContext(resp: ClientResponse, target: str) -> str:
         curTask = current_task()
         curTaskName = "" if curTask is None else f" in {curTask.get_name()}"
+        try:
+            # try to isolate an error message
+            content = (await resp.json())['error']
+        except Exception as e:
+            # include the entire content body
+            content = await resp.text()
+            assert e is not None  # supress too broad exception clause warning
 
-        return f" accessing {target}{curTaskName}: {await resp.text()} for url {resp.url}"
+        return f" accessing {target}{curTaskName}: {content} for url {resp.url}"
     # end responseContext(ClientResponse, str)
 
     @staticmethod
