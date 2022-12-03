@@ -3,11 +3,14 @@
 class JbDetails(object):
     """Details of a JuiceBox"""
 
+    # fields set in JbDetails.updateFromDict
     deviceId: str
     name: str
     isOffline: bool
     status: str
     maxCurrent: int
+
+    # field set in JbInterface.addMoreDetails
     wireRating: int
 
     def __init__(self, juiceBoxState: dict):
