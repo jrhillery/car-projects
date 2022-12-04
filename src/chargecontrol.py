@@ -4,7 +4,6 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
-from math import isqrt
 
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler
@@ -15,7 +14,7 @@ class ChargeControl(object):
 
     def __init__(self, args: Namespace):
         self.disable: bool = args.disable
-        self.enable: bool = args.enable
+        self.enableLimit: int | None = args.enableLimit
         self.setLimit: int | None = args.setLimit
     # end __init__(Namespace)
 
@@ -27,8 +26,8 @@ class ChargeControl(object):
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
-        group.add_argument("-e", "--enable", action="store_true",
-                           help="enable charging")
+        group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
+                           help="enable charging with limit if 50%%")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
                            help="set charge limits if 50%%")
 
@@ -58,7 +57,7 @@ class ChargeControl(object):
     # end startChargingWhenReady(TessieInterface, CarDetails)
 
     async def enableCarCharging(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Raise the charge limit to mean if minimum then start charging when ready"""
+        """Raise the charge limit if minimum then start charging when ready"""
 
         if (dtls.chargeLimitIsMin() or dtls.pluggedInAtHome()) and not dtls.awake():
             # try to wake up this car
@@ -66,11 +65,10 @@ class ChargeControl(object):
 
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
-            limitStdPercent: int = dtls.chargeState["charge_limit_soc_std"]
-            # arithmeticMeanLimitPercent = (dtls.limitMinPercent + limitStdPercent) // 2
-            geometricMeanLimitPercent = isqrt(dtls.limitMinPercent * limitStdPercent)
+            self.enableLimit = dtls.limitToCapabilities(self.enableLimit)
 
-            await carIntrfc.setChargeLimit(dtls, geometricMeanLimitPercent)
+            if self.enableLimit != dtls.chargeLimit:
+                await carIntrfc.setChargeLimit(dtls, self.enableLimit)
 
         await self.startChargingWhenReady(carIntrfc, dtls)
     # end enableCarCharging(TessieInterface, CarDetails)
@@ -122,7 +120,7 @@ class ChargeControl(object):
                     tName = f"{dtls.displayName}-task"
 
                     match True:
-                        case _ if self.enable:
+                        case _ if self.enableLimit:
                             tg.create_task(self.enableCarCharging(tsIntrfc, dtls), name=tName)
                         case _ if self.disable:
                             tg.create_task(self.disableCarCharging(tsIntrfc, dtls), name=tName)
