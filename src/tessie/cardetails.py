@@ -1,4 +1,5 @@
 
+import logging
 from datetime import timedelta
 from time import time
 
@@ -9,12 +10,12 @@ class CarDetails(object):
     # fields set in CarDetails.updateFromDict
     vin: str
     displayName: str
-    chargeState: dict
     battLevel: int
     battRange: float
     chargeAmps: int
     chargeLimit: int
     limitMinPercent: int
+    limitMaxPercent: int
     chargingState: str
     lastSeen: float
 
@@ -35,14 +36,15 @@ class CarDetails(object):
     def updateFromDict(self, vehicleState: dict) -> None:
         self.vin = vehicleState["vin"]
         self.displayName = vehicleState["display_name"]
-        self.chargeState = vehicleState["charge_state"]
-        self.battLevel = self.chargeState["battery_level"]
-        self.battRange = self.chargeState["battery_range"]
-        self.chargeAmps = self.chargeState["charge_amps"]
-        self.chargeLimit = self.chargeState["charge_limit_soc"]
-        self.limitMinPercent = self.chargeState["charge_limit_soc_min"]
-        self.chargingState = self.chargeState["charging_state"]
-        self.lastSeen = self.chargeState["timestamp"] * 0.001  # convert ms to seconds
+        chargeState = vehicleState["charge_state"]
+        self.battLevel = chargeState["battery_level"]
+        self.battRange = chargeState["battery_range"]
+        self.chargeAmps = chargeState["charge_amps"]
+        self.chargeLimit = chargeState["charge_limit_soc"]
+        self.limitMinPercent = chargeState["charge_limit_soc_min"]
+        self.limitMaxPercent = chargeState["charge_limit_soc_max"]
+        self.chargingState = chargeState["charging_state"]
+        self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
     # end updateFromDict(str, dict)
 
     def pluggedIn(self) -> bool:
@@ -60,6 +62,21 @@ class CarDetails(object):
     def chargeLimitIsMin(self) -> bool:
         return self.chargeLimit == self.limitMinPercent
     # end chargeLimitIsMin()
+
+    def limitToCapabilities(self, chargeLimit: int) -> int:
+        """Return a charge limit within the valid range for this vehicle"""
+        if chargeLimit < self.limitMinPercent:
+            logging.info(f"{chargeLimit}% is too small"
+                         f" -- minimum is {self.limitMinPercent}%")
+            return self.limitMinPercent
+
+        if chargeLimit > self.limitMaxPercent:
+            logging.info(f"{chargeLimit}% is too large"
+                         f" -- maximum is {self.limitMaxPercent}%")
+            return self.limitMaxPercent
+
+        return chargeLimit
+    # end limitToCapabilities(int)
 
     def chargeNeeded(self) -> int:
         """return the percent increase the battery needs to reach its charge limit"""

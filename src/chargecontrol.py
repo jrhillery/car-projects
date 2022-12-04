@@ -98,23 +98,15 @@ class ChargeControl(object):
 
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
+            self.setLimit = dtls.limitToCapabilities(self.setLimit)
 
-            if self.setLimit < dtls.limitMinPercent:
-                logging.info(f"{self.setLimit}% is too small"
-                             f" -- minimum is {dtls.limitMinPercent}%"
-                             f" so no change made to {dtls.displayName}")
-            else:
+            if self.setLimit != dtls.chargeLimit:
                 if not dtls.awake():
                     await carIntrfc.wake(dtls)
-                limitMaxPercent: int = dtls.chargeState["charge_limit_soc_max"]
 
-                if self.setLimit > limitMaxPercent:
-                    logging.info(f"{self.setLimit}% is too large"
-                                 f" -- maximum is {limitMaxPercent}%")
-                    self.setLimit = limitMaxPercent
-
-                await carIntrfc.setChargeLimit(dtls, self.setLimit,
-                                               waitForCompletion=False)
+                await carIntrfc.setChargeLimit(dtls, self.setLimit, waitForCompletion=False)
+            else:
+                logging.info(f"No change made to {dtls.displayName}")
     # end setChargeLimit(TessieInterface, CarDetails)
 
     async def main(self) -> None:
