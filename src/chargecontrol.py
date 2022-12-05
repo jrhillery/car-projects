@@ -39,6 +39,9 @@ class ChargeControl(object):
         """Start charging if plugged in at home, not charging and could use a charge"""
 
         if dtls.pluggedInAtHome():
+            if not dtls.awake():
+                await carIntrfc.wake(dtls)
+
             # make sure we have the current battery level and charge limit
             await carIntrfc.getCurrentState(dtls)
 
@@ -59,16 +62,7 @@ class ChargeControl(object):
     async def enableCarCharging(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
         """Raise the charge limit if minimum then start charging when ready"""
 
-        if (dtls.chargeLimitIsMin() or dtls.pluggedInAtHome()) and not dtls.awake():
-            # try to wake up this car
-            await carIntrfc.wake(dtls)
-
-        if dtls.chargeLimitIsMin():
-            # this vehicle is set to charge limit minimum
-            self.enableLimit = dtls.limitToCapabilities(self.enableLimit)
-
-            if self.enableLimit != dtls.chargeLimit:
-                await carIntrfc.setChargeLimit(dtls, self.enableLimit)
+        await self.setChargeStop(dtls, self.enableLimit, carIntrfc)
 
         await self.startChargingWhenReady(carIntrfc, dtls)
     # end enableCarCharging(TessieInterface, CarDetails)
@@ -100,6 +94,7 @@ class ChargeControl(object):
 
             if percent != dtls.chargeLimit:
                 if not dtls.awake():
+                    # try to wake up this car
                     await carIntrfc.wake(dtls)
 
                 await carIntrfc.setChargeLimit(dtls, percent,
