@@ -91,20 +91,27 @@ class ChargeControl(object):
                                                waitForCompletion=False)
     # end disableCarCharging(TessieInterface, CarDetails)
 
-    async def setChargeLimit(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Set the charge limit if minimum"""
-
+    @staticmethod
+    async def setChargeStop(dtls: CarDetails, percent: int, carIntrfc: TessieInterface, *,
+                            waitForCompletion=True) -> None:
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
-            self.setLimit = dtls.limitToCapabilities(self.setLimit)
+            percent = dtls.limitToCapabilities(percent)
 
-            if self.setLimit != dtls.chargeLimit:
+            if percent != dtls.chargeLimit:
                 if not dtls.awake():
                     await carIntrfc.wake(dtls)
 
-                await carIntrfc.setChargeLimit(dtls, self.setLimit, waitForCompletion=False)
+                await carIntrfc.setChargeLimit(dtls, percent,
+                                               waitForCompletion=waitForCompletion)
             else:
                 logging.info(f"No change made to {dtls.displayName}")
+    # end setChargeStop(CarDetails, int, TessieInterface, bool)
+
+    async def setChargeLimit(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
+        """Set the charge limit if minimum"""
+
+        await self.setChargeStop(dtls, self.setLimit, carIntrfc, waitForCompletion=False)
     # end setChargeLimit(TessieInterface, CarDetails)
 
     async def main(self) -> None:
