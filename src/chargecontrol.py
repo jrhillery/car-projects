@@ -2,8 +2,10 @@
 import asyncio
 import logging
 import sys
+from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
+from typing import Self
 
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler
@@ -59,14 +61,6 @@ class ChargeControl(object):
             await carIntrfc.startCharging(dtls)
     # end startChargingWhenReady(TessieInterface, CarDetails)
 
-    async def enableCarCharging(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Raise the charge limit if minimum then start charging when ready"""
-
-        await self.setChargeStop(dtls, self.enableLimit, carIntrfc)
-
-        await self.startChargingWhenReady(carIntrfc, dtls)
-    # end enableCarCharging(TessieInterface, CarDetails)
-
     @staticmethod
     async def disableCarCharging(carIntrfc: TessieInterface, dtls: CarDetails) -> None:
         """Stop charging and lower the charge limit to minimum
@@ -103,38 +97,110 @@ class ChargeControl(object):
                 logging.info(f"No change made to {dtls.displayName}")
     # end setChargeStop(CarDetails, int, TessieInterface, bool)
 
-    async def setChargeLimit(self, carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Set the charge limit if minimum"""
-
-        await self.setChargeStop(dtls, self.setLimit, carIntrfc, waitForCompletion=False)
-    # end setChargeLimit(TessieInterface, CarDetails)
-
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
         async with aclosing(TessieInterface()) as tsIntrfc:
             tsIntrfc: TessieInterface
-            vehicles = await tsIntrfc.getStateOfActiveVehicles()
+            processor: ParallelProc
 
-            async with asyncio.TaskGroup() as tg:
-                for dtls in vehicles:
-                    logging.info(dtls.currentChargingStatus())
-                    tName = f"{dtls.displayName}-task"
+            match True:
+                case _ if self.enableLimit:
+                    processor = await EnableCarCharging().addTs(tsIntrfc, self)
+                case _ if self.disable:
+                    processor = await DisableCarCharging().addTs(tsIntrfc, self)
+                case _ if self.setLimit:
+                    processor = await SetChargeLimit().addTs(tsIntrfc, self)
+                case _:
+                    processor = await DisplayStatus().addTs(tsIntrfc, self)
+            # end match
 
-                    match True:
-                        case _ if self.enableLimit:
-                            tg.create_task(self.enableCarCharging(tsIntrfc, dtls), name=tName)
-                        case _ if self.disable:
-                            tg.create_task(self.disableCarCharging(tsIntrfc, dtls), name=tName)
-                        case _ if self.setLimit:
-                            tg.create_task(self.setChargeLimit(tsIntrfc, dtls), name=tName)
-                    # end match
-                # end for
-            # end async with (tasks are awaited)
-        # end async with (carIntrfc is closed)
+            await processor.process()
+        # end async with (tsIntrfc is closed)
     # end main()
 
 # end class ChargeControl
+
+
+class ParallelProc(ABC):
+    tsIntrfc: TessieInterface
+    vehicles: list[CarDetails]
+    chargeCtl: ChargeControl
+
+    @abstractmethod
+    async def process(self) -> None:
+        pass
+    # end process()
+
+    async def addTs(self, tsIntrfc: TessieInterface, chargeCtl: ChargeControl) -> Self:
+        self.tsIntrfc = tsIntrfc
+        self.vehicles = await tsIntrfc.getStateOfActiveVehicles()
+        self.chargeCtl = chargeCtl
+
+        return self
+    # end addTs(TessieInterface, ChargeControl)
+
+# end class ParallelProc
+
+
+class SetChargeLimit(ParallelProc):
+
+    async def process(self) -> None:
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                logging.info(dtls.currentChargingStatus())
+                tg.create_task(self.chargeCtl.setChargeStop(
+                    dtls, self.chargeCtl.setLimit, self.tsIntrfc, waitForCompletion=False))
+            # end for
+        # end async with (tasks are awaited)
+    # end process()
+
+# end class SetChargeLimit
+
+
+class EnableCarCharging(ParallelProc):
+
+    async def process(self) -> None:
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                logging.info(dtls.currentChargingStatus())
+                tg.create_task(self.chargeCtl.setChargeStop(
+                    dtls, self.chargeCtl.enableLimit, self.tsIntrfc))
+            # end for
+        # end async with (tasks are awaited)
+
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                tg.create_task(self.chargeCtl.startChargingWhenReady(self.tsIntrfc, dtls))
+            # end for
+        # end async with (tasks are awaited)
+    # end process()
+
+# end class EnableCarCharging
+
+
+class DisableCarCharging(ParallelProc):
+
+    async def process(self) -> None:
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                logging.info(dtls.currentChargingStatus())
+                tg.create_task(self.chargeCtl.disableCarCharging(self.tsIntrfc, dtls))
+            # end for
+        # end async with (tasks are awaited)
+    # end process()
+
+# end class DisableCarCharging
+
+
+class DisplayStatus(ParallelProc):
+
+    async def process(self) -> None:
+        for dtls in self.vehicles:
+            logging.info(dtls.currentChargingStatus())
+    # end process()
+
+# end class DisplayStatus
 
 
 if __name__ == "__main__":
