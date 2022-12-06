@@ -1,4 +1,6 @@
 
+from typing import Self
+
 from aiohttp import ClientResponse
 
 from . import Interpret
@@ -13,14 +15,14 @@ class HTTPException(Exception):
     # end __init__(str, ClientResponse)
 
     @classmethod
-    async def fromError(cls, badResponse: ClientResponse, target: str):
+    async def fromError(cls, badResponse: ClientResponse, target: str) -> Self:
         """Factory method for bad async responses"""
 
         return cls(await Interpret.responseErr(badResponse, target), badResponse)
     # end fromError(ClientResponse, str)
 
     @classmethod
-    async def fromXcp(cls, xcption: BaseException, resp: ClientResponse, target: str):
+    async def fromXcp(cls, xcption: BaseException, resp: ClientResponse, target: str) -> Self:
         """Factory method for async Exceptions"""
 
         return cls(await Interpret.responseXcp(resp, xcption, target), resp)
