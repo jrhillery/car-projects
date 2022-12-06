@@ -66,12 +66,12 @@ class CarDetails(object):
     def limitToCapabilities(self, chargeLimit: int) -> int:
         """Return a charge limit within the valid range for this vehicle"""
         if chargeLimit < self.limitMinPercent:
-            logging.info(f"{chargeLimit}% is too small"
+            logging.info(f"{chargeLimit}% is too small for {self.displayName}"
                          f" -- minimum is {self.limitMinPercent}%")
             return self.limitMinPercent
 
         if chargeLimit > self.limitMaxPercent:
-            logging.info(f"{chargeLimit}% is too large"
+            logging.info(f"{chargeLimit}% is too large for {self.displayName}"
                          f" -- maximum is {self.limitMaxPercent}%")
             return self.limitMaxPercent
 
