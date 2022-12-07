@@ -7,7 +7,6 @@ from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
 
 from juicebox import JbDetails, JbInterface
-from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler
 
 
@@ -15,8 +14,6 @@ class JuiceBoxCtl(object):
     """Controls JuiceBox devices"""
 
     def __init__(self, args: Namespace | None = None):
-        self.autoMax: bool = args.autoMax
-        self.equalAmps: bool = args.equalAmps
         self.specifiedMaxAmps: int | None = args.maxAmps
         self.specifiedJuiceBoxName: str | None = args.juiceBoxName
 
@@ -32,7 +29,6 @@ class JuiceBoxCtl(object):
                   "r", encoding="utf-8") as mappingFile:
             carJuiceBoxMapping: dict = json.load(mappingFile)
 
-        self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
         self.minPluggedCurrent: int = carJuiceBoxMapping["minPluggedCurrent"]
         self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
     # end __init__(Namespace)
@@ -43,10 +39,6 @@ class JuiceBoxCtl(object):
         ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
                             epilog="Just displays status when no arguments are specified")
         group = ap.add_mutually_exclusive_group()
-        group.add_argument("-a", "--autoMax", action="store_true",
-                           help="automatically set maximums based on cars' charging needs")
-        group.add_argument("-e", "--equalAmps", action="store_true",
-                           help="share current equally")
         group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=99, metavar="amps",
                            help="maximum current to set (Amps)")
         ap.add_argument("juiceBoxName", nargs="?", metavar="name",
@@ -54,60 +46,6 @@ class JuiceBoxCtl(object):
 
         return ap.parse_args()
     # end parseArgs()
-
-    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
-        """Retrieve JuiceBox details corresponding to a given car"""
-        juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
-        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
-
-        if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
-            logging.warning(f"Suspicious car-JuiceBox mapping;"
-                            f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
-                            f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
-
-        return juiceBox
-    # end getJuiceBoxForCar(CarDetails, dict)
-
-    async def automaticallySetMax(self, jbIntrfc: JbInterface, juiceBoxes: list[JbDetails]) -> None:
-        """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
-        async with aclosing(TessieInterface()) as tsIntrfc:
-            tsIntrfc: TessieInterface
-            vehicles = await tsIntrfc.getStateOfActiveVehicles()
-            totalEnergyNeeded = 0.0
-
-            for carDetails in vehicles:
-                await tsIntrfc.addBatteryHealth(carDetails)
-                energyNeeded = carDetails.energyNeededC()
-                msg = carDetails.currentChargingStatus()
-
-                if energyNeeded:
-                    msg += f" ({energyNeeded:.1f} kWh < limit)"
-                logging.info(msg)
-                totalEnergyNeeded += energyNeeded
-            # end for
-        # end async with (tsIntrfc is closed)
-
-        if len(vehicles) < 2:
-            raise Exception(f"Unable to locate both cars,"
-                            f" found {[car.displayName for car in vehicles]}")
-
-        if totalEnergyNeeded:
-            juiceBoxMap = {jb.name: jb for jb in juiceBoxes}
-            vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
-            jbs = [self.getJuiceBoxForCar(car, juiceBoxMap) for car in vehicles]
-            fairShare0 = self.totalCurrent * (vehicles[0].energyNeededC() / totalEnergyNeeded)
-
-            await jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
-        else:
-            # Share current equally when no car needs energy
-            await self.shareCurrentEqually(jbIntrfc, juiceBoxes)
-    # end automaticallySetMax(JbInterface, list[JbDetails])
-
-    async def shareCurrentEqually(self, jbIntrfc: JbInterface,
-                                  juiceBoxes: list[JbDetails]) -> None:
-        """Share current equally between all JuiceBoxes"""
-        await jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
-    # end shareCurrentEqually(JbInterface, list[JbDetails])
 
     async def specifyMaxCurrent(self, jbIntrfc: JbInterface,
                                 juiceBoxes: list[JbDetails]) -> None:
@@ -144,10 +82,6 @@ class JuiceBoxCtl(object):
             juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
 
             match True:
-                case _ if self.autoMax:
-                    await self.automaticallySetMax(jbIntrfc, juiceBoxes)
-                case _ if self.equalAmps:
-                    await self.shareCurrentEqually(jbIntrfc, juiceBoxes)
                 case _ if self.specifiedMaxAmps is not None:
                     await self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
                 case _:

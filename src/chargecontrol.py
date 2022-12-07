@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 import logging
 import sys
 from abc import ABC, abstractmethod
@@ -7,6 +8,7 @@ from argparse import ArgumentParser, Namespace
 from contextlib import aclosing
 from typing import Self
 
+from juicebox import JbDetails, JbInterface
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler
 
@@ -15,9 +17,19 @@ class ChargeControl(object):
     """Controls vehicles charging activity"""
 
     def __init__(self, args: Namespace):
+        self.autoMax: bool = args.autoMax
         self.disable: bool = args.disable
         self.enableLimit: int | None = args.enableLimit
+        self.justEqualAmps: bool = args.justEqualAmps
         self.setLimit: int | None = args.setLimit
+
+        with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
+                  "r", encoding="utf-8") as mappingFile:
+            carJuiceBoxMapping: dict = json.load(mappingFile)
+
+        self.jbAttachMap: dict = carJuiceBoxMapping["attachedJuiceBoxes"]
+        self.minPluggedCurrent: int = carJuiceBoxMapping["minPluggedCurrent"]
+        self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
     # end __init__(Namespace)
 
     @staticmethod
@@ -26,10 +38,14 @@ class ChargeControl(object):
         ap = ArgumentParser(description="Module to control charging all authorized cars",
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
+        group.add_argument("-a", "--autoMax", action="store_true",
+                           help="automatically set maximums based on cars' charging needs")
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
                            help="enable charging with limit if 50%%")
+        group.add_argument("-j", "--justEqualAmps", action="store_true",
+                           help="just share current equally")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
                            help="set charge limits if 50%%")
 
@@ -97,11 +113,32 @@ class ChargeControl(object):
                 logging.info(f"No change made to {dtls.displayName}")
     # end setChargeStop(CarDetails, int, TessieInterface, bool)
 
+    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
+        """Retrieve JuiceBox details corresponding to a given car"""
+        juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
+        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
+
+        if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
+            logging.warning(f"Suspicious car-JuiceBox mapping;"
+                            f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
+                            f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
+
+        return juiceBox
+    # end getJuiceBoxForCar(CarDetails, dict)
+
+    async def shareCurrentEqually(self, jbIntrfc: JbInterface,
+                                  juiceBoxes: list[JbDetails]) -> None:
+        """Share current equally between all JuiceBoxes"""
+        await jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
+    # end shareCurrentEqually(JbInterface, list[JbDetails])
+
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
-        async with aclosing(TessieInterface()) as tsIntrfc:
+        async with aclosing(TessieInterface()) as tsIntrfc, aclosing(
+                JbInterface(self.minPluggedCurrent, self.totalCurrent)) as jbIntrfc:
             tsIntrfc: TessieInterface
+            jbIntrfc: JbInterface
             processor: ParallelProc
 
             match True:
@@ -111,12 +148,17 @@ class ChargeControl(object):
                     processor = await DisableCarCharging().addTs(tsIntrfc, self)
                 case _ if self.setLimit:
                     processor = await SetChargeLimit().addTs(tsIntrfc, self)
+                case _ if self.autoMax:
+                    processor = await AutomaticallySetMax().addJb(jbIntrfc, self)
+                    await processor.addTs(tsIntrfc, self)
+                case _ if self.justEqualAmps:
+                    processor = await ShareCurrentEqually().addJb(jbIntrfc, self)
                 case _:
                     processor = await DisplayStatus().addTs(tsIntrfc, self)
             # end match
 
             await processor.process()
-        # end async with (tsIntrfc is closed)
+        # end async with (interfaces are closed)
     # end main()
 
 # end class ChargeControl
@@ -125,6 +167,8 @@ class ChargeControl(object):
 class ParallelProc(ABC):
     tsIntrfc: TessieInterface
     vehicles: list[CarDetails]
+    jbIntrfc: JbInterface
+    juiceBoxes: list[JbDetails]
     chargeCtl: ChargeControl
 
     @abstractmethod
@@ -139,6 +183,15 @@ class ParallelProc(ABC):
 
         return self
     # end addTs(TessieInterface, ChargeControl)
+
+    async def addJb(self, jbIntrfc: JbInterface, chargeCtl: ChargeControl) -> Self:
+        self.jbIntrfc = jbIntrfc
+        await jbIntrfc.logIn()
+        self.juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
+        self.chargeCtl = chargeCtl
+
+        return self
+    # end addJb(JbInterface, ChargeControl)
 
 # end class ParallelProc
 
@@ -191,6 +244,55 @@ class DisableCarCharging(ParallelProc):
     # end process()
 
 # end class DisableCarCharging
+
+
+class AutomaticallySetMax(ParallelProc):
+
+    async def process(self) -> None:
+        """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
+            # end for
+        # end async with (tasks are awaited)
+        totalEnergyNeeded = 0.0
+
+        for carDetails in self.vehicles:
+            energyNeeded = carDetails.energyNeededC()
+            msg = carDetails.currentChargingStatus()
+
+            if energyNeeded:
+                msg += f" ({energyNeeded:.1f} kWh < limit)"
+            logging.info(msg)
+            totalEnergyNeeded += energyNeeded
+        # end for
+
+        if len(self.vehicles) < 2:
+            raise Exception(f"Unable to locate both cars,"
+                            f" found {[car.displayName for car in self.vehicles]}")
+
+        if totalEnergyNeeded:
+            juiceBoxMap = {jb.name: jb for jb in self.juiceBoxes}
+            self.vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
+            jbs = [self.chargeCtl.getJuiceBoxForCar(car, juiceBoxMap) for car in self.vehicles]
+            fairShare0 = self.chargeCtl.totalCurrent * (
+                    self.vehicles[0].energyNeededC() / totalEnergyNeeded)
+
+            await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
+        else:
+            # Share current equally when no car needs energy
+            await self.chargeCtl.shareCurrentEqually(self.jbIntrfc, self.juiceBoxes)
+    # end process()
+
+# end class AutomaticallySetMax
+
+
+class ShareCurrentEqually(ParallelProc):
+
+    async def process(self) -> None:
+        await self.chargeCtl.shareCurrentEqually(self.jbIntrfc, self.juiceBoxes)
+
+# end class ShareCurrentEqually
 
 
 class DisplayStatus(ParallelProc):
