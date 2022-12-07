@@ -52,24 +52,6 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    @staticmethod
-    async def setChargeStop(dtls: CarDetails, percent: int, carIntrfc: TessieInterface, *,
-                            waitForCompletion=True) -> None:
-        if dtls.chargeLimitIsMin():
-            # this vehicle is set to charge limit minimum
-            percent = dtls.limitToCapabilities(percent)
-
-            if percent != dtls.chargeLimit:
-                if not dtls.awake():
-                    # try to wake up this car
-                    await carIntrfc.wake(dtls)
-
-                await carIntrfc.setChargeLimit(dtls, percent,
-                                               waitForCompletion=waitForCompletion)
-            else:
-                logging.info(f"No change made to {dtls.displayName}")
-    # end setChargeStop(CarDetails, int, TessieInterface, bool)
-
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
         """Retrieve JuiceBox details corresponding to a given car"""
         juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
@@ -159,23 +141,39 @@ class SetChargeLimit(ParallelProc):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.currentChargingStatus())
-                tg.create_task(self.chargeCtl.setChargeStop(
-                    dtls, self.chargeCtl.setLimit, self.tsIntrfc, waitForCompletion=False))
+                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
+                                                   waitForCompletion=False))
             # end for
         # end async with (tasks are awaited)
     # end process()
 
+    async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
+                             waitForCompletion=True) -> None:
+        if dtls.chargeLimitIsMin():
+            # this vehicle is set to charge limit minimum
+            percent = dtls.limitToCapabilities(percent)
+
+            if percent != dtls.chargeLimit:
+                if not dtls.awake():
+                    # try to wake up this car
+                    await self.tsIntrfc.wake(dtls)
+
+                await self.tsIntrfc.setChargeLimit(dtls, percent,
+                                                   waitForCompletion=waitForCompletion)
+            else:
+                logging.info(f"No change made to {dtls.displayName} charge limit")
+    # end setChargeLimit(CarDetails, int, bool)
+
 # end class SetChargeLimit
 
 
-class EnableCarCharging(ParallelProc):
+class EnableCarCharging(SetChargeLimit):
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.currentChargingStatus())
-                tg.create_task(self.chargeCtl.setChargeStop(
-                    dtls, self.chargeCtl.enableLimit, self.tsIntrfc))
+                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
             # end for
         # end async with (tasks are awaited)
 
