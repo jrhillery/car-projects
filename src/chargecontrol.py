@@ -52,19 +52,6 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
-        """Retrieve JuiceBox details corresponding to a given car"""
-        juiceBoxName: str = self.jbAttachMap[vehicle.displayName]
-        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
-
-        if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
-            logging.warning(f"Suspicious car-JuiceBox mapping;"
-                            f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
-                            f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
-
-        return juiceBox
-    # end getJuiceBoxForCar(CarDetails, dict)
-
     async def shareCurrentEqually(self, jbIntrfc: JbInterface,
                                   juiceBoxes: list[JbDetails]) -> None:
         """Share current equally between all JuiceBoxes"""
@@ -270,7 +257,7 @@ class AutomaticallySetMax(ParallelProc):
         if totalEnergyNeeded:
             juiceBoxMap = {jb.name: jb for jb in self.juiceBoxes}
             self.vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
-            jbs = [self.chargeCtl.getJuiceBoxForCar(car, juiceBoxMap) for car in self.vehicles]
+            jbs = [self.getJuiceBoxForCar(car, juiceBoxMap) for car in self.vehicles]
             fairShare0 = self.chargeCtl.totalCurrent * (
                     self.vehicles[0].energyNeededC() / totalEnergyNeeded)
 
@@ -279,6 +266,19 @@ class AutomaticallySetMax(ParallelProc):
             # Share current equally when no car needs energy
             await self.chargeCtl.shareCurrentEqually(self.jbIntrfc, self.juiceBoxes)
     # end process()
+
+    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
+        """Retrieve JuiceBox details corresponding to a given car"""
+        juiceBoxName: str = self.chargeCtl.jbAttachMap[vehicle.displayName]
+        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
+
+        if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
+            logging.warning(f"Suspicious car-JuiceBox mapping;"
+                            f" {vehicle.displayName} shows {vehicle.chargeAmps} amps offered"
+                            f" but {juiceBox.name} has {juiceBox.maxCurrent} amps max")
+
+        return juiceBox
+    # end getJuiceBoxForCar(CarDetails, dict)
 
 # end class AutomaticallySetMax
 
