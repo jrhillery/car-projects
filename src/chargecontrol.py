@@ -52,12 +52,6 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    async def shareCurrentEqually(self, jbIntrfc: JbInterface,
-                                  juiceBoxes: list[JbDetails]) -> None:
-        """Share current equally between all JuiceBoxes"""
-        await jbIntrfc.setNewMaximums(juiceBoxes[0], self.totalCurrent // 2, juiceBoxes[1])
-    # end shareCurrentEqually(JbInterface, list[JbDetails])
-
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
@@ -68,17 +62,17 @@ class ChargeControl(object):
             processor: ParallelProc
 
             match True:
+                case _ if self.setLimit:
+                    processor = await SetChargeLimit().addTs(tsIntrfc, self)
                 case _ if self.enableLimit:
                     processor = await EnableCarCharging().addTs(tsIntrfc, self)
                 case _ if self.disable:
                     processor = await DisableCarCharging().addTs(tsIntrfc, self)
-                case _ if self.setLimit:
-                    processor = await SetChargeLimit().addTs(tsIntrfc, self)
+                case _ if self.justEqualAmps:
+                    processor = await ShareCurrentEqually().addJb(jbIntrfc, self)
                 case _ if self.autoMax:
                     processor = await AutomaticallySetMax().addJb(jbIntrfc, self)
                     await processor.addTs(tsIntrfc, self)
-                case _ if self.justEqualAmps:
-                    processor = await ShareCurrentEqually().addJb(jbIntrfc, self)
                 case _:
                     processor = await DisplayStatus().addTs(tsIntrfc, self)
             # end match
@@ -229,7 +223,22 @@ class DisableCarCharging(ParallelProc):
 # end class DisableCarCharging
 
 
-class AutomaticallySetMax(ParallelProc):
+class ShareCurrentEqually(ParallelProc):
+
+    async def process(self) -> None:
+        await self.shareCurrentEqually()
+    # end process()
+
+    async def shareCurrentEqually(self) -> None:
+        """Share current equally between all JuiceBoxes"""
+        await self.jbIntrfc.setNewMaximums(
+            self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
+    # end shareCurrentEqually()
+
+# end class ShareCurrentEqually
+
+
+class AutomaticallySetMax(ShareCurrentEqually):
 
     async def process(self) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
@@ -264,7 +273,7 @@ class AutomaticallySetMax(ParallelProc):
             await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
         else:
             # Share current equally when no car needs energy
-            await self.chargeCtl.shareCurrentEqually(self.jbIntrfc, self.juiceBoxes)
+            await self.shareCurrentEqually()
     # end process()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
@@ -281,14 +290,6 @@ class AutomaticallySetMax(ParallelProc):
     # end getJuiceBoxForCar(CarDetails, dict)
 
 # end class AutomaticallySetMax
-
-
-class ShareCurrentEqually(ParallelProc):
-
-    async def process(self) -> None:
-        await self.chargeCtl.shareCurrentEqually(self.jbIntrfc, self.juiceBoxes)
-
-# end class ShareCurrentEqually
 
 
 class DisplayStatus(ParallelProc):
