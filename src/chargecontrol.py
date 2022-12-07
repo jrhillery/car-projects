@@ -53,31 +53,6 @@ class ChargeControl(object):
     # end parseArgs()
 
     @staticmethod
-    async def startChargingWhenReady(carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Start charging if plugged in at home, not charging and could use a charge"""
-
-        if dtls.pluggedInAtHome():
-            if not dtls.awake():
-                await carIntrfc.wake(dtls)
-
-            # make sure we have the current battery level and charge limit
-            await carIntrfc.getCurrentState(dtls)
-
-        if dtls.pluggedInAtHome() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
-            # this vehicle is plugged in at home, not charging and could use a charge
-            retries = 6
-
-            while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
-                # wait for charging state to change from Complete
-                await asyncio.sleep(3.2)
-                await carIntrfc.getCurrentState(dtls, attempts=1)
-                retries -= 1
-            # end while
-
-            await carIntrfc.startCharging(dtls)
-    # end startChargingWhenReady(TessieInterface, CarDetails)
-
-    @staticmethod
     async def disableCarCharging(carIntrfc: TessieInterface, dtls: CarDetails) -> None:
         """Stop charging and lower the charge limit to minimum
            if plugged in at home and not minimum already"""
@@ -224,10 +199,34 @@ class EnableCarCharging(ParallelProc):
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                tg.create_task(self.chargeCtl.startChargingWhenReady(self.tsIntrfc, dtls))
+                tg.create_task(self.startChargingWhenReady(dtls))
             # end for
         # end async with (tasks are awaited)
     # end process()
+
+    async def startChargingWhenReady(self, dtls: CarDetails) -> None:
+        """Start charging if plugged in at home, not charging and could use a charge"""
+
+        if dtls.pluggedInAtHome():
+            if not dtls.awake():
+                await self.tsIntrfc.wake(dtls)
+
+            # make sure we have the current battery level and charge limit
+            await self.tsIntrfc.getCurrentState(dtls)
+
+        if dtls.pluggedInAtHome() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
+            # this vehicle is plugged in at home, not charging and could use a charge
+            retries = 6
+
+            while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
+                # wait for charging state to change from Complete
+                await asyncio.sleep(3.2)
+                await self.tsIntrfc.getCurrentState(dtls, attempts=1)
+                retries -= 1
+            # end while
+
+            await self.tsIntrfc.startCharging(dtls)
+    # end startChargingWhenReady(CarDetails)
 
 # end class EnableCarCharging
 
