@@ -53,24 +53,6 @@ class ChargeControl(object):
     # end parseArgs()
 
     @staticmethod
-    async def disableCarCharging(carIntrfc: TessieInterface, dtls: CarDetails) -> None:
-        """Stop charging and lower the charge limit to minimum
-           if plugged in at home and not minimum already"""
-
-        if dtls.pluggedInAtHome():
-            # this vehicle is plugged in at home
-
-            if not dtls.awake():
-                await carIntrfc.wake(dtls)
-            await carIntrfc.stopCharging(dtls)
-
-            if not dtls.chargeLimitIsMin():
-                # this vehicle is not set to minimum limit already
-                await carIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
-                                               waitForCompletion=False)
-    # end disableCarCharging(TessieInterface, CarDetails)
-
-    @staticmethod
     async def setChargeStop(dtls: CarDetails, percent: int, carIntrfc: TessieInterface, *,
                             waitForCompletion=True) -> None:
         if dtls.chargeLimitIsMin():
@@ -237,10 +219,27 @@ class DisableCarCharging(ParallelProc):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.currentChargingStatus())
-                tg.create_task(self.chargeCtl.disableCarCharging(self.tsIntrfc, dtls))
+                tg.create_task(self.disableCarCharging(dtls))
             # end for
         # end async with (tasks are awaited)
     # end process()
+
+    async def disableCarCharging(self, dtls: CarDetails) -> None:
+        """Stop charging and lower the charge limit to minimum
+           if plugged in at home and not minimum already"""
+
+        if dtls.pluggedInAtHome():
+            # this vehicle is plugged in at home
+
+            if not dtls.awake():
+                await self.tsIntrfc.wake(dtls)
+            await self.tsIntrfc.stopCharging(dtls)
+
+            if not dtls.chargeLimitIsMin():
+                # this vehicle is not set to minimum limit already
+                await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
+                                                   waitForCompletion=False)
+    # end disableCarCharging(CarDetails)
 
 # end class DisableCarCharging
 
