@@ -32,7 +32,7 @@ class JbInterface(object):
         }
         self.session = ClientSession(headers=headers)
         self.loToken: str | None = None
-    # end __init__(int, int, ClientSession)
+    # end __init__(int, int)
 
     @staticmethod
     async def logInBody(resp: ClientResponse) -> dict[str, str]:
