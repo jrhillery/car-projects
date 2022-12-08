@@ -59,7 +59,7 @@ class ChargeControl(object):
                 JbInterface(self.minPluggedCurrent, self.totalCurrent)) as jbIntrfc:
             tsIntrfc: TessieInterface
             jbIntrfc: JbInterface
-            processor: ParallelProc
+            # processor: ParallelProc
 
             match True:
                 case _ if self.setLimit:
@@ -86,14 +86,6 @@ class ChargeControl(object):
 
 
 class ParallelProc(ABC):
-    # fields set by addTs
-    tsIntrfc: TessieInterface
-    vehicles: list[CarDetails]
-
-    # fields set by addJb
-    jbIntrfc: JbInterface
-    juiceBoxes: list[JbDetails]
-
     # field set by all subclasses
     chargeCtl: ChargeControl
 
@@ -102,6 +94,14 @@ class ParallelProc(ABC):
         """Abstract method that accomplishes the goal of this class"""
         pass
     # end process()
+
+# end class ParallelProc
+
+
+class TessieProc(ParallelProc, ABC):
+    # fields set by addTs
+    tsIntrfc: TessieInterface
+    vehicles: list[CarDetails]
 
     async def addTs(self, tsIntrfc: TessieInterface, chargeCtl: ChargeControl) -> Self:
         """Store an interface to Tessie, a list of vehicles and a charge control reference
@@ -114,6 +114,14 @@ class ParallelProc(ABC):
 
         return self
     # end addTs(TessieInterface, ChargeControl)
+
+# end class TessieProc
+
+
+class JuiceBoxProc(ParallelProc, ABC):
+    # fields set by addJb
+    jbIntrfc: JbInterface
+    juiceBoxes: list[JbDetails]
 
     async def addJb(self, jbIntrfc: JbInterface, chargeCtl: ChargeControl) -> Self:
         """Store an interface to, and a list of, JuiceBoxes and a charge control reference
@@ -128,10 +136,10 @@ class ParallelProc(ABC):
         return self
     # end addJb(JbInterface, ChargeControl)
 
-# end class ParallelProc
+# end class JuiceBoxProc
 
 
-class SetChargeLimit(ParallelProc):
+class SetChargeLimit(TessieProc):
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -169,7 +177,7 @@ class SetChargeLimit(ParallelProc):
 # end class SetChargeLimit
 
 
-class ShareCurrentEqually(ParallelProc):
+class ShareCurrentEqually(JuiceBoxProc):
 
     async def process(self) -> None:
         await self.shareCurrentEqually()
@@ -184,7 +192,7 @@ class ShareCurrentEqually(ParallelProc):
 # end class ShareCurrentEqually
 
 
-class AutomaticallySetMax(ShareCurrentEqually):
+class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -295,7 +303,7 @@ class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
 # end class EnableCarCharging
 
 
-class DisableCarCharging(ParallelProc):
+class DisableCarCharging(TessieProc):
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -327,7 +335,7 @@ class DisableCarCharging(ParallelProc):
 # end class DisableCarCharging
 
 
-class DisplayStatus(ParallelProc):
+class DisplayStatus(TessieProc):
 
     async def process(self) -> None:
         for dtls in self.vehicles:
