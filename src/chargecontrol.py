@@ -131,6 +131,8 @@ class SetChargeLimit(ParallelProc):
 
     async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
                              waitForCompletion=True) -> None:
+        """If the specified vehicle's charge limit is minimum,
+           ensure the vehicle is awake and set a specified charge limit percent"""
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
             percent = dtls.limitToCapabilities(percent)
@@ -167,12 +169,18 @@ class ShareCurrentEqually(ParallelProc):
 class AutomaticallySetMax(ShareCurrentEqually):
 
     async def process(self) -> None:
-        """Automatically set JuiceBox maximum currents based on each cars' charging needs"""
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
+
+        await self.automaticallySetMax()
+    # end process()
+
+    async def automaticallySetMax(self) -> None:
+        """Automatically set JuiceBox maximum currents based on each cars' charging needs
+           - depends on having battery health details"""
         totalEnergyNeeded = 0.0
 
         for carDetails in self.vehicles:
@@ -200,7 +208,7 @@ class AutomaticallySetMax(ShareCurrentEqually):
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually()
-    # end process()
+    # end automaticallySetMax()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
         """Retrieve JuiceBox details corresponding to a given car"""
@@ -223,10 +231,12 @@ class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                logging.info(dtls.currentChargingStatus())
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
+                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
+
+        await self.automaticallySetMax()
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
