@@ -22,7 +22,7 @@ class JbInterface(object):
         """Constructor
 
         :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
-        :param totalCurrent: The total current avaible to all Juiceboxes
+        :param totalCurrent: The total current avaible to all JuiceBoxes
         """
         self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent

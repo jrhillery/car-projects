@@ -86,18 +86,28 @@ class ChargeControl(object):
 
 
 class ParallelProc(ABC):
+    # fields set by addTs
     tsIntrfc: TessieInterface
     vehicles: list[CarDetails]
+
+    # fields set by addJb
     jbIntrfc: JbInterface
     juiceBoxes: list[JbDetails]
+
+    # field set by all subclasses
     chargeCtl: ChargeControl
 
     @abstractmethod
     async def process(self) -> None:
+        """Abstract method that accomplishes the goal of this class"""
         pass
     # end process()
 
     async def addTs(self, tsIntrfc: TessieInterface, chargeCtl: ChargeControl) -> Self:
+        """Store an interface to Tessie, a list of vehicles and a charge control reference
+        :param tsIntrfc: Interface to Tessie
+        :param chargeCtl: Charge control reference
+        """
         self.tsIntrfc = tsIntrfc
         self.vehicles = await tsIntrfc.getStateOfActiveVehicles()
         self.chargeCtl = chargeCtl
@@ -106,6 +116,10 @@ class ParallelProc(ABC):
     # end addTs(TessieInterface, ChargeControl)
 
     async def addJb(self, jbIntrfc: JbInterface, chargeCtl: ChargeControl) -> Self:
+        """Store an interface to, and a list of, JuiceBoxes and a charge control reference
+        :param jbIntrfc: Interface to JuiceBoxes
+        :param chargeCtl: Charge control reference
+        """
         self.jbIntrfc = jbIntrfc
         await jbIntrfc.logIn()
         self.juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
@@ -132,7 +146,11 @@ class SetChargeLimit(ParallelProc):
     async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
                              waitForCompletion=True) -> None:
         """If the specified vehicle's charge limit is minimum,
-           ensure the vehicle is awake and set a specified charge limit percent"""
+           ensure the vehicle is awake and set a specified charge limit percent
+        :param dtls: Details of the vehicle to set
+        :param percent: Charging limit percent
+        :param waitForCompletion: Flag indicating to wait for limit to be set
+        """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
             percent = dtls.limitToCapabilities(percent)
@@ -211,7 +229,11 @@ class AutomaticallySetMax(ShareCurrentEqually):
     # end automaticallySetMax()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
-        """Retrieve JuiceBox details corresponding to a given car"""
+        """Retrieve JuiceBox details corresponding to a given car
+        :param vehicle: Details of the vehicle in question
+        :param juiceBoxMap: Mapping from JuiceBox names to JuiceBox details
+        :return: Details of the corresponding JuiceBox
+        """
         juiceBoxName: str = self.chargeCtl.jbAttachMap[vehicle.displayName]
         juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
 
@@ -246,8 +268,9 @@ class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
     # end process()
 
     async def startChargingWhenReady(self, dtls: CarDetails) -> None:
-        """Start charging if plugged in at home, not charging and could use a charge"""
-
+        """Start charging if plugged in at home, not charging and could use a charge
+        :param dtls: Details of the vehicle to start charging
+        """
         if dtls.pluggedInAtHome():
             if not dtls.awake():
                 await self.tsIntrfc.wake(dtls)
@@ -285,8 +308,9 @@ class DisableCarCharging(ParallelProc):
 
     async def disableCarCharging(self, dtls: CarDetails) -> None:
         """Stop charging and lower the charge limit to minimum
-           if plugged in at home and not minimum already"""
-
+           if plugged in at home and not minimum already
+        :param dtls: Details of the vehicle to stop charging
+        """
         if dtls.pluggedInAtHome():
             # this vehicle is plugged in at home
 
