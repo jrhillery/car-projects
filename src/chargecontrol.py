@@ -5,7 +5,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from contextlib import aclosing
+from contextlib import aclosing, AsyncExitStack
 
 from juicebox import JbDetails, JbInterface
 from tessie import CarDetails, TessieInterface
@@ -70,15 +70,17 @@ class ChargeControl(object):
                 processor = DisplayStatus(self)
         # end match
 
-        async with aclosing(TessieInterface()) as tsIntrfc, aclosing(
-                JbInterface(self.minPluggedCurrent, self.totalCurrent)) as jbIntrfc:
-            tsIntrfc: TessieInterface
-            jbIntrfc: JbInterface
-
+        async with AsyncExitStack() as cStack:
             if isinstance(processor, TessieProc):
+                # Create a TessieInterface registered so aclose is called when cStack closes
+                tsIntrfc = await cStack.enter_async_context(aclosing(
+                    TessieInterface()))
                 await processor.addTs(tsIntrfc)
 
             if isinstance(processor, JuiceBoxProc):
+                # Create a JbInterface registered so aclose is called when cStack closes
+                jbIntrfc = await cStack.enter_async_context(aclosing(
+                    JbInterface(self.minPluggedCurrent, self.totalCurrent)))
                 await processor.addJb(jbIntrfc)
 
             await processor.process()
