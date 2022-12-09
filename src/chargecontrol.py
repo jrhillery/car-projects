@@ -71,17 +71,19 @@ class ChargeControl(object):
         # end match
 
         async with AsyncExitStack() as cStack:
-            if isinstance(processor, TessieProc):
-                # Create a TessieInterface registered so aclose is called when cStack closes
-                tsIntrfc = await cStack.enter_async_context(aclosing(
-                    TessieInterface()))
-                await processor.addTs(tsIntrfc)
+            async with asyncio.TaskGroup() as tg:
+                if isinstance(processor, TessieProc):
+                    # Create TessieInterface registered so aclose is called when cStack closes
+                    tsIntrfc = await cStack.enter_async_context(aclosing(
+                        TessieInterface()))
+                    tg.create_task(processor.addTs(tsIntrfc))
 
-            if isinstance(processor, JuiceBoxProc):
-                # Create a JbInterface registered so aclose is called when cStack closes
-                jbIntrfc = await cStack.enter_async_context(aclosing(
-                    JbInterface(self.minPluggedCurrent, self.totalCurrent)))
-                await processor.addJb(jbIntrfc)
+                if isinstance(processor, JuiceBoxProc):
+                    # Create JbInterface registered so aclose is called when cStack closes
+                    jbIntrfc = await cStack.enter_async_context(aclosing(
+                        JbInterface(self.minPluggedCurrent, self.totalCurrent)))
+                    tg.create_task(processor.addJb(jbIntrfc))
+            # end async with (tasks are awaited)
 
             await processor.process()
         # end async with (interfaces are closed)
