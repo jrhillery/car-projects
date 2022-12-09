@@ -57,17 +57,17 @@ class ChargeControl(object):
 
         match True:
             case _ if self.setLimit:
-                processor = SetChargeLimit()
+                processor = SetChargeLimit(self)
             case _ if self.justEqualAmps:
-                processor = ShareCurrentEqually()
+                processor = ShareCurrentEqually(self)
             case _ if self.autoMax:
-                processor = AutomaticallySetMax()
+                processor = AutomaticallySetMax(self)
             case _ if self.enableLimit:
-                processor = EnableCarCharging()
+                processor = EnableCarCharging(self)
             case _ if self.disable:
-                processor = DisableCarCharging()
+                processor = DisableCarCharging(self)
             case _:
-                processor = DisplayStatus()
+                processor = DisplayStatus(self)
         # end match
 
         async with aclosing(TessieInterface()) as tsIntrfc, aclosing(
@@ -76,10 +76,10 @@ class ChargeControl(object):
             jbIntrfc: JbInterface
 
             if isinstance(processor, TessieProc):
-                await processor.addTs(tsIntrfc, self)
+                await processor.addTs(tsIntrfc)
 
             if isinstance(processor, JuiceBoxProc):
-                await processor.addJb(jbIntrfc, self)
+                await processor.addJb(jbIntrfc)
 
             await processor.process()
         # end async with (interfaces are closed)
@@ -89,8 +89,13 @@ class ChargeControl(object):
 
 
 class ParallelProc(ABC):
-    # field set by all subclasses
-    chargeCtl: ChargeControl
+
+    def __init__(self, chargeCtl: ChargeControl):
+        """Sole constructor - store a charge control reference
+        :param chargeCtl: Charge control reference
+        """
+        self.chargeCtl = chargeCtl
+    # end __init__(ChargeControl)
 
     @abstractmethod
     async def process(self) -> None:
@@ -106,15 +111,13 @@ class TessieProc(ParallelProc, ABC):
     tsIntrfc: TessieInterface
     vehicles: list[CarDetails]
 
-    async def addTs(self, tsIntrfc: TessieInterface, chargeCtl: ChargeControl) -> None:
-        """Store an interface to Tessie, a list of vehicles and a charge control reference
+    async def addTs(self, tsIntrfc: TessieInterface) -> None:
+        """Store an interface to Tessie and a list of vehicles
         :param tsIntrfc: Interface to Tessie
-        :param chargeCtl: Charge control reference
         """
         self.tsIntrfc = tsIntrfc
         self.vehicles = await tsIntrfc.getStateOfActiveVehicles()
-        self.chargeCtl = chargeCtl
-    # end addTs(TessieInterface, ChargeControl)
+    # end addTs(TessieInterface)
 
 # end class TessieProc
 
@@ -124,16 +127,14 @@ class JuiceBoxProc(ParallelProc, ABC):
     jbIntrfc: JbInterface
     juiceBoxes: list[JbDetails]
 
-    async def addJb(self, jbIntrfc: JbInterface, chargeCtl: ChargeControl) -> None:
-        """Store an interface to, and a list of, JuiceBoxes and a charge control reference
+    async def addJb(self, jbIntrfc: JbInterface) -> None:
+        """Store an interface to, and a list of, JuiceBoxes
         :param jbIntrfc: Interface to JuiceBoxes
-        :param chargeCtl: Charge control reference
         """
         self.jbIntrfc = jbIntrfc
         await jbIntrfc.logIn()
         self.juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
-        self.chargeCtl = chargeCtl
-    # end addJb(JbInterface, ChargeControl)
+    # end addJb(JbInterface)
 
 # end class JuiceBoxProc
 
