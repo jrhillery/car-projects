@@ -339,11 +339,14 @@ class DisableCarCharging(TessieProc):
 # end class DisableCarCharging
 
 
-class DisplayStatus(TessieProc):
+class DisplayStatus(TessieProc, JuiceBoxProc):
 
     async def process(self) -> None:
         for dtls in self.vehicles:
             logging.info(dtls.currentChargingStatus())
+
+        for juiceBox in self.juiceBoxes:
+            logging.info(juiceBox.statusStr())
     # end process()
 
 # end class DisplayStatus

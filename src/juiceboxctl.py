@@ -36,8 +36,7 @@ class JuiceBoxCtl(object):
     @staticmethod
     def parseArgs() -> Namespace:
         """Parse command line arguments"""
-        ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents",
-                            epilog="Just displays status when no arguments are specified")
+        ap = ArgumentParser(description="Module to set maximum JuiceBox charge currents")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=99, metavar="amps",
                            help="maximum current to set (Amps)")
@@ -84,9 +83,6 @@ class JuiceBoxCtl(object):
             match True:
                 case _ if self.specifiedMaxAmps is not None:
                     await self.specifyMaxCurrent(jbIntrfc, juiceBoxes)
-                case _:
-                    for juiceBox in juiceBoxes:
-                        logging.info(juiceBox.statusStr())
             # end match
         # end async with (jbIntrfc is closed)
     # end main()
