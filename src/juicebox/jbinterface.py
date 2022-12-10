@@ -19,8 +19,7 @@ class JbInterface(object):
     }
 
     def __init__(self, minPluggedCurrent: int, totalCurrent: int):
-        """Constructor
-
+        """Initialize this instance and allocate resources
         :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
         :param totalCurrent: The total current avaible to all JuiceBoxes
         """
@@ -37,7 +36,6 @@ class JbInterface(object):
     @staticmethod
     async def logInBody(resp: ClientResponse) -> dict[str, str]:
         """Return a log-in post request body
-
         :param resp: The response from an initial account login get request
         :return: A dictionary representing the body of a log-in post request
         """
@@ -94,7 +92,6 @@ class JbInterface(object):
 
     async def getStateOfJuiceBoxes(self) -> list[JbDetails]:
         """Get all active JuiceBoxes and their latest states
-
         :return: A list with details of each online JuiceBox in the account
         """
         url = "https://home.juice.net/Portal/GetUserUnitsJson"
@@ -123,7 +120,6 @@ class JbInterface(object):
 
     async def addMoreDetails(self, juiceBox: JbDetails) -> JbDetails:
         """Augment details of the specified JuiceBox
-
         :param juiceBox: Details of the JuiceBox to augment
         :return: The updated JuiceBox details
         """
@@ -145,7 +141,6 @@ class JbInterface(object):
 
     async def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
         """Set the JuiceBox maximum current as close as possible to a specified maximum
-
         :param juiceBox: Details of the JuiceBox to set
         :param maxCurrent: Requested new maximum current limit
         """
@@ -175,7 +170,6 @@ class JbInterface(object):
     async def setNewMaximums(self, juiceBoxA: JbDetails, maxAmpsA: int,
                              juiceBoxB: JbDetails) -> None:
         """Set JuiceBox maximum currents, decrease one before increasing the other
-
         :param juiceBoxA: Details of one of the JuiceBoxes to set
         :param maxAmpsA: The desired maximum current for juiceBoxA
         :param juiceBoxB: Details of the other JuiceBox to set (gets remaining current)
@@ -196,7 +190,6 @@ class JbInterface(object):
     def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
         """Return a maximum current that does not exceed the wire rating of
            the JuiceBox and complies with J1772's minimum plug-in current
-
         :param juiceBox: Details of the relevant JuiceBox
         :param maxCurrent: The desired maximum current
         :return: The maximum current that satisfies restrictions

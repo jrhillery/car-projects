@@ -13,6 +13,7 @@ class TessieInterface(object):
     """Provides an interface through Tessie to authorized vehicles"""
 
     def __init__(self):
+        """Initialize this instance and allocate resources"""
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {TessieInterface.loadToken()}"
@@ -33,7 +34,9 @@ class TessieInterface(object):
         """Get all active vehicles and their latest state - this call always
            returns a complete set of data and doesn't impact vehicle sleep
            - if the vehicle is awake, the data is usually less than 10 seconds old
-           - if the vehicle is asleep, the data is from the time the vehicle went to sleep"""
+           - if the vehicle is asleep, the data is from the time the vehicle went to sleep
+        :return: A list with details of the active vehicles in the account
+        """
         url = "https://api.tessie.com/vehicles"
         qryParms = {"only_active": "true"}
 
@@ -60,13 +63,21 @@ class TessieInterface(object):
 
     @staticmethod
     async def respErrLog(resp: ClientResponse, dtls: CarDetails) -> str:
+        """Retrieve information about a response suitable for logging
+        :param resp: The response to detail
+        :param dtls: Details of the associated vehicle
+        :return: A summary string
+        """
 
         return f"Encountered {await Interpret.responseErr(resp, dtls.displayName)}"
     # end respErrLog(ClientResponse, CarDetails)
 
     async def getCurrentState(self, dtls: CarDetails, attempts: int = 10) -> None:
         """Get the latest state of a specified vehicle - uses a live connection, which may
-           return {"state": "asleep"} or network errors depending on vehicle connectivity"""
+           return {"state": "asleep"} or network errors depending on vehicle connectivity
+        :param dtls: Details of the vehicle to query
+        :param attempts: Number of times to attempt query
+        """
         url = f"https://api.tessie.com/{dtls.vin}/state"
         qryParms = {"use_cache": "false"}
 
@@ -103,7 +114,6 @@ class TessieInterface(object):
     async def addSleepStatus(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with its status
            - the status may be asleep, waiting_for_sleep or awake
-
         :param dtls: Details of the vehicle to augment
         :return: The updated vehicle details
         """
@@ -127,7 +137,6 @@ class TessieInterface(object):
 
     async def addLocation(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with its location
-
         :param dtls: Details of the vehicle to augment
         :return: The updated vehicle details
         """
@@ -151,7 +160,6 @@ class TessieInterface(object):
 
     async def addBatteryHealth(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with battery health information
-
         :param dtls: Details of the vehicle to augment
         :return: The updated vehicle details
         """
@@ -174,7 +182,9 @@ class TessieInterface(object):
 
     async def wake(self, dtls: CarDetails) -> None:
         """Attempt to wake a specified vehicle from sleep
-           - logs a message indicating if woke up, or timed out (30s)"""
+           - logs a message indicating if woke up, or timed out (30s)
+        :param dtls: Details of the vehicle to wake
+        """
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
         async with self.session.get(url) as resp:
@@ -205,7 +215,11 @@ class TessieInterface(object):
 
     async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
                              waitForCompletion=True) -> None:
-        """Set a specified vehicle's charge limit"""
+        """Set a specified vehicle's charge limit
+        :param dtls: Details of the vehicle to set
+        :param percent: Charging limit percent
+        :param waitForCompletion: Flag indicating to wait for limit to be set
+        """
         url = f"https://api.tessie.com/{dtls.vin}/command/set_charge_limit"
         qryParms = {
             "retry_duration": 60,
@@ -225,7 +239,9 @@ class TessieInterface(object):
     # end setChargeLimit(CarDetails, int, *, bool)
 
     async def startCharging(self, dtls: CarDetails) -> None:
-        """Start charging a specified vehicle"""
+        """Start charging a specified vehicle
+        :param dtls: Details of the vehicle to start charging
+        """
         url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
         qryParms = {
             "retry_duration": 60,
@@ -242,7 +258,9 @@ class TessieInterface(object):
     # end startCharging(CarDetails)
 
     async def stopCharging(self, dtls: CarDetails) -> None:
-        """Stop charging a specified vehicle"""
+        """Stop charging a specified vehicle
+        :param dtls: Details of the vehicle to stop charging
+        """
         url = f"https://api.tessie.com/{dtls.vin}/command/stop_charging"
         qryParms = {
             "retry_duration": 60,
