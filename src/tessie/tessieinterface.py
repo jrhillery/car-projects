@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+from typing import Self
 
 from aiohttp import ClientResponse, ClientSession
 
@@ -12,17 +13,19 @@ from . import CarDetails
 class TessieInterface(object):
     """Provides an interface through Tessie to authorized vehicles"""
 
-    def __init__(self):
+    async def __aenter__(self) -> Self:
         """Initialize this instance and allocate resources"""
         headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {TessieInterface.loadToken()}"
+            "Authorization": f"Bearer {await TessieInterface.loadToken()}"
         }
         self.session = ClientSession(headers=headers)
-    # end __init__()
+
+        return self
+    # end __aenter__()
 
     @staticmethod
-    def loadToken() -> str:
+    async def loadToken() -> str:
         filePath = Configure.findParmPath().joinpath("accesstoken.json")
 
         with open(filePath, "r", encoding="utf-8") as tokenFile:
@@ -276,9 +279,9 @@ class TessieInterface(object):
         logging.info(f"{dtls.displayName} charging stopped")
     # end stopCharging(CarDetails)
 
-    async def aclose(self) -> None:
+    async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
         """Close this instance and free up resources"""
         await self.session.close()
-    # end aclose()
+    # end __aexit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
 # end class TessieInterface

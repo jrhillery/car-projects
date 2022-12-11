@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+from typing import Self
 
 from aiohttp import ClientResponse, ClientSession
 from pyquery import PyQuery
@@ -19,19 +20,25 @@ class JbInterface(object):
     }
 
     def __init__(self, minPluggedCurrent: int, totalCurrent: int):
-        """Initialize this instance and allocate resources
+        """Initialize this instance
         :param minPluggedCurrent: The minimum current limit to set when a car is plugged in
         :param totalCurrent: The total current avaible to all JuiceBoxes
         """
         self.minPluggedCurrent: int = minPluggedCurrent
         self.totalCurrent: int = totalCurrent
+        self.loToken: str | None = None
+    # end __init__(int, int)
+
+    async def __aenter__(self) -> Self:
+        """Allocate resources"""
         headers = {
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive",
         }
         self.session = ClientSession(headers=headers)
-        self.loToken: str | None = None
-    # end __init__(int, int)
+
+        return self
+    # end __aenter__()
 
     @staticmethod
     async def logInBody(resp: ClientResponse) -> dict[str, str]:
@@ -203,13 +210,13 @@ class JbInterface(object):
         return maxCurrent
     # end limitCurrent(JbDetails, int)
 
-    async def aclose(self) -> None:
+    async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
         """Close this instance and free up resources"""
         try:
             if self.loToken:
                 await self.logOut()
         finally:
             await self.session.close()
-    # end aclose()
+    # end __aexit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
 # end class JbInterface
