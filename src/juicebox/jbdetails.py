@@ -14,10 +14,14 @@ class JbDetails(object):
     wireRating: int
 
     def __init__(self, juiceBoxState: dict):
+        """Initialize this instance and allocate resources"""
         self.updateFromDict(juiceBoxState)
     # end __init__(dict)
 
     def updateFromDict(self, juiceBoxState: dict) -> None:
+        """Populate details of this JuiceBox
+        :param juiceBoxState: Dictionary of JuiceBox JSON data
+        """
         self.deviceId = juiceBoxState["unitID"]
         self.name = juiceBoxState["unitName"]
         self.isOffline = juiceBoxState["IsOffline"]
@@ -32,7 +36,10 @@ class JbDetails(object):
     # end pluggedIn()
 
     def limitToWireRating(self, maxCurrent: int) -> int:
-        """Return a maximum current that does not exceed the wire rating of this JuiceBox"""
+        """Return a maximum current that does not exceed the wire rating of this JuiceBox
+        :param maxCurrent: The desired maximum current
+        :return: The maximum current that satisfies the wire rating of this JuiceBox
+        """
         if hasattr(self, "wireRating"):
 
             if maxCurrent > self.wireRating:
@@ -42,6 +49,7 @@ class JbDetails(object):
     # end limitToWireRating(int)
 
     def statusStr(self) -> str:
+        """Return a summary status suitable for display"""
         return (f"{self.name} is {self.status}"
                 f" with maximum current {self.maxCurrent} A")
     # end statusStr()

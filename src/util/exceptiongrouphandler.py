@@ -7,7 +7,6 @@ class ExceptionGroupHandler:
     @staticmethod
     def iterGroup(xcp: BaseException) -> Iterator[BaseException]:
         """Generate each exception when an exception group is supplied
-
         :param xcp: An exception to analyze, potentially an exception group
         :return: An iterator over the contained exceptions
         """

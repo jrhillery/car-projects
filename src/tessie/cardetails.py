@@ -30,10 +30,14 @@ class CarDetails(object):
     battCapacity: float
 
     def __init__(self, vehicleState: dict):
+        """Initialize this instance and allocate resources"""
         self.updateFromDict(vehicleState)
     # end __init__(str, dict)
 
     def updateFromDict(self, vehicleState: dict) -> None:
+        """Populate details of this vehicle
+        :param vehicleState: Dictionary of Tessie JSON data
+        """
         self.vin = vehicleState["vin"]
         self.displayName = vehicleState["display_name"]
         chargeState = vehicleState["charge_state"]
@@ -45,7 +49,7 @@ class CarDetails(object):
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
         self.chargingState = chargeState["charging_state"]
         self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
-    # end updateFromDict(str, dict)
+    # end updateFromDict(dict)
 
     def pluggedIn(self) -> bool:
         return self.chargingState != "Disconnected"
@@ -110,6 +114,7 @@ class CarDetails(object):
     # end energyNeededC()
 
     def currentChargingStatus(self) -> str:
+        """Return a summary status suitable for display"""
         deltaSecs = time() - self.lastSeen
 
         if deltaSecs < 0.0:

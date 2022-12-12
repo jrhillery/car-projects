@@ -16,6 +16,9 @@ class ChargeControl(object):
     """Controls vehicles charging activity"""
 
     def __init__(self, args: Namespace):
+        """Initialize this instance and allocate resources
+        :param args: A Namespace instance with parsed command line arguments
+        """
         self.autoMax: bool = args.autoMax
         self.disable: bool = args.disable
         self.enableLimit: int | None = args.enableLimit
@@ -43,7 +46,9 @@ class ChargeControl(object):
 
     @staticmethod
     def parseArgs() -> Namespace:
-        """Parse command line arguments"""
+        """Parse command line arguments
+        :return: A Namespace instance with parsed command line arguments
+        """
         ap = ArgumentParser(description="Module to control charging all authorized cars"
                                         " and to set maximum JuiceBox charge currents",
                             epilog="Just displays status when no option is specified")
@@ -110,6 +115,7 @@ class ChargeControl(object):
 
 
 class ParallelProc(ABC):
+    """Abstract base class for all processors"""
 
     def __init__(self, chargeCtl: ChargeControl):
         """Sole constructor - store a charge control reference
@@ -120,7 +126,7 @@ class ParallelProc(ABC):
 
     @abstractmethod
     async def process(self) -> None:
-        """Abstract method that accomplishes the goal of this class"""
+        """Method that will accomplish the goal of this class"""
         pass
     # end process()
 
@@ -128,6 +134,7 @@ class ParallelProc(ABC):
 
 
 class TessieProc(ParallelProc, ABC):
+    """Abstract base class for processors that use a Tessie interface"""
     # fields set by addTs
     tsIntrfc: TessieInterface
     vehicles: list[CarDetails]
@@ -144,6 +151,7 @@ class TessieProc(ParallelProc, ABC):
 
 
 class JuiceBoxProc(ParallelProc, ABC):
+    """Abstract base class for processors that use a JuiceBox interface"""
     # fields set by addJb
     jbIntrfc: JbInterface
     juiceBoxes: list[JbDetails]
@@ -161,6 +169,7 @@ class JuiceBoxProc(ParallelProc, ABC):
 
 
 class SetChargeLimit(TessieProc):
+    """Processor to set charge limits if 50%"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -199,6 +208,7 @@ class SetChargeLimit(TessieProc):
 
 
 class ShareCurrentEqually(JuiceBoxProc):
+    """Processor to just share current equally"""
 
     async def process(self) -> None:
         await self.shareCurrentEqually()
@@ -214,6 +224,7 @@ class ShareCurrentEqually(JuiceBoxProc):
 
 
 class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
+    """Processor to automatically set maximums based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -278,6 +289,7 @@ class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
 
 
 class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
+    """Processor to enable charging with limit if 50%"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -325,6 +337,7 @@ class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
 
 
 class DisableCarCharging(TessieProc):
+    """Processor to disable charging"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -357,6 +370,7 @@ class DisableCarCharging(TessieProc):
 
 
 class SpecifyMaxCurrent(JuiceBoxProc):
+    """Processor to set a specified JuiceBox to a specified maximum current"""
 
     async def process(self) -> None:
         await self.specifyMaxCurrent(self.chargeCtl.juiceBoxName, self.chargeCtl.maxAmps)
@@ -365,7 +379,7 @@ class SpecifyMaxCurrent(JuiceBoxProc):
     async def specifyMaxCurrent(self, specifiedJuiceBoxName: str,
                                 specifiedMaxAmps: int) -> None:
         """Set the specified JuiceBox maximum current to a given value
-           (the other JuiceBox gets remaining current)
+           (the other JuiceBox gets the remaining current)
         :param specifiedJuiceBoxName: Name prefix of the JuiceBox name being specified
         :param specifiedMaxAmps: The maximum current (Amps) to set for the specified JuiceBox
         """
@@ -395,6 +409,7 @@ class SpecifyMaxCurrent(JuiceBoxProc):
 
 
 class DisplayStatus(TessieProc, JuiceBoxProc):
+    """Processor to just display status"""
 
     async def process(self) -> None:
         for dtls in self.vehicles:

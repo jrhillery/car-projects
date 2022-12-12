@@ -7,6 +7,7 @@ from pathlib import Path
 class Configure(object):
     @staticmethod
     def logToFile() -> None:
+        """Configure logging to file"""
         mainPath = Path(main.__file__)
         filePath = Path(mainPath.stem + ".log")
 
@@ -53,6 +54,9 @@ class Configure(object):
 
     @staticmethod
     def findParmPath() -> Path:
+        """Locate our parameter folder
+        :return: A Path to our parameter folder
+        """
         # look in child with a specific name
         pp = Path("parmFiles")
 
