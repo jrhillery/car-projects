@@ -2,7 +2,7 @@
 import asyncio
 import json
 import logging
-from typing import Self
+from typing import AsyncContextManager, Self
 
 from aiohttp import ClientResponse, ClientSession
 
@@ -10,7 +10,7 @@ from util import Configure, HTTPException, Interpret
 from . import CarDetails
 
 
-class TessieInterface(object):
+class TessieInterface(AsyncContextManager[Self]):
     """Provides an interface through Tessie to authorized vehicles"""
 
     async def __aenter__(self) -> Self:

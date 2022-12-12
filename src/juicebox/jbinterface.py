@@ -2,7 +2,7 @@
 import asyncio
 import json
 import logging
-from typing import Self
+from typing import AsyncContextManager, Self
 
 from aiohttp import ClientResponse, ClientSession
 from pyquery import PyQuery
@@ -11,7 +11,7 @@ from util import Configure, HTTPException
 from . import JbDetails
 
 
-class JbInterface(object):
+class JbInterface(AsyncContextManager[Self]):
     """Provide an interface to authorized JuiceBox devices"""
     NOT_CACHED_HEADER = {"Cache-Control": "max-age=0"}
     XHR_HEADERS = {
