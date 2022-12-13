@@ -72,8 +72,10 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    async def main(self) -> None:
-        logging.debug(f"Starting {' '.join(sys.argv)}")
+    def getSpecifiedProcessor(self) -> "ParallelProc":
+        """Get the processor indicated on the command line
+        :return: Processor corresponding to command line arguments
+        """
         processor: ParallelProc
 
         match True:
@@ -82,7 +84,7 @@ class ChargeControl(object):
             case _ if self.justEqualAmps:
                 processor = ShareCurrentEqually(self)
             case _ if self.autoMax:
-                processor = AutomaticallySetMax(self)
+                processor = AutomaticallySetMaxCurrent(self)
             case _ if self.enableLimit is not None:
                 processor = EnableCarCharging(self)
             case _ if self.disable:
@@ -92,6 +94,13 @@ class ChargeControl(object):
             case _:
                 processor = DisplayStatus(self)
         # end match
+
+        return processor
+    # end getSpecifiedProcessor()
+
+    async def main(self) -> None:
+        logging.debug(f"Starting {' '.join(sys.argv)}")
+        processor = self.getSpecifiedProcessor()
 
         async with AsyncExitStack() as cStack:
             async with asyncio.TaskGroup() as tg:
@@ -126,7 +135,7 @@ class ParallelProc(ABC):
 
     @abstractmethod
     async def process(self) -> None:
-        """Method that will accomplish the goal of this class"""
+        """Method that will accomplish the goal of this processor"""
         pass
     # end process()
 
@@ -223,8 +232,8 @@ class ShareCurrentEqually(JuiceBoxProc):
 # end class ShareCurrentEqually
 
 
-class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
-    """Processor to automatically set maximums based on cars' charging needs"""
+class AutomaticallySetMaxCurrent(TessieProc, ShareCurrentEqually):
+    """Processor to automatically set maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -233,10 +242,10 @@ class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
             # end for
         # end async with (tasks are awaited)
 
-        await self.automaticallySetMax()
+        await self.automaticallySetMaxCurrent()
     # end process()
 
-    async def automaticallySetMax(self) -> None:
+    async def automaticallySetMaxCurrent(self) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs
            - depends on having battery health details"""
         totalEnergyNeeded = 0.0
@@ -266,7 +275,7 @@ class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually()
-    # end automaticallySetMax()
+    # end automaticallySetMaxCurrent()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
         """Retrieve JuiceBox details corresponding to a given car
@@ -285,10 +294,10 @@ class AutomaticallySetMax(TessieProc, ShareCurrentEqually):
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
-# end class AutomaticallySetMax
+# end class AutomaticallySetMaxCurrent
 
 
-class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
+class EnableCarCharging(SetChargeLimit, AutomaticallySetMaxCurrent):
     """Processor to enable charging with limit if 50%"""
 
     async def process(self) -> None:
@@ -299,7 +308,7 @@ class EnableCarCharging(SetChargeLimit, AutomaticallySetMax):
             # end for
         # end async with (tasks are awaited)
 
-        await self.automaticallySetMax()
+        await self.automaticallySetMaxCurrent()
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
