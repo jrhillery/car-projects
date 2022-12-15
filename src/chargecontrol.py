@@ -24,16 +24,8 @@ class ChargeControl(object):
         self.enableLimit: int | None = args.enableLimit
         self.justEqualAmps: bool = args.justEqualAmps
         self.setLimit: int | None = args.setLimit
-        self.maxAmps: int | None = args.maxAmps
-        self.juiceBoxName: str | None = args.juiceBoxName
-
-        if self.maxAmps is not None and self.juiceBoxName is None:
-            logging.error("Missing required JuiceBox name prefix when specifying max current")
-            sys.exit(2)
-
-        if self.maxAmps is not None:
-            if self.maxAmps < 0:
-                self.maxAmps = 0
+        self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
+        self.maxAmpsName: str | None = args.maxAmps[0] if args.maxAmps else None
 
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
@@ -63,11 +55,9 @@ class ChargeControl(object):
                            help="just share current equally")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
                            help="set charge limits if 50%%")
-        group.add_argument("-m", "--maxAmps", type=int, nargs="?", const=99, metavar="amps",
-                           help="maximum current to set (Amps)")
-        ap.add_argument("juiceBoxName", nargs="?", metavar="name",
-                        help="name prefix of JuiceBox to set maxAmps"
-                             " (other gets remaining current)")
+        group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
+                           help="name prefix of JuiceBox and maximum current to set (Amps)"
+                           " (other gets remaining current)")
 
         return ap.parse_args()
     # end parseArgs()
@@ -382,7 +372,7 @@ class SpecifyMaxCurrent(JuiceBoxProc):
     """Processor to set a specified JuiceBox to a specified maximum current"""
 
     async def process(self) -> None:
-        await self.specifyMaxCurrent(self.chargeCtl.juiceBoxName, self.chargeCtl.maxAmps)
+        await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
     # end process()
 
     async def specifyMaxCurrent(self, specifiedJuiceBoxName: str,
