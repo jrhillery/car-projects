@@ -69,12 +69,12 @@ class ChargeControl(object):
         processor: ParallelProc
 
         match True:
-            case _ if self.setLimit is not None:
-                processor = SetChargeLimit(self)
             case _ if self.justEqualAmps:
                 processor = ShareCurrentEqually(self)
             case _ if self.autoMax:
                 processor = AutomaticallySetMaxCurrent(self)
+            case _ if self.setLimit is not None:
+                processor = SetChargeLimit(self)
             case _ if self.enableLimit is not None:
                 processor = EnableCarCharging(self)
             case _ if self.disable:
@@ -167,45 +167,6 @@ class JuiceBoxProc(ParallelProc, ABC):
 # end class JuiceBoxProc
 
 
-class SetChargeLimit(TessieProc):
-    """Processor to set charge limits if 50%"""
-
-    async def process(self) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for dtls in self.vehicles:
-                logging.info(dtls.currentChargingStatus())
-                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
-                                                   waitForCompletion=False))
-            # end for
-        # end async with (tasks are awaited)
-    # end process()
-
-    async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
-                             waitForCompletion=True) -> None:
-        """If the specified vehicle's charge limit is minimum,
-           ensure the vehicle is awake and set a specified charge limit percent
-        :param dtls: Details of the vehicle to set
-        :param percent: Charging limit percent
-        :param waitForCompletion: Flag indicating to wait for limit to be set
-        """
-        if dtls.chargeLimitIsMin():
-            # this vehicle is set to charge limit minimum
-            percent = dtls.limitToCapabilities(percent)
-
-            if percent != dtls.chargeLimit:
-                if not dtls.awake():
-                    # try to wake up this car
-                    await self.tsIntrfc.wake(dtls)
-
-                await self.tsIntrfc.setChargeLimit(dtls, percent,
-                                                   waitForCompletion=waitForCompletion)
-            else:
-                logging.info(f"No change made to {dtls.displayName} charge limit")
-    # end setChargeLimit(CarDetails, int, bool)
-
-# end class SetChargeLimit
-
-
 class ShareCurrentEqually(JuiceBoxProc):
     """Processor to just share current equally"""
 
@@ -285,6 +246,45 @@ class AutomaticallySetMaxCurrent(TessieProc, ShareCurrentEqually):
     # end getJuiceBoxForCar(CarDetails, dict)
 
 # end class AutomaticallySetMaxCurrent
+
+
+class SetChargeLimit(TessieProc):
+    """Processor to set charge limits if 50%"""
+
+    async def process(self) -> None:
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                logging.info(dtls.currentChargingStatus())
+                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
+                                                   waitForCompletion=False))
+            # end for
+        # end async with (tasks are awaited)
+    # end process()
+
+    async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
+                             waitForCompletion=True) -> None:
+        """If the specified vehicle's charge limit is minimum,
+           ensure the vehicle is awake and set a specified charge limit percent
+        :param dtls: Details of the vehicle to set
+        :param percent: Charging limit percent
+        :param waitForCompletion: Flag indicating to wait for limit to be set
+        """
+        if dtls.chargeLimitIsMin():
+            # this vehicle is set to charge limit minimum
+            percent = dtls.limitToCapabilities(percent)
+
+            if percent != dtls.chargeLimit:
+                if not dtls.awake():
+                    # try to wake up this car
+                    await self.tsIntrfc.wake(dtls)
+
+                await self.tsIntrfc.setChargeLimit(dtls, percent,
+                                                   waitForCompletion=waitForCompletion)
+            else:
+                logging.info(f"No change made to {dtls.displayName} charge limit")
+    # end setChargeLimit(CarDetails, int, bool)
+
+# end class SetChargeLimit
 
 
 class EnableCarCharging(SetChargeLimit, AutomaticallySetMaxCurrent):
