@@ -72,9 +72,9 @@ class ChargeControl(object):
 
         match True:
             case _ if self.justEqualAmps:
-                processor = ShareCurrentEqually(self)
+                processor = EqualCurrent(self)
             case _ if self.autoMax:
-                processor = AutomaticallySetMaxCurrent(self)
+                processor = AutoMaxCurrent(self)
             case _ if self.setLimit is not None:
                 processor = SetChargeLimit(self)
             case _ if self.enableLimit is not None:
@@ -169,7 +169,7 @@ class JuiceBoxProc(ParallelProc, ABC):
 # end class JuiceBoxProc
 
 
-class ShareCurrentEqually(JuiceBoxProc):
+class EqualCurrent(JuiceBoxProc):
     """Processor to just share current equally"""
 
     async def process(self) -> None:
@@ -182,10 +182,10 @@ class ShareCurrentEqually(JuiceBoxProc):
             self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
     # end shareCurrentEqually()
 
-# end class ShareCurrentEqually
+# end class EqualCurrent
 
 
-class AutomaticallySetMaxCurrent(TessieProc, ShareCurrentEqually):
+class AutoMaxCurrent(TessieProc, EqualCurrent):
     """Processor to automatically set maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -247,10 +247,10 @@ class AutomaticallySetMaxCurrent(TessieProc, ShareCurrentEqually):
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
-# end class AutomaticallySetMaxCurrent
+# end class AutoMaxCurrent
 
 
-class SetChargeLimit(AutomaticallySetMaxCurrent):
+class SetChargeLimit(AutoMaxCurrent):
     """Processor to set charge limits if 50%,
        setting maximum currents based on cars' charging needs"""
 
