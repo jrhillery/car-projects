@@ -46,18 +46,20 @@ class ChargeControl(object):
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-a", "--autoMax", action="store_true",
-                           help="automatically set maximums based on cars' charging needs")
+                           help="set maximum currents based on cars' charging needs")
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
-                           help="enable charging with limit if 50%%")
+                           help="enable charging with limit if 50%%,"
+                                " setting maximum currents based on cars' charging needs")
         group.add_argument("-j", "--justEqualAmps", action="store_true",
                            help="just share current equally")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
-                           help="set charge limits if 50%%")
+                           help="set charge limits if 50%%,"
+                                " setting maximum currents based on cars' charging needs")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
                            help="name prefix of JuiceBox and maximum current to set (Amps)"
-                           " (other gets remaining current)")
+                                " (other gets remaining current)")
 
         return ap.parse_args()
     # end parseArgs()
@@ -248,8 +250,9 @@ class AutomaticallySetMaxCurrent(TessieProc, ShareCurrentEqually):
 # end class AutomaticallySetMaxCurrent
 
 
-class SetChargeLimit(TessieProc):
-    """Processor to set charge limits if 50%"""
+class SetChargeLimit(AutomaticallySetMaxCurrent):
+    """Processor to set charge limits if 50%,
+       setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -257,8 +260,11 @@ class SetChargeLimit(TessieProc):
                 logging.info(dtls.currentChargingStatus())
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
                                                    waitForCompletion=False))
+                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
+
+        await self.automaticallySetMaxCurrent()
     # end process()
 
     async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
@@ -287,8 +293,9 @@ class SetChargeLimit(TessieProc):
 # end class SetChargeLimit
 
 
-class EnableCarCharging(SetChargeLimit, AutomaticallySetMaxCurrent):
-    """Processor to enable charging with limit if 50%"""
+class EnableCarCharging(SetChargeLimit):
+    """Processor to enable charging with limit if 50%,
+       setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -369,7 +376,8 @@ class DisableCarCharging(TessieProc):
 
 
 class SpecifyMaxCurrent(JuiceBoxProc):
-    """Processor to set a specified JuiceBox to a specified maximum current"""
+    """Processor to set a specified JuiceBox to a specified maximum current (Amps)
+       (the other JuiceBox gets the remaining current)"""
 
     async def process(self) -> None:
         await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
