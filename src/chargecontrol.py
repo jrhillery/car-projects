@@ -71,6 +71,8 @@ class ChargeControl(object):
         processor: ParallelProc
 
         match True:
+            case _ if self.maxAmps is not None:
+                processor = SpecifyMaxCurrent(self)
             case _ if self.justEqualAmps:
                 processor = EqualCurrent(self)
             case _ if self.autoMax:
@@ -81,8 +83,6 @@ class ChargeControl(object):
                 processor = EnableCarCharging(self)
             case _ if self.disable:
                 processor = DisableCarCharging(self)
-            case _ if self.maxAmps is not None:
-                processor = SpecifyMaxCurrent(self)
             case _:
                 processor = DisplayStatus(self)
         # end match
@@ -167,6 +167,44 @@ class JuiceBoxProc(ParallelProc, ABC):
     # end addJb(JbInterface)
 
 # end class JuiceBoxProc
+
+
+class SpecifyMaxCurrent(JuiceBoxProc):
+    """Processor to set a specified JuiceBox to a specified maximum current (Amps)
+       (the other JuiceBox gets the remaining current)"""
+
+    async def process(self) -> None:
+        await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
+    # end process()
+
+    async def specifyMaxCurrent(self, specifiedName: str, specifiedMaxAmps: int) -> None:
+        """Set the specified JuiceBox maximum current to a given value
+           (the other JuiceBox gets the remaining current)
+        :param specifiedName: Prefix of the JuiceBox name being specified
+        :param specifiedMaxAmps: The maximum current (Amps) to set for the specified JuiceBox
+        """
+        specifiedJuiceBox: JbDetails | None = None
+        otherJuiceBox: JbDetails | None = None
+
+        for juiceBox in self.juiceBoxes:
+            if juiceBox.name.startswith(specifiedName):
+                specifiedJuiceBox = juiceBox
+            else:
+                otherJuiceBox = juiceBox
+        # end for
+
+        if not specifiedJuiceBox:
+            raise Exception(f"Unable to locate JuiceBox starting with {specifiedName},"
+                            f" found {[jb.name for jb in self.juiceBoxes]}")
+
+        if not otherJuiceBox:
+            raise Exception(f"Unable to locate both JuiceBoxes,"
+                            f" found {[jb.name for jb in self.juiceBoxes]}")
+
+        await self.jbIntrfc.setNewMaximums(specifiedJuiceBox, specifiedMaxAmps, otherJuiceBox)
+    # end specifyMaxCurrent(str, int)
+
+# end class SpecifyMaxCurrent
 
 
 class EqualCurrent(JuiceBoxProc):
@@ -373,46 +411,6 @@ class DisableCarCharging(TessieProc):
     # end disableCarCharging(CarDetails)
 
 # end class DisableCarCharging
-
-
-class SpecifyMaxCurrent(JuiceBoxProc):
-    """Processor to set a specified JuiceBox to a specified maximum current (Amps)
-       (the other JuiceBox gets the remaining current)"""
-
-    async def process(self) -> None:
-        await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
-    # end process()
-
-    async def specifyMaxCurrent(self, specifiedJuiceBoxName: str,
-                                specifiedMaxAmps: int) -> None:
-        """Set the specified JuiceBox maximum current to a given value
-           (the other JuiceBox gets the remaining current)
-        :param specifiedJuiceBoxName: Name prefix of the JuiceBox name being specified
-        :param specifiedMaxAmps: The maximum current (Amps) to set for the specified JuiceBox
-        """
-        specifiedJuiceBox: JbDetails | None = None
-        otherJuiceBox: JbDetails | None = None
-
-        for juiceBox in self.juiceBoxes:
-            if juiceBox.name.startswith(specifiedJuiceBoxName):
-                specifiedJuiceBox = juiceBox
-            else:
-                otherJuiceBox = juiceBox
-        # end for
-
-        if not specifiedJuiceBox:
-            raise Exception(
-                f"Unable to locate JuiceBox starting with {specifiedJuiceBoxName},"
-                f" found {[jb.name for jb in self.juiceBoxes]}")
-
-        if not otherJuiceBox:
-            raise Exception(f"Unable to locate both JuiceBoxes,"
-                            f" found {[jb.name for jb in self.juiceBoxes]}")
-
-        await self.jbIntrfc.setNewMaximums(specifiedJuiceBox, specifiedMaxAmps, otherJuiceBox)
-    # end specifyMaxCurrent(str, int)
-
-# end class SpecifyMaxCurrent
 
 
 class DisplayStatus(TessieProc, JuiceBoxProc):
