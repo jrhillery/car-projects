@@ -99,7 +99,7 @@ class TessieInterface(AsyncContextManager[Self]):
                                 tg.create_task(self.addLocation(dtls), name="Location-task")
                             # end async with (tasks are awaited)
 
-                            return logging.info(dtls.currentChargingStatus())
+                            return logging.info(dtls.chargingStatusSummary())
                     except HTTPException:
                         raise
                     except Exception as e:

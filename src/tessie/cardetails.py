@@ -115,8 +115,8 @@ class CarDetails(object):
             return 0.0
     # end energyNeededC()
 
-    def currentChargingStatus(self) -> str:
-        """Return a summary status suitable for display"""
+    def chargingStatusSummary(self) -> str:
+        """Return a summary charging status suitable for display"""
         self.updatedSinceSummary = False
         deltaSecs = time() - self.lastSeen
 
@@ -129,7 +129,7 @@ class CarDetails(object):
                 f" with charging {self.chargingState}"
                 f", limit {self.chargeLimit}%"
                 f" and battery {self.battLevel}%")
-    # end currentChargingStatus()
+    # end chargingStatusSummary()
 
     def __str__(self) -> str:
         return f"{self.displayName}@{self.battLevel}%"

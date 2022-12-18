@@ -244,13 +244,13 @@ class AutoMaxCurrent(TessieProc, EqualCurrent):
         for carDetails in self.vehicles:
             energyNeeded = carDetails.energyNeededC()
             statusChanged = carDetails.updatedSinceSummary
-            msg = carDetails.currentChargingStatus()
+            summary = carDetails.chargingStatusSummary()
 
             if energyNeeded:
-                msg += f" ({energyNeeded:.1f} kWh < limit)"
+                summary += f" ({energyNeeded:.1f} kWh < limit)"
 
             if statusChanged or energyNeeded:
-                logging.info(msg)
+                logging.info(summary)
             totalEnergyNeeded += energyNeeded
         # end for
 
@@ -298,7 +298,7 @@ class SetChargeLimit(AutoMaxCurrent):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                logging.info(dtls.currentChargingStatus())
+                logging.info(dtls.chargingStatusSummary())
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
                                                    waitForCompletion=False))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
@@ -341,7 +341,7 @@ class EnableCarCharging(SetChargeLimit):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                logging.info(dtls.currentChargingStatus())
+                logging.info(dtls.chargingStatusSummary())
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
@@ -390,7 +390,7 @@ class DisableCarCharging(TessieProc):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                logging.info(dtls.currentChargingStatus())
+                logging.info(dtls.chargingStatusSummary())
                 tg.create_task(self.disableCarCharging(dtls))
             # end for
         # end async with (tasks are awaited)
@@ -422,7 +422,7 @@ class DisplayStatus(TessieProc, JuiceBoxProc):
 
     async def process(self) -> None:
         for dtls in self.vehicles:
-            logging.info(dtls.currentChargingStatus())
+            logging.info(dtls.chargingStatusSummary())
 
         for juiceBox in self.juiceBoxes:
             logging.info(juiceBox.statusStr())
