@@ -35,7 +35,7 @@ class Interpret(object):
         """
         try:
             # try to isolate an error message
-            content = (await resp.json())['error']
+            content = (await resp.json())["error"]
         except Exception as e:
             # include the entire content body
             content = await resp.text()

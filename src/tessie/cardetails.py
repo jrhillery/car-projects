@@ -18,6 +18,7 @@ class CarDetails(object):
     limitMaxPercent: int
     chargingState: str
     lastSeen: float
+    updatedSinceSummary: bool
 
     # field set in TessieInterface.addSleepStatus
     sleepStatus: str
@@ -49,6 +50,7 @@ class CarDetails(object):
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
         self.chargingState = chargeState["charging_state"]
         self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
+        self.updatedSinceSummary = True
     # end updateFromDict(dict)
 
     def pluggedIn(self) -> bool:
@@ -115,6 +117,7 @@ class CarDetails(object):
 
     def currentChargingStatus(self) -> str:
         """Return a summary status suitable for display"""
+        self.updatedSinceSummary = False
         deltaSecs = time() - self.lastSeen
 
         if deltaSecs < 0.0:

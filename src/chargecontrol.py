@@ -243,11 +243,14 @@ class AutoMaxCurrent(TessieProc, EqualCurrent):
 
         for carDetails in self.vehicles:
             energyNeeded = carDetails.energyNeededC()
+            statusChanged = carDetails.updatedSinceSummary
             msg = carDetails.currentChargingStatus()
 
             if energyNeeded:
                 msg += f" ({energyNeeded:.1f} kWh < limit)"
-            logging.info(msg)
+
+            if statusChanged or energyNeeded:
+                logging.info(msg)
             totalEnergyNeeded += energyNeeded
         # end for
 
@@ -338,6 +341,7 @@ class EnableCarCharging(SetChargeLimit):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
+                logging.info(dtls.currentChargingStatus())
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
