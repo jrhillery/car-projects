@@ -243,13 +243,12 @@ class AutoMaxCurrent(TessieProc, EqualCurrent):
 
         for carDetails in self.vehicles:
             energyNeeded = carDetails.energyNeededC()
-            statusChanged = carDetails.updatedSinceSummary
             summary = carDetails.chargingStatusSummary()
 
             if energyNeeded:
                 summary += f" ({energyNeeded:.1f} kWh < limit)"
 
-            if statusChanged or energyNeeded:
+            if summary.updatedSinceLastSummary or energyNeeded:
                 logging.info(summary)
             totalEnergyNeeded += energyNeeded
         # end for

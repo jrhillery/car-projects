@@ -3,6 +3,8 @@ import logging
 from datetime import timedelta
 from time import time
 
+from util import SummaryStr
+
 
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
@@ -115,20 +117,23 @@ class CarDetails(object):
             return 0.0
     # end energyNeededC()
 
-    def chargingStatusSummary(self) -> str:
+    def chargingStatusSummary(self) -> SummaryStr:
         """Return a summary charging status suitable for display"""
-        self.updatedSinceSummary = False
         deltaSecs = time() - self.lastSeen
 
         if deltaSecs < 0.0:
             # our clock must not have been synchronized with the car's
             deltaSecs = 0.0
 
-        return (f"{self.displayName} was {self.sleepStatus}"
-                f" {timedelta(seconds=int(deltaSecs + 0.5))} ago"
-                f" with charging {self.chargingState}"
-                f", limit {self.chargeLimit}%"
-                f" and battery {self.battLevel}%")
+        summary = SummaryStr(f"{self.displayName} was {self.sleepStatus}"
+                             f" {timedelta(seconds=int(deltaSecs + 0.5))} ago"
+                             f" with charging {self.chargingState}"
+                             f", limit {self.chargeLimit}%"
+                             f" and battery {self.battLevel}%",
+                             self.updatedSinceSummary)
+        self.updatedSinceSummary = False
+
+        return summary
     # end chargingStatusSummary()
 
     def __str__(self) -> str:
