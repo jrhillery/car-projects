@@ -183,38 +183,56 @@ class TessieInterface(AsyncContextManager[Self]):
         return dtls
     # end addBatteryHealth(CarDetails)
 
-    async def wake(self, dtls: CarDetails) -> None:
+    async def wake(self, dtls: CarDetails, attempts: int = 6) -> None:
         """Attempt to wake a specified vehicle from sleep
-           - logs a message indicating if woke up, or timed out (30s)
+           - logs a message indicating if fails to wake up, or times out (30s)
         :param dtls: Details of the vehicle to wake
+        :param attempts: Number of times to attempt query
         """
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
-        async with self.session.get(url) as resp:
-            if resp.status != 200:
-                raise await HTTPException.fromError(resp, dtls.displayName)
+        while attempts:
+            async with self.session.get(url) as resp:
+                if resp.status != 200:
+                    raise await HTTPException.fromError(resp, dtls.displayName)
 
-            try:
-                wakeOkay: bool = (await resp.json())["result"]
-            except Exception as e:
-                raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
+                try:
+                    wakeOkay: bool = (await resp.json())["result"]
+                except Exception as e:
+                    raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
+            attempts -= 1
 
-        if wakeOkay:
-            # wait for this vehicle's sleep status to show awake
-            retries = 10
+            if wakeOkay:
+                if await self.waitTillAwake(dtls):
+                    break
+                logging.info(f"{dtls.displayName} never woke up, {attempts} more attempts")
+            else:
+                logging.info(f"{dtls.displayName} timed out waking, {attempts} more attempts")
 
-            while retries:
-                await self.getCurrentState(dtls, attempts=1)
+            if attempts:
+                await asyncio.sleep(60)
+        # end while
+    # end wake(CarDetails, int)
 
-                if dtls.awake():
-                    return
+    async def waitTillAwake(self, dtls: CarDetails) -> bool:
+        """Wait for this vehicle's sleep status to show awake
+        :param dtls: Details of the vehicle to wait for
+        :return: True when this vehicle is awake
+        """
+        retries = 8
+
+        while retries:
+            await self.getCurrentState(dtls, attempts=1)
+
+            if dtls.awake():
+                return True
+
+            if retries := retries - 1:
                 await asyncio.sleep(4)
-                retries -= 1
-            # end while
-            logging.info(f"{dtls.displayName} never woke up")
-        else:
-            logging.info(f"{dtls.displayName} timed out while waking up")
-    # end wake(CarDetails)
+        # end while
+
+        return False
+    # end waitTillAwake(CarDetails)
 
     async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
                              waitForCompletion=True) -> None:
