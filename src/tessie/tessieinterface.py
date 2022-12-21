@@ -53,8 +53,8 @@ class TessieInterface(AsyncContextManager[Self]):
 
                 async with asyncio.TaskGroup() as tg:
                     for car in vehicles:
-                        tg.create_task(self.addSleepStatus(car), name="Sleep-tasks")
-                        tg.create_task(self.addLocation(car), name="Location-tasks")
+                        tg.create_task(self.addSleepStatus(car))
+                        tg.create_task(self.addLocation(car))
                 # end async with (tasks are awaited)
 
                 return vehicles
@@ -95,8 +95,8 @@ class TessieInterface(AsyncContextManager[Self]):
                         else:
                             dtls.updateFromDict(carState)
                             async with asyncio.TaskGroup() as tg:
-                                tg.create_task(self.addSleepStatus(dtls), name="Sleep-task")
-                                tg.create_task(self.addLocation(dtls), name="Location-task")
+                                tg.create_task(self.addSleepStatus(dtls))
+                                tg.create_task(self.addLocation(dtls))
                             # end async with (tasks are awaited)
 
                             return logging.info(dtls.chargingStatusSummary())
