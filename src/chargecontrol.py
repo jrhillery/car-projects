@@ -370,9 +370,10 @@ class EnableCarCharging(SetChargeLimit):
             # this vehicle is plugged in at home, not charging and could use a charge
             retries = 6
 
-            while dtls.chargingState == "Complete" and dtls.chargeNeeded() and retries:
-                # wait for charging state to change from Complete
-                await asyncio.sleep(3.2)
+            while (dtls.chargingState == "Complete" or dtls.chargingState == "NoPower") \
+                    and dtls.chargeNeeded() and retries:
+                # wait for charging state to change from Complete or NoPower
+                await asyncio.sleep(9)
                 await self.tsIntrfc.getCurrentState(dtls, attempts=1)
                 retries -= 1
             # end while
