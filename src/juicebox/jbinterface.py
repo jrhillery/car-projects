@@ -112,8 +112,8 @@ class JbInterface(AsyncContextManager[Self]):
                 except Exception as e:
                     raise await HTTPException.fromXcp(e, resp, "all active JuiceBoxes") from e
 
-                juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates]
-                juiceBoxes[:] = [jb for jb in juiceBoxes if not jb.isOffline]
+                juiceBoxes = [JbDetails(jbState) for jbState in juiceBoxStates
+                              if not JbDetails.getOffline(jbState)]
 
                 async with asyncio.TaskGroup() as tg:
                     for jb in juiceBoxes:

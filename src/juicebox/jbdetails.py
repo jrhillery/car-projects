@@ -14,7 +14,9 @@ class JbDetails(object):
     wireRating: int
 
     def __init__(self, juiceBoxState: dict):
-        """Initialize this instance and allocate resources"""
+        """Initialize this instance and allocate resources
+        :param juiceBoxState: Dictionary of JuiceBox JSON data
+        """
         self.updateFromDict(juiceBoxState)
     # end __init__(dict)
 
@@ -24,10 +26,19 @@ class JbDetails(object):
         """
         self.deviceId = juiceBoxState["unitID"]
         self.name = juiceBoxState["unitName"]
-        self.isOffline = juiceBoxState["IsOffline"]
+        self.isOffline = self.getOffline(juiceBoxState)
         self.status = juiceBoxState["StatusText"]
         self.maxCurrent = juiceBoxState["allowed_C"]
     # end updateFromDict(dict)
+
+    @staticmethod
+    def getOffline(juiceBoxState: dict) -> bool:
+        """Return the is-offline value from the supplied JuiceBox state data
+        :param juiceBoxState: Dictionary of JuiceBox JSON data
+        """
+
+        return juiceBoxState["IsOffline"]
+    # end getOffline(dict)
 
     def pluggedIn(self) -> bool:
         """Return true when a car is plugged in to this JuiceBox"""
