@@ -117,16 +117,21 @@ class CarDetails(object):
             return 0.0
     # end energyNeededC()
 
-    def chargingStatusSummary(self) -> SummaryStr:
-        """Return a summary charging status suitable for display"""
+    def dataAge(self) -> float:
+        """Return the age of this CarDetails' data in seconds"""
         deltaSecs = time() - self.lastSeen
 
         if deltaSecs < 0.0:
             # our clock must not have been synchronized with the car's
             deltaSecs = 0.0
 
+        return deltaSecs
+    # end dataAge()
+
+    def chargingStatusSummary(self) -> SummaryStr:
+        """Return a summary charging status suitable for display"""
         summary = SummaryStr(f"{self.displayName} was {self.sleepStatus}"
-                             f" {timedelta(seconds=int(deltaSecs + 0.5))} ago"
+                             f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
                              f" with charging {self.chargingState}"
                              f", limit {self.chargeLimit}%"
                              f" and battery {self.battLevel}%",
