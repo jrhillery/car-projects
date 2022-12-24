@@ -363,8 +363,9 @@ class EnableCarCharging(SetChargeLimit):
             if not dtls.awake():
                 await self.tsIntrfc.wake(dtls)
 
-            # make sure we have the current battery level and charge limit
-            await self.tsIntrfc.getCurrentState(dtls)
+            if dtls.dataAge() > 10:
+                # make sure we have the current battery level and charge limit
+                await self.tsIntrfc.getCurrentState(dtls)
 
         if dtls.pluggedInAtHome() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
             # this vehicle is plugged in at home, not charging and could use a charge
