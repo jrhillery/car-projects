@@ -50,13 +50,13 @@ class ChargeControl(object):
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
-                           help="enable charging with limit if 50%%,"
-                                " setting maximum currents based on cars' charging needs")
+                           help="enable charging with each car at limit 'percent' if 50%%,"
+                                " setting currents based on cars' needs")
         group.add_argument("-j", "--justEqualAmps", action="store_true",
                            help="just share current equally")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
-                           help="set charge limits if 50%%,"
-                                " setting maximum currents based on cars' charging needs")
+                           help="set each car to charge limit 'percent' if 50%%,"
+                                " setting currents based on cars' needs")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
                            help="name prefix of JuiceBox and maximum current to set (Amps)"
                                 " (other gets remaining current)")
