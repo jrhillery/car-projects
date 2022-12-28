@@ -72,19 +72,19 @@ class ChargeControl(object):
 
         match True:
             case _ if self.maxAmps is not None:
-                processor = SpecifyMaxCurrent(self)
+                processor = MaxCurrentControl(self)
             case _ if self.justEqualAmps:
-                processor = EqualCurrent(self)
+                processor = EqualCurrentControl(self)
             case _ if self.autoMax:
-                processor = AutoMaxCurrent(self)
+                processor = AutoCurrentControl(self)
             case _ if self.setLimit is not None:
-                processor = SetChargeLimit(self)
+                processor = ChargeLimitControl(self)
             case _ if self.enableLimit is not None:
-                processor = EnableCarCharging(self)
+                processor = CarChargingEnabler(self)
             case _ if self.disable:
-                processor = DisableCarCharging(self)
+                processor = CarChargingDisabler(self)
             case _:
-                processor = DisplayStatus(self)
+                processor = StatusPresenter(self)
         # end match
 
         return processor
@@ -169,7 +169,7 @@ class JuiceBoxProc(ParallelProc, ABC):
 # end class JuiceBoxProc
 
 
-class SpecifyMaxCurrent(JuiceBoxProc):
+class MaxCurrentControl(JuiceBoxProc):
     """Processor to set a specified JuiceBox to a specified maximum current (Amps)
        (the other JuiceBox gets the remaining current)"""
 
@@ -204,10 +204,10 @@ class SpecifyMaxCurrent(JuiceBoxProc):
         await self.jbIntrfc.setNewMaximums(specifiedJuiceBox, specifiedMaxAmps, otherJuiceBox)
     # end specifyMaxCurrent(str, int)
 
-# end class SpecifyMaxCurrent
+# end class MaxCurrentControl
 
 
-class EqualCurrent(JuiceBoxProc):
+class EqualCurrentControl(JuiceBoxProc):
     """Processor to just share current equally"""
 
     async def process(self) -> None:
@@ -220,10 +220,10 @@ class EqualCurrent(JuiceBoxProc):
             self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
     # end shareCurrentEqually()
 
-# end class EqualCurrent
+# end class EqualCurrentControl
 
 
-class AutoMaxCurrent(TessieProc, EqualCurrent):
+class AutoCurrentControl(TessieProc, EqualCurrentControl):
     """Processor to automatically set maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -287,11 +287,11 @@ class AutoMaxCurrent(TessieProc, EqualCurrent):
         return juiceBox
     # end getJuiceBoxForCar(CarDetails, dict)
 
-# end class AutoMaxCurrent
+# end class AutoCurrentControl
 
 
-class SetChargeLimit(AutoMaxCurrent):
-    """Processor to set charge limits if 50%,
+class ChargeLimitControl(AutoCurrentControl):
+    """Processor to set each car to a specified charge limit if 50%,
        setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -330,11 +330,11 @@ class SetChargeLimit(AutoMaxCurrent):
                 logging.info(f"No change made to {dtls.displayName} charge limit")
     # end setChargeLimit(CarDetails, int, bool)
 
-# end class SetChargeLimit
+# end class ChargeLimitControl
 
 
-class EnableCarCharging(SetChargeLimit):
-    """Processor to enable charging with limit if 50%,
+class CarChargingEnabler(ChargeLimitControl):
+    """Processor to enable charging with each car set to a specified charge limit if 50%,
        setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -382,10 +382,10 @@ class EnableCarCharging(SetChargeLimit):
             await self.tsIntrfc.startCharging(dtls)
     # end startChargingWhenReady(CarDetails)
 
-# end class EnableCarCharging
+# end class CarChargingEnabler
 
 
-class DisableCarCharging(TessieProc, EqualCurrent):
+class CarChargingDisabler(TessieProc, EqualCurrentControl):
     """Processor to disable charging, sharing current equally"""
 
     async def process(self) -> None:
@@ -417,10 +417,10 @@ class DisableCarCharging(TessieProc, EqualCurrent):
                                                    waitForCompletion=False)
     # end disableCarCharging(CarDetails)
 
-# end class DisableCarCharging
+# end class CarChargingDisabler
 
 
-class DisplayStatus(TessieProc, JuiceBoxProc):
+class StatusPresenter(TessieProc, JuiceBoxProc):
     """Processor to just display status"""
 
     async def process(self) -> None:
@@ -431,7 +431,7 @@ class DisplayStatus(TessieProc, JuiceBoxProc):
             logging.info(juiceBox.statusStr())
     # end process()
 
-# end class DisplayStatus
+# end class StatusPresenter
 
 
 if __name__ == "__main__":
