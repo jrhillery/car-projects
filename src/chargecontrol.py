@@ -9,11 +9,12 @@ from contextlib import AsyncExitStack
 
 from juicebox import JbDetails, JbInterface
 from tessie import CarDetails, TessieInterface
-from util import Configure, ExceptionGroupHandler
+from util import Configure, ExceptionGroupHandler, PersistentData
 
 
 class ChargeControl(object):
     """Controls vehicles charging activity"""
+    PRIOR_CHARGE_LIMIT = "priorChargeLimit"
 
     def __init__(self, args: Namespace):
         """Initialize this instance and allocate resources
@@ -26,6 +27,7 @@ class ChargeControl(object):
         self.setLimit: int | None = args.setLimit
         self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
         self.maxAmpsName: str | None = args.maxAmps[0] if args.maxAmps else None
+        self.persistentData = PersistentData()
 
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
@@ -95,6 +97,9 @@ class ChargeControl(object):
         processor = self.getSpecifiedProcessor()
 
         async with AsyncExitStack() as cStack:
+            # Register persistent data to save when cStack closes
+            cStack.callback(self.persistentData.save)
+
             async with asyncio.TaskGroup() as tg:
                 if isinstance(processor, TessieProc):
                     # Create TessieInterface registered so it cleans up when cStack closes
@@ -312,11 +317,18 @@ class ChargeLimitControl(AutoCurrentControl):
         """If the specified vehicle's charge limit is minimum,
            ensure the vehicle is awake and set a specified charge limit percent
         :param dtls: Details of the vehicle to set
-        :param percent: Charging limit percent
+        :param percent: Charging limit percent to use if none persisted
         :param waitForCompletion: Flag indicating to wait for limit to be set
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
+            persistedLimit = self.chargeCtl.persistentData.getVal(
+                ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
+
+            if persistedLimit is not None and percent != persistedLimit:
+                logging.debug(f"Using persisted limit {persistedLimit}%"
+                              f" for {dtls.displayName} instead of {percent}%")
+                percent = persistedLimit
             percent = dtls.limitToCapabilities(percent)
 
             if percent != dtls.chargeLimit:
@@ -413,6 +425,8 @@ class CarChargingDisabler(TessieProc, EqualCurrentControl):
 
             if not dtls.chargeLimitIsMin():
                 # this vehicle is not set to minimum limit already
+                self.chargeCtl.persistentData.setVal(
+                    ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin, dtls.chargeLimit)
                 await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
                                                    waitForCompletion=False)
     # end disableCarCharging(CarDetails)
