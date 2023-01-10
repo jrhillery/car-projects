@@ -1,7 +1,21 @@
 
 import __main__ as main
 import logging.config
+from io import TextIOWrapper
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+
+class LfRotatingFileHandler(RotatingFileHandler):
+
+    def _open(self) -> TextIOWrapper:
+        logStream = super()._open()
+        logStream.reconfigure(newline="\n")
+
+        return logStream
+    # end _open()
+
+# end class LfRotatingFileHandler
 
 
 class Configure(object):
@@ -13,7 +27,7 @@ class Configure(object):
 
         if filePath.exists():
             # add a blank line each subsequent execution
-            with open(filePath, "a", encoding="utf-8") as logFile:
+            with open(filePath, "a", encoding="utf-8", newline="\n") as logFile:
                 logFile.write("\n")
 
         logging.config.dictConfig({
@@ -36,7 +50,7 @@ class Configure(object):
                     "stream": "ext://sys.stdout"
                 },
                 "file": {
-                    "class": "logging.handlers.RotatingFileHandler",
+                    "class": "util.configure.LfRotatingFileHandler",
                     "level": "DEBUG",
                     "formatter": "detail",
                     "filename": filePath,

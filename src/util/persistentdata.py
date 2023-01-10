@@ -22,8 +22,8 @@ class PersistentData(object):
     def save(self) -> None:
         """Save this persistent data instance to file if needed"""
         if self.needsSave:
-            with open(self.persistPath(), "w", encoding="utf-8") as persistFile:
-                json.dump(self._data, persistFile, ensure_ascii=False, indent=3)
+            with open(self.persistPath(), "w", encoding="utf-8", newline="\n") as persistFile:
+                json.dump(self._data, persistFile, ensure_ascii=False, indent=2)
             self.needsSave = False
     # end save()
 
