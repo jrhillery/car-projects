@@ -71,7 +71,7 @@ class PersistentData(object):
 
 if __name__ == "__main__":
     pd = PersistentData()
-    bouncyToy: int = pd.getVal("bouncy", "j")
+    bouncyToy: int | None = pd.getVal("bouncy", "j")
 
     if bouncyToy is None:
         bouncyToy = 646

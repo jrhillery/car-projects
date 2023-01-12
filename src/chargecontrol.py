@@ -322,7 +322,7 @@ class ChargeLimitControl(AutoCurrentControl):
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
-            persistedLimit = self.chargeCtl.persistentData.getVal(
+            persistedLimit: int | None = self.chargeCtl.persistentData.getVal(
                 ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
 
             if persistedLimit is not None:
