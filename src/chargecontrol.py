@@ -325,9 +325,8 @@ class ChargeLimitControl(AutoCurrentControl):
             persistedLimit = self.chargeCtl.persistentData.getVal(
                 ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
 
-            if persistedLimit is not None and percent != persistedLimit:
-                logging.debug(f"Using persisted limit {persistedLimit}%"
-                              f" for {dtls.displayName} instead of {percent}%")
+            if persistedLimit is not None:
+                # use persisted limit instead of parameter value
                 percent = persistedLimit
             percent = dtls.limitToCapabilities(percent)
 
