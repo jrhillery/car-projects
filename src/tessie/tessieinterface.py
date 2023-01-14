@@ -234,8 +234,8 @@ class TessieInterface(AsyncContextManager[Self]):
         return False
     # end waitTillAwake(CarDetails)
 
-    async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
-                             waitForCompletion=True) -> None:
+    async def setChargeLimit(self, dtls: CarDetails, percent: int,
+                             waitForCompletion=False) -> None:
         """Set a specified vehicle's charge limit
         :param dtls: Details of the vehicle to set
         :param percent: Charging limit percent
@@ -257,16 +257,17 @@ class TessieInterface(AsyncContextManager[Self]):
 
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
-    # end setChargeLimit(CarDetails, int, *, bool)
+    # end setChargeLimit(CarDetails, int, bool)
 
-    async def startCharging(self, dtls: CarDetails) -> None:
+    async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle
         :param dtls: Details of the vehicle to start charging
+        :param waitForCompletion: Flag indicating to wait for charging to start
         """
         url = f"https://api.tessie.com/{dtls.vin}/command/start_charging"
         qryParms = {
             "retry_duration": 60,
-            "wait_for_completion": "true"
+            "wait_for_completion": "true" if waitForCompletion else "false"
         }
 
         async with self.session.get(url, params=qryParms) as resp:
@@ -276,16 +277,17 @@ class TessieInterface(AsyncContextManager[Self]):
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charging started")
-    # end startCharging(CarDetails)
+    # end startCharging(CarDetails, bool)
 
-    async def stopCharging(self, dtls: CarDetails) -> None:
+    async def stopCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Stop charging a specified vehicle
         :param dtls: Details of the vehicle to stop charging
+        :param waitForCompletion: Flag indicating to wait for charging to stop
         """
         url = f"https://api.tessie.com/{dtls.vin}/command/stop_charging"
         qryParms = {
             "retry_duration": 60,
-            "wait_for_completion": "true"
+            "wait_for_completion": "true" if waitForCompletion else "false"
         }
 
         async with self.session.get(url, params=qryParms) as resp:
@@ -295,7 +297,7 @@ class TessieInterface(AsyncContextManager[Self]):
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
         logging.info(f"{dtls.displayName} charging stopped")
-    # end stopCharging(CarDetails)
+    # end stopCharging(CarDetails, bool)
 
     async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
         """Close this instance and free up resources"""

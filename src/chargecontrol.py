@@ -312,7 +312,7 @@ class ChargeLimitControl(AutoCurrentControl):
         await self.automaticallySetMaxCurrent()
     # end process()
 
-    async def setChargeLimit(self, dtls: CarDetails, percent: int, *,
+    async def setChargeLimit(self, dtls: CarDetails, percent: int,
                              waitForCompletion=True) -> None:
         """If the specified vehicle's charge limit is minimum,
            ensure the vehicle is awake and set a specified charge limit percent
@@ -335,8 +335,7 @@ class ChargeLimitControl(AutoCurrentControl):
                     # try to wake up this car
                     await self.tsIntrfc.wake(dtls)
 
-                await self.tsIntrfc.setChargeLimit(dtls, percent,
-                                                   waitForCompletion=waitForCompletion)
+                await self.tsIntrfc.setChargeLimit(dtls, percent, waitForCompletion)
             else:
                 logging.info(f"No change made to {dtls.displayName} charge limit")
     # end setChargeLimit(CarDetails, int, bool)
@@ -420,14 +419,13 @@ class CarChargingDisabler(TessieProc, EqualCurrentControl):
 
             if not dtls.awake():
                 await self.tsIntrfc.wake(dtls)
-            await self.tsIntrfc.stopCharging(dtls)
+            await self.tsIntrfc.stopCharging(dtls, waitForCompletion=True)
 
             if not dtls.chargeLimitIsMin():
                 # this vehicle is not set to minimum limit already
                 self.chargeCtl.persistentData.setVal(
                     ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin, dtls.chargeLimit)
-                await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent,
-                                                   waitForCompletion=False)
+                await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)
     # end disableCarCharging(CarDetails)
 
 # end class CarChargingDisabler
