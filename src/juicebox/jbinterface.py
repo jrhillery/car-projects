@@ -170,7 +170,8 @@ class JbInterface(AsyncContextManager[Self]):
             logging.info(f"{juiceBox.name} maximum current changed"
                          f" from {juiceBox.maxCurrent} to {maxCurrent} A")
             juiceBox.maxCurrent = maxCurrent
-        else:
+        elif maxCurrent != self.totalCurrent // 2:
+            # supress already set messages when sharing current equally - they're quite common
             logging.info(f"{juiceBox.name} maximum current already set to {maxCurrent} A")
     # end setMaxCurrent(JbDetails, int)
 
@@ -203,7 +204,7 @@ class JbInterface(AsyncContextManager[Self]):
         """
         maxCurrent = juiceBox.limitToWireRating(maxCurrent)
 
-        # Use a minimum charge current limit when plugged in - Teslas seem to need this
+        # use a minimum charge current limit when plugged in - Teslas seem to need this
         if juiceBox.pluggedIn() and maxCurrent < self.minPluggedCurrent:
             maxCurrent = self.minPluggedCurrent
 
