@@ -6,6 +6,7 @@ class JbDetails(object):
     # fields set in JbDetails.updateFromDict
     deviceId: str
     name: str
+    loadGroupId: int | None
     isOffline: bool
     status: str
     maxCurrent: int
@@ -26,6 +27,7 @@ class JbDetails(object):
         """
         self.deviceId = juiceBoxState["unitID"]
         self.name = juiceBoxState["unitName"]
+        self.loadGroupId = juiceBoxState["LoadGroupId"]
         self.isOffline = self.getOffline(juiceBoxState)
         self.status = juiceBoxState["StatusText"]
         self.maxCurrent = juiceBoxState["allowed_C"]

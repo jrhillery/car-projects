@@ -146,6 +146,25 @@ class JbInterface(AsyncContextManager[Self]):
         return juiceBox
     # end addMoreDetails(JbDetails)
 
+    async def removeFromLoadGroup(self, juiceBox: JbDetails) -> None:
+        """Remove the JuiceBox from its load group
+        :param juiceBox: Details of the JuiceBox to remove
+        """
+        url = "https://home.juice.net/Portal/RemoveDeviceFromLoadGroup"
+        body = {
+            "__RequestVerificationToken": self.loToken,
+            "groupId": juiceBox.loadGroupId,
+            "deviceId": juiceBox.deviceId,
+        }
+
+        async with self.session.post(url, data=body, headers=self.XHR_HEADERS) as resp:
+            if resp.status != 200:
+                raise await HTTPException.fromError(resp, juiceBox.name)
+
+            logging.info(f"{juiceBox.name} removed from load group")
+            juiceBox.loadGroupId = None
+    # end removeFromLoadGroup(JbDetails)
+
     async def setMaxCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> None:
         """Set the JuiceBox maximum current as close as possible to a specified maximum
         :param juiceBox: Details of the JuiceBox to set
@@ -193,6 +212,13 @@ class JbInterface(AsyncContextManager[Self]):
         else:
             await self.setMaxCurrent(juiceBoxB, maxAmpsB)
             await self.setMaxCurrent(juiceBoxA, maxAmpsA)
+
+        # assumed control of the current, so remove the JuiceBoxes from load group
+        if juiceBoxA.loadGroupId is not None:
+            await self.removeFromLoadGroup(juiceBoxA)
+
+        if juiceBoxB.loadGroupId is not None:
+            await self.removeFromLoadGroup(juiceBoxB)
     # end setNewMaximums(JbDetails, int, JbDetails)
 
     def limitCurrent(self, juiceBox: JbDetails, maxCurrent: int) -> int:
