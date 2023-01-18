@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from contextlib import AsyncExitStack
 
-from juicebox import JbDetails, JbInterface
+from juicebox import JbDetails, JbInterface, LgDetails
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler, PersistentData
 
@@ -25,6 +25,7 @@ class ChargeControl(object):
         self.enableLimit: int | None = args.enableLimit
         self.justEqualAmps: bool = args.justEqualAmps
         self.setLimit: int | None = args.setLimit
+        self.group: bool = args.group
         self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
         self.maxAmpsName: str | None = args.maxAmps[0] if args.maxAmps else None
         self.persistentData = PersistentData()
@@ -59,6 +60,8 @@ class ChargeControl(object):
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
                            help="set each car to charge limit 'percent' if 50%%,"
                                 " setting currents based on cars' needs")
+        group.add_argument("-g", "--group", action="store_true",
+                           help="add all JuiceBoxes to a load group")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
                            help="name prefix of JuiceBox and maximum current to set (Amps)"
                                 " (other gets remaining current)")
@@ -73,6 +76,8 @@ class ChargeControl(object):
         processor: ParallelProc
 
         match True:
+            case _ if self.group:
+                processor = LoadGrouper(self)
             case _ if self.maxAmps is not None:
                 processor = MaxCurrentControl(self)
             case _ if self.justEqualAmps:
@@ -161,6 +166,7 @@ class JuiceBoxProc(ParallelProc, ABC):
     # fields set by addJb
     jbIntrfc: JbInterface
     juiceBoxes: list[JbDetails]
+    loadGroup: LgDetails
 
     async def addJb(self, jbIntrfc: JbInterface) -> None:
         """Store an interface to, and a list of, JuiceBoxes
@@ -168,10 +174,26 @@ class JuiceBoxProc(ParallelProc, ABC):
         """
         self.jbIntrfc = jbIntrfc
         await jbIntrfc.logIn()
-        self.juiceBoxes = await jbIntrfc.getStateOfJuiceBoxes()
+
+        async with asyncio.TaskGroup() as tg:
+            juiceBoxesTask = tg.create_task(jbIntrfc.getStateOfJuiceBoxes())
+            loadGroupTask = tg.create_task(jbIntrfc.getLoadGroup())
+        # end async with (tasks are awaited)
+        self.juiceBoxes = juiceBoxesTask.result()
+        self.loadGroup = loadGroupTask.result()
     # end addJb(JbInterface)
 
 # end class JuiceBoxProc
+
+
+class LoadGrouper(JuiceBoxProc):
+    """Processor to add all JuiceBoxes to a load group"""
+
+    async def process(self) -> None:
+        await self.jbIntrfc.addToLoadGroup(self.loadGroup, self.juiceBoxes)
+    # end process()
+
+# end class LoadGrouper
 
 
 class MaxCurrentControl(JuiceBoxProc):

@@ -8,7 +8,7 @@ from aiohttp import ClientResponse, ClientSession
 from pyquery import PyQuery
 
 from util import Configure, HTTPException
-from . import JbDetails
+from . import JbDetails, LgDetails
 
 
 class JbInterface(AsyncContextManager[Self]):
@@ -145,6 +145,42 @@ class JbInterface(AsyncContextManager[Self]):
 
         return juiceBox
     # end addMoreDetails(JbDetails)
+
+    async def getLoadGroup(self) -> LgDetails:
+        url = "https://home.juice.net/Portal/LoadGroup"
+
+        async with self.session.get(url) as resp:
+            if resp.status != 200:
+                raise await HTTPException.fromError(resp, "get load group")
+            try:
+                loadGroup = LgDetails(PyQuery(await resp.text()))
+            except Exception as e:
+                raise await HTTPException.fromXcp(e, resp, "get load group")
+
+        return loadGroup
+    # end getLoadGroup()
+
+    async def addToLoadGroup(self, group: LgDetails, juiceBoxes: list[JbDetails]) -> None:
+        url = "https://home.juice.net/Portal/AddDevicesToLoadGroup"
+        body = {
+            "__RequestVerificationToken": self.loToken,
+            "groupId": group.id,
+            "selectedDevices[]": [jb.deviceId for jb in juiceBoxes],
+        }
+
+        async with self.session.post(url, data=body, headers=self.XHR_HEADERS) as resp:
+            if resp.status != 200:
+                raise await HTTPException.fromError(resp, "add to load group")
+
+        logging.info(f"JuiceNet devices added to load group {group.name}:"
+                     f" {[jb.name for jb in juiceBoxes]}")
+
+        # load group now controls current, so let each JuiceBox have all available current
+        async with asyncio.TaskGroup() as tg:
+            for jb in juiceBoxes:
+                tg.create_task(self.setMaxCurrent(jb, group.maxCurrent))
+        # end async with (tasks are awaited)
+    # end addToLoadGroup(LgDetails, list[JbDetails])
 
     async def removeFromLoadGroup(self, juiceBox: JbDetails) -> None:
         """Remove the JuiceBox from its load group

@@ -63,8 +63,14 @@ class JbDetails(object):
 
     def statusStr(self) -> str:
         """Return a summary status suitable for display"""
-        return (f"{self.name} is {self.status}"
-                f" with maximum current {self.maxCurrent} A")
+        msg = f"{self.name} is {self.status}"
+
+        if self.loadGroupId is None:
+            msg += f" with maximum current {self.maxCurrent} A"
+        else:
+            msg += " with a load group controlling current"
+
+        return msg
     # end statusStr()
 
     def __str__(self) -> str:
