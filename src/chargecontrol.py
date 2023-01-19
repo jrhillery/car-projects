@@ -243,6 +243,10 @@ class EqualCurrentControl(JuiceBoxProc):
 
     async def shareCurrentEqually(self) -> None:
         """Share current equally between all JuiceBoxes"""
+        if len(self.juiceBoxes) < 2:
+            raise Exception(f"Unable to locate both JuiceBoxes,"
+                            f" found {[jb.name for jb in self.juiceBoxes]}")
+
         await self.jbIntrfc.setNewMaximums(
             self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
     # end shareCurrentEqually()
@@ -303,8 +307,16 @@ class AutoCurrentControl(TessieProc, EqualCurrentControl):
         :param juiceBoxMap: Mapping from JuiceBox names to JuiceBox details
         :return: Details of the corresponding JuiceBox
         """
-        juiceBoxName: str = self.chargeCtl.jbAttachMap[vehicle.displayName]
-        juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
+        try:
+            juiceBoxName: str = self.chargeCtl.jbAttachMap[vehicle.displayName]
+        except KeyError:
+            raise Exception(f"Unable to locate JuiceBox for {vehicle.displayName},"
+                            f" found JuiceBoxes for {self.chargeCtl.jbAttachMap.keys()}")
+        try:
+            juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
+        except KeyError:
+            raise Exception(f"Unable to locate JuiceBox named {juiceBoxName},"
+                            f" found JuiceBoxes named {juiceBoxMap.keys()}")
 
         if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
             logging.warning(f"Suspicious car-JuiceBox mapping;"
