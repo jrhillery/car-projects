@@ -244,11 +244,11 @@ class EqualCurrentControl(JuiceBoxProc):
     async def shareCurrentEqually(self) -> None:
         """Share current equally between all JuiceBoxes"""
         if len(self.juiceBoxes) < 2:
-            raise Exception(f"Unable to locate both JuiceBoxes,"
-                            f" found {[jb.name for jb in self.juiceBoxes]}")
-
-        await self.jbIntrfc.setNewMaximums(
-            self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
+            logging.error(f"Unable to locate both JuiceBoxes to share current equally,"
+                          f" found {[jb.name for jb in self.juiceBoxes]}")
+        else:
+            await self.jbIntrfc.setNewMaximums(
+                self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
     # end shareCurrentEqually()
 
 # end class EqualCurrentControl
@@ -295,28 +295,32 @@ class AutoCurrentControl(TessieProc, EqualCurrentControl):
             fairShare0 = self.chargeCtl.totalCurrent * (
                     self.vehicles[0].energyNeededC() / totalEnergyNeeded)
 
-            await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
+            if all(juiceBox is not None for juiceBox in jbs):
+                await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually()
     # end automaticallySetMaxCurrent()
 
-    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails:
+    def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails | None:
         """Retrieve JuiceBox details corresponding to a given car
         :param vehicle: Details of the vehicle in question
         :param juiceBoxMap: Mapping from JuiceBox names to JuiceBox details
         :return: Details of the corresponding JuiceBox
         """
+        jbAttachMap = self.chargeCtl.jbAttachMap
         try:
-            juiceBoxName: str = self.chargeCtl.jbAttachMap[vehicle.displayName]
+            juiceBoxName: str = jbAttachMap[vehicle.displayName]
         except KeyError:
-            raise Exception(f"Unable to locate JuiceBox for {vehicle.displayName},"
-                            f" found JuiceBoxes for {self.chargeCtl.jbAttachMap.keys()}")
+            logging.error(f"Unable to locate JuiceBox for {vehicle.displayName},"
+                          f" found JuiceBoxes for {[nm for nm in jbAttachMap.keys()]}")
+            return None
         try:
             juiceBox: JbDetails = juiceBoxMap[juiceBoxName]
         except KeyError:
-            raise Exception(f"Unable to locate JuiceBox named {juiceBoxName},"
-                            f" found JuiceBoxes named {juiceBoxMap.keys()}")
+            logging.error(f"Unable to locate JuiceBox named {juiceBoxName},"
+                          f" found JuiceBoxes named {[nm for nm in juiceBoxMap.keys()]}")
+            return None
 
         if vehicle.pluggedInAtHome() and vehicle.chargeAmps != juiceBox.maxCurrent:
             logging.warning(f"Suspicious car-JuiceBox mapping;"
