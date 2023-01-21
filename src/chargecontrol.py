@@ -108,7 +108,8 @@ class ChargeControl(object):
             async with asyncio.TaskGroup() as tg:
                 if isinstance(processor, TessieProc):
                     # Create TessieInterface registered so it cleans up when cStack closes
-                    tsIntrfc = await cStack.enter_async_context(TessieInterface())
+                    tsIntrfc = await cStack.enter_async_context(
+                        TessieInterface(self.totalCurrent))
                     tg.create_task(processor.addTs(tsIntrfc))
 
                 if isinstance(processor, JuiceBoxProc):
@@ -234,7 +235,7 @@ class MaxCurrentControl(JuiceBoxProc):
 # end class MaxCurrentControl
 
 
-class EqualCurrentControl(JuiceBoxProc):
+class EqualCurrentControl(TessieProc, JuiceBoxProc):
     """Processor to just share current equally"""
 
     async def process(self) -> None:
@@ -243,18 +244,27 @@ class EqualCurrentControl(JuiceBoxProc):
 
     async def shareCurrentEqually(self) -> None:
         """Share current equally between all JuiceBoxes"""
-        if len(self.juiceBoxes) < 2:
+        halfCurrent = self.chargeCtl.totalCurrent // 2
+
+        if len(self.juiceBoxes) >= 2:
+            await self.jbIntrfc.setNewMaximums(
+                self.juiceBoxes[0], halfCurrent, self.juiceBoxes[1])
+        else:
             logging.error(f"Unable to locate both JuiceBoxes to share current equally,"
                           f" found {[jb.name for jb in self.juiceBoxes]}")
-        else:
-            await self.jbIntrfc.setNewMaximums(
-                self.juiceBoxes[0], self.chargeCtl.totalCurrent // 2, self.juiceBoxes[1])
+
+            if len(self.vehicles) >= 2:
+                await self.tsIntrfc.setMaximums(
+                    self.vehicles[0], halfCurrent, self.vehicles[1])
+            else:
+                logging.error(f"Unable to locate both cars to share current equally,"
+                              f" found {[car.displayName for car in self.vehicles]}")
     # end shareCurrentEqually()
 
 # end class EqualCurrentControl
 
 
-class AutoCurrentControl(TessieProc, EqualCurrentControl):
+class AutoCurrentControl(EqualCurrentControl):
     """Processor to automatically set maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -297,6 +307,9 @@ class AutoCurrentControl(TessieProc, EqualCurrentControl):
 
             if all(juiceBox is not None for juiceBox in jbs):
                 await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
+            else:
+                await self.tsIntrfc.setMaximums(self.vehicles[0], int(fairShare0 + 0.5),
+                                                self.vehicles[1])
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually()
@@ -433,7 +446,7 @@ class CarChargingEnabler(ChargeLimitControl):
 # end class CarChargingEnabler
 
 
-class CarChargingDisabler(TessieProc, EqualCurrentControl):
+class CarChargingDisabler(EqualCurrentControl):
     """Processor to disable charging, sharing current equally"""
 
     async def process(self) -> None:

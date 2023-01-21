@@ -15,6 +15,7 @@ class CarDetails(object):
     battLevel: int
     battRange: float
     chargeAmps: int
+    chargeCurrentRequest: int
     chargeLimit: int
     limitMinPercent: int
     limitMaxPercent: int
@@ -47,6 +48,7 @@ class CarDetails(object):
         self.battLevel = chargeState["battery_level"]
         self.battRange = chargeState["battery_range"]
         self.chargeAmps = chargeState["charge_amps"]
+        self.chargeCurrentRequest = chargeState["charge_current_request"]
         self.chargeLimit = chargeState["charge_limit_soc"]
         self.limitMinPercent = chargeState["charge_limit_soc_min"]
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
@@ -59,8 +61,12 @@ class CarDetails(object):
         return self.chargingState != "Disconnected"
     # end pluggedIn()
 
+    def atHome(self) -> bool:
+        return self.savedLocation == "Home"
+    # end atHome()
+
     def pluggedInAtHome(self) -> bool:
-        return self.pluggedIn() and self.savedLocation == "Home"
+        return self.pluggedIn() and self.atHome()
     # end pluggedInAtHome()
 
     def awake(self) -> bool:

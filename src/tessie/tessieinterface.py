@@ -13,8 +13,15 @@ from . import CarDetails
 class TessieInterface(AsyncContextManager[Self]):
     """Provides an interface through Tessie to authorized vehicles"""
 
+    def __init__(self, totalCurrent: int):
+        """Initialize this instance
+        :param totalCurrent: The total current available to all cars
+        """
+        self.totalCurrent: int = totalCurrent
+    # end __init__(int)
+
     async def __aenter__(self) -> Self:
-        """Initialize this instance and allocate resources"""
+        """Allocate resources"""
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {await TessieInterface.loadToken()}"
@@ -258,6 +265,54 @@ class TessieInterface(AsyncContextManager[Self]):
         logging.info(f"{dtls.displayName} charge limit changed"
                      f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int, bool)
+
+    async def setChargingCurrent(self, dtls: CarDetails, maxCurrent: int,
+                                 waitForCompletion=False) -> None:
+        """Set the car's maximum request current to a specified value
+        :param dtls: Details of the vehicle to set
+        :param maxCurrent: New maximum current to request (amps)
+        :param waitForCompletion: Flag indicating to wait for request current to be set
+        """
+        if dtls.atHome():
+            if maxCurrent != dtls.chargeCurrentRequest:
+                url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
+                qryParms = {
+                    "retry_duration": 60,
+                    "wait_for_completion": "true" if waitForCompletion else "false",
+                    "amps": maxCurrent,
+                }
+
+                async with self.session.get(url, params=qryParms) as resp:
+                    oldMax = dtls.chargeCurrentRequest
+                    dtls.chargeCurrentRequest = maxCurrent
+
+                    if resp.status != 200:
+                        raise await HTTPException.fromError(resp, dtls.displayName)
+
+                logging.info(f"{dtls.displayName} charging current changed"
+                             f" from {oldMax} to {maxCurrent} A")
+            elif maxCurrent != self.totalCurrent // 2:
+                # supress already set messages when sharing current equally - they're common
+                logging.info(f"{dtls.displayName} charging current already"
+                             f" set to {maxCurrent} A")
+    # end setChargingCurrent(CarDetails, int, bool)
+
+    async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails) -> None:
+        """Set cars' maximum charge request currents, decrease one before increasing the other
+        :param dtlsA: Details of one of the cars to set
+        :param maxAmpsA: Desired maximum request current for dtlsA (amps)
+        :param dtlsB: Details of the other car to set (gets remaining current)
+        """
+        maxAmpsB = self.totalCurrent - maxAmpsA
+
+        if maxAmpsA < dtlsA.chargeCurrentRequest:
+            # decreasing dtlsA current, so do it first
+            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
+            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion=True)
+        else:
+            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion=True)
+            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
+    # end setMaximums(CarDetails, int, CarDetails)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle
