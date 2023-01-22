@@ -297,22 +297,24 @@ class TessieInterface(AsyncContextManager[Self]):
                              f" set to {maxCurrent} A")
     # end setChargingCurrent(CarDetails, int, bool)
 
-    async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails) -> None:
+    async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails,
+                          waitForCompletion=False) -> None:
         """Set cars' maximum charge request currents, decrease one before increasing the other
         :param dtlsA: Details of one of the cars to set
         :param maxAmpsA: Desired maximum request current for dtlsA (amps)
         :param dtlsB: Details of the other car to set (gets remaining current)
+        :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         maxAmpsB = self.totalCurrent - maxAmpsA
 
         if maxAmpsA < dtlsA.chargeCurrentRequest:
             # decreasing dtlsA current, so do it first
             await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
-            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion=True)
+            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion)
         else:
             await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion=True)
-            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
-    # end setMaximums(CarDetails, int, CarDetails)
+            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion)
+    # end setMaximums(CarDetails, int, CarDetails, bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle

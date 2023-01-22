@@ -254,8 +254,8 @@ class EqualCurrentControl(TessieProc, JuiceBoxProc):
                           f" found {[jb.name for jb in self.juiceBoxes]}")
 
             if len(self.vehicles) >= 2:
-                await self.tsIntrfc.setMaximums(
-                    self.vehicles[0], halfCurrent, self.vehicles[1])
+                await self.tsIntrfc.setMaximums(self.vehicles[0], halfCurrent,
+                                                self.vehicles[1], waitForCompletion=True)
             else:
                 logging.error(f"Unable to locate both cars to share current equally,"
                               f" found {[car.displayName for car in self.vehicles]}")
@@ -309,7 +309,7 @@ class AutoCurrentControl(EqualCurrentControl):
                 await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
             else:
                 await self.tsIntrfc.setMaximums(self.vehicles[0], int(fairShare0 + 0.5),
-                                                self.vehicles[1])
+                                                self.vehicles[1], waitForCompletion=True)
         else:
             # Share current equally when no car needs energy
             await self.shareCurrentEqually()
