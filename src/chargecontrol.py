@@ -279,9 +279,11 @@ class AutoCurrentControl(EqualCurrentControl):
         await self.automaticallySetMaxCurrent()
     # end process()
 
-    async def automaticallySetMaxCurrent(self) -> None:
+    async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
         """Automatically set JuiceBox maximum currents based on each cars' charging needs
-           - depends on having battery health details"""
+           - depends on having battery health details
+        :param waitForCompletion: Flag indicating to wait for final request current to be set
+        """
         totalEnergyNeeded = 0.0
 
         for carDetails in self.vehicles:
@@ -311,10 +313,10 @@ class AutoCurrentControl(EqualCurrentControl):
                 await self.jbIntrfc.setNewMaximums(jbs[0], int(fairShare0 + 0.5), jbs[1])
             else:
                 await self.tsIntrfc.setMaximums(self.vehicles[0], int(fairShare0 + 0.5),
-                                                self.vehicles[1], waitForCompletion=True)
+                                                self.vehicles[1], waitForCompletion)
         else:
             # Share current equally when no car needs energy
-            await self.shareCurrentEqually(waitForCompletion=True)
+            await self.shareCurrentEqually(waitForCompletion)
     # end automaticallySetMaxCurrent()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails | None:
@@ -409,7 +411,7 @@ class CarChargingEnabler(ChargeLimitControl):
             # end for
         # end async with (tasks are awaited)
 
-        await self.automaticallySetMaxCurrent()
+        await self.automaticallySetMaxCurrent(waitForCompletion=True)
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
