@@ -297,6 +297,18 @@ class TessieInterface(AsyncContextManager[Self]):
                              f" set to {maxCurrent} A")
     # end setChargingCurrent(CarDetails, int, bool)
 
+    def wakeIfSettingCurrent(self, dtls: CarDetails, maxCurrent: int,
+                             tg: asyncio.TaskGroup) -> None:
+        """Create a task to wake this car if the setChargingCurrent logic says this
+           car will have its charging current set and this car is not already awake
+        :param dtls: Details of the vehicle to wake
+        :param maxCurrent: Maximum current to request (amps)
+        :param tg: Task group to hold the resulting task
+        """
+        if dtls.atHome() and maxCurrent != dtls.chargeCurrentRequest and not dtls.awake():
+            tg.create_task(self.wake(dtls))
+    # end wakeIfSettingCurrent(CarDetails, int, asyncio.TaskGroup)
+
     async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails,
                           waitForCompletion=False) -> None:
         """Set cars' maximum charge request currents, decrease one before increasing the other
@@ -306,6 +318,12 @@ class TessieInterface(AsyncContextManager[Self]):
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         maxAmpsB = self.totalCurrent - maxAmpsA
+
+        async with asyncio.TaskGroup() as tg:
+            # create tasks to wake cars that will have their charging current set
+            self.wakeIfSettingCurrent(dtlsA, maxAmpsA, tg)
+            self.wakeIfSettingCurrent(dtlsB, maxAmpsB, tg)
+        # end async with (tasks are awaited)
 
         if maxAmpsA < dtlsA.chargeCurrentRequest:
             # decreasing dtlsA current, so do it first
