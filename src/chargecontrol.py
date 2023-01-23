@@ -242,8 +242,10 @@ class EqualCurrentControl(TessieProc, JuiceBoxProc):
         await self.shareCurrentEqually()
     # end process()
 
-    async def shareCurrentEqually(self) -> None:
-        """Share current equally between all JuiceBoxes"""
+    async def shareCurrentEqually(self, waitForCompletion=False) -> None:
+        """Share current equally among all vehicles
+        :param waitForCompletion: Flag indicating to wait for final request current to be set
+        """
         halfCurrent = self.chargeCtl.totalCurrent // 2
 
         if len(self.juiceBoxes) >= 2:
@@ -255,7 +257,7 @@ class EqualCurrentControl(TessieProc, JuiceBoxProc):
 
             if len(self.vehicles) >= 2:
                 await self.tsIntrfc.setMaximums(self.vehicles[0], halfCurrent,
-                                                self.vehicles[1], waitForCompletion=True)
+                                                self.vehicles[1], waitForCompletion)
             else:
                 logging.error(f"Unable to locate both cars to share current equally,"
                               f" found {[car.displayName for car in self.vehicles]}")
@@ -312,7 +314,7 @@ class AutoCurrentControl(EqualCurrentControl):
                                                 self.vehicles[1], waitForCompletion=True)
         else:
             # Share current equally when no car needs energy
-            await self.shareCurrentEqually()
+            await self.shareCurrentEqually(waitForCompletion=True)
     # end automaticallySetMaxCurrent()
 
     def getJuiceBoxForCar(self, vehicle: CarDetails, juiceBoxMap: dict) -> JbDetails | None:
