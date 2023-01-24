@@ -388,7 +388,7 @@ class ChargeLimitControl(AutoCurrentControl):
             if percent != dtls.chargeLimit:
                 if not dtls.awake():
                     # try to wake up this car
-                    await self.tsIntrfc.wake(dtls)
+                    await self.tsIntrfc.getWakeTask(dtls)
 
                 await self.tsIntrfc.setChargeLimit(dtls, percent, waitForCompletion)
             else:
@@ -426,7 +426,7 @@ class CarChargingEnabler(ChargeLimitControl):
         """
         if dtls.pluggedInAtHome():
             if not dtls.awake():
-                await self.tsIntrfc.wake(dtls)
+                await self.tsIntrfc.getWakeTask(dtls)
 
             if dtls.dataAge() > 10:
                 # make sure we have the current battery level and charge limit
@@ -473,7 +473,8 @@ class CarChargingDisabler(EqualCurrentControl):
             # this vehicle is plugged in at home
 
             if not dtls.awake():
-                await self.tsIntrfc.wake(dtls)
+                await self.tsIntrfc.getWakeTask(dtls)
+
             await self.tsIntrfc.stopCharging(dtls, waitForCompletion=True)
 
             if not dtls.chargeLimitIsMin():

@@ -1,5 +1,6 @@
 
 import logging
+from asyncio import Task
 from datetime import timedelta
 from time import time
 
@@ -36,7 +37,8 @@ class CarDetails(object):
     def __init__(self, vehicleState: dict):
         """Initialize this instance and allocate resources"""
         self.updateFromDict(vehicleState)
-    # end __init__(str, dict)
+        self.wakeTask: Task | None = None
+    # end __init__(dict)
 
     def updateFromDict(self, vehicleState: dict) -> None:
         """Populate details of this vehicle

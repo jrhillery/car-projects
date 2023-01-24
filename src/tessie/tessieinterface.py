@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import MutableSequence
 from typing import AsyncContextManager, Self
 
 from aiohttp import ClientResponse, ClientSession
@@ -241,6 +242,17 @@ class TessieInterface(AsyncContextManager[Self]):
         return False
     # end waitTillAwake(CarDetails)
 
+    def getWakeTask(self, dtls: CarDetails) -> asyncio.Task:
+        """Get a task scheduled to wake up this vehicle
+        :param dtls: Details of the vehicle to wake
+        :return: Wake up task instance
+        """
+        if dtls.wakeTask is None:
+            dtls.wakeTask = asyncio.create_task(self.wake(dtls))
+
+        return dtls.wakeTask
+    # end getWakeTask(CarDetails)
+
     async def setChargeLimit(self, dtls: CarDetails, percent: int,
                              waitForCompletion=False) -> None:
         """Set a specified vehicle's charge limit
@@ -298,35 +310,35 @@ class TessieInterface(AsyncContextManager[Self]):
     # end setChargingCurrent(CarDetails, int, bool)
 
     def wakeIfSettingCurrent(self, dtls: CarDetails, maxCurrent: int,
-                             tg: asyncio.TaskGroup) -> None:
-        """Create a task to wake this car if the setChargingCurrent logic says this
+                             wakeFutures: MutableSequence[asyncio.Future]) -> None:
+        """Store a task to wake this car if the setChargingCurrent logic says this
            car will have its charging current set and this car is not already awake
         :param dtls: Details of the vehicle to wake
         :param maxCurrent: Maximum current to request (amps)
-        :param tg: Task group to hold the resulting task
+        :param wakeFutures: Mutable sequence to hold the resulting task
         """
         if dtls.atHome() and maxCurrent != dtls.chargeCurrentRequest and not dtls.awake():
-            tg.create_task(self.wake(dtls))
-    # end wakeIfSettingCurrent(CarDetails, int, asyncio.TaskGroup)
+            wakeFutures.append(self.getWakeTask(dtls))
+    # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[asyncio.Future])
 
     async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails,
                           waitForCompletion=False) -> None:
-        """Set cars' maximum charge request currents, decrease one before increasing the other
+        """Set cars' maximum request currents, decrease one before increasing the other
         :param dtlsA: Details of one of the cars to set
         :param maxAmpsA: Desired maximum request current for dtlsA (amps)
         :param dtlsB: Details of the other car to set (gets remaining current)
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         maxAmpsB = self.totalCurrent - maxAmpsA
+        wakeFutures: list[asyncio.Future] = []
 
-        async with asyncio.TaskGroup() as tg:
-            # create tasks to wake cars that will have their charging current set
-            self.wakeIfSettingCurrent(dtlsA, maxAmpsA, tg)
-            self.wakeIfSettingCurrent(dtlsB, maxAmpsB, tg)
-        # end async with (tasks are awaited)
+        # run tasks to wake cars that will have their charging current set
+        self.wakeIfSettingCurrent(dtlsA, maxAmpsA, wakeFutures)
+        self.wakeIfSettingCurrent(dtlsB, maxAmpsB, wakeFutures)
+        await asyncio.gather(*wakeFutures)
 
-        if maxAmpsA < dtlsA.chargeCurrentRequest:
-            # decreasing dtlsA current, so do it first
+        if maxAmpsA <= maxAmpsB:
+            # change to smaller maximum request current first
             await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
             await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion)
         else:
