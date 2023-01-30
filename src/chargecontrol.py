@@ -413,7 +413,7 @@ class CarChargingEnabler(ChargeLimitControl):
 # end class CarChargingEnabler
 
 
-class CarChargingDisabler(EqualCurrentControl):
+class CarChargingDisabler(TessieProc):
     """Processor to disable charging, sharing current equally"""
 
     async def process(self) -> None:
@@ -422,8 +422,6 @@ class CarChargingDisabler(EqualCurrentControl):
                 logging.info(dtls.chargingStatusSummary())
                 tg.create_task(self.disableCarCharging(dtls))
             # end for
-
-            tg.create_task(self.shareCurrentEqually())
         # end async with (tasks are awaited)
     # end process()
 
