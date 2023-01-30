@@ -5,4 +5,3 @@ from .interpret import Interpret
 from .persistentdata import PersistentData
 from .httpexception import HTTPException
 from .summarystr import SummaryStr
-from .timerdecorator import timer
