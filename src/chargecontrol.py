@@ -23,7 +23,6 @@ class ChargeControl(object):
         self.autoMax: bool = args.autoMax
         self.disable: bool = args.disable
         self.enableLimit: int | None = args.enableLimit
-        self.justEqualAmps: bool = args.justEqualAmps
         self.setLimit: int | None = args.setLimit
         self.group: bool = args.group
         self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
@@ -54,8 +53,6 @@ class ChargeControl(object):
         group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
                            help="enable charging with each car at limit 'percent' if 50%%,"
                                 " setting currents based on cars' needs")
-        group.add_argument("-j", "--justEqualAmps", action="store_true",
-                           help="just share current equally")
         group.add_argument("-s", "--setLimit", type=int, metavar="percent",
                            help="set each car to charge limit 'percent' if 50%%,"
                                 " setting currents based on cars' needs")
@@ -79,8 +76,6 @@ class ChargeControl(object):
                 processor = LoadGrouper(self)
             case _ if self.maxAmps is not None:
                 processor = MaxCurrentControl(self)
-            case _ if self.justEqualAmps:
-                processor = EqualCurrentControl(self)
             case _ if self.autoMax:
                 processor = AutoCurrentControl(self)
             case _ if self.setLimit is not None:
@@ -232,37 +227,6 @@ class MaxCurrentControl(TessieProc):
     # end specifyMaxCurrent(str, int)
 
 # end class MaxCurrentControl
-
-
-class EqualCurrentControl(TessieProc, JuiceBoxProc):
-    """Processor to just share current equally"""
-
-    async def process(self) -> None:
-        await self.shareCurrentEqually()
-    # end process()
-
-    async def shareCurrentEqually(self, waitForCompletion=False) -> None:
-        """Share current equally among all vehicles
-        :param waitForCompletion: Flag indicating to wait for final request current to be set
-        """
-        halfCurrent = self.chargeCtl.totalCurrent // 2
-
-        if len(self.juiceBoxes) >= 2:
-            await self.jbIntrfc.setNewMaximums(
-                self.juiceBoxes[0], halfCurrent, self.juiceBoxes[1])
-        else:
-            logging.error(f"Unable to locate both JuiceBoxes to share current equally,"
-                          f" found {[jb.name for jb in self.juiceBoxes]}")
-
-            if len(self.vehicles) >= 2:
-                await self.tsIntrfc.setMaximums(self.vehicles[0], halfCurrent,
-                                                self.vehicles[1], waitForCompletion)
-            else:
-                logging.error(f"Unable to locate both cars to share current equally,"
-                              f" found {[car.displayName for car in self.vehicles]}")
-    # end shareCurrentEqually()
-
-# end class EqualCurrentControl
 
 
 class AutoCurrentControl(TessieProc):
