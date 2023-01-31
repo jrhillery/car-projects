@@ -329,7 +329,9 @@ class TessieInterface(AsyncContextManager[Self]):
         :param dtlsB: Details of the other car to set (gets remaining current)
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        maxAmpsB = self.totalCurrent - maxAmpsA
+        maxAmpsA = dtlsA.limitRequestCurrent(maxAmpsA)
+        maxAmpsB = dtlsB.limitRequestCurrent(self.totalCurrent - maxAmpsA)
+        maxAmpsA = self.totalCurrent - maxAmpsB
         wakeFutures: list[asyncio.Future] = []
 
         # run tasks to wake cars that will have their charging current set

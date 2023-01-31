@@ -17,6 +17,7 @@ class CarDetails(object):
     battRange: float
     chargeAmps: int
     chargeCurrentRequest: int
+    requestMaxAmps: int
     chargeLimit: int
     limitMinPercent: int
     limitMaxPercent: int
@@ -51,6 +52,7 @@ class CarDetails(object):
         self.battRange = chargeState["battery_range"]
         self.chargeAmps = chargeState["charge_amps"]
         self.chargeCurrentRequest = chargeState["charge_current_request"]
+        self.requestMaxAmps = chargeState["charge_current_request_max"]
         self.chargeLimit = chargeState["charge_limit_soc"]
         self.limitMinPercent = chargeState["charge_limit_soc_min"]
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
@@ -74,6 +76,17 @@ class CarDetails(object):
     def awake(self) -> bool:
         return self.sleepStatus == "awake"
     # end awake()
+
+    def limitRequestCurrent(self, maxCurrent: int) -> int:
+        """Return a maximum request current that does not exceed the charge adapter's maximum
+        :param maxCurrent: Desired maximum request current (amps)
+        :return: Nearest valid request current
+        """
+        if maxCurrent > self.requestMaxAmps:
+            maxCurrent = self.requestMaxAmps
+
+        return maxCurrent
+    # end limitRequestCurrent(int)
 
     def chargeLimitIsMin(self) -> bool:
         return self.chargeLimit == self.limitMinPercent
