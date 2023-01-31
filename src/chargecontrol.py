@@ -44,7 +44,7 @@ class ChargeControl(object):
         :return: A Namespace instance with parsed command line arguments
         """
         ap = ArgumentParser(description="Module to control charging all authorized cars"
-                                        " and to set maximum JuiceBox charge currents",
+                                        " and to set maximum request currents",
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-a", "--autoMax", action="store_true",
@@ -62,7 +62,7 @@ class ChargeControl(object):
         group.add_argument("-g", "--group", action="store_true",
                            help="add all JuiceBoxes to a load group")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
-                           help="name prefix of JuiceBox and maximum current to set (Amps)"
+                           help="name prefix of car and maximum current to set (amps)"
                                 " (other gets remaining current)")
 
         return ap.parse_args()
@@ -196,39 +196,39 @@ class LoadGrouper(JuiceBoxProc):
 # end class LoadGrouper
 
 
-class MaxCurrentControl(JuiceBoxProc):
-    """Processor to set a specified JuiceBox to a specified maximum current (Amps)
-       (the other JuiceBox gets the remaining current)"""
+class MaxCurrentControl(TessieProc):
+    """Processor to set a specified car to a specified maximum request current (amps)
+       (the other car gets the remaining current)"""
 
     async def process(self) -> None:
         await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
     # end process()
 
     async def specifyMaxCurrent(self, specifiedName: str, specifiedMaxAmps: int) -> None:
-        """Set the specified JuiceBox maximum current to a given value
-           (the other JuiceBox gets the remaining current)
-        :param specifiedName: Prefix of the JuiceBox name being specified
-        :param specifiedMaxAmps: The maximum current (Amps) to set for the specified JuiceBox
+        """Set the specified vehicle's maximum request current to a given value
+           (the other vehicle gets the remaining current)
+        :param specifiedName: Prefix of the vehicle name being specified
+        :param specifiedMaxAmps: The maximum current (amps) to set for the specified vehicle
         """
-        specifiedJuiceBox: JbDetails | None = None
-        otherJuiceBox: JbDetails | None = None
+        specifiedCar: CarDetails | None = None
+        otherCar: CarDetails | None = None
 
-        for juiceBox in self.juiceBoxes:
-            if juiceBox.name.startswith(specifiedName):
-                specifiedJuiceBox = juiceBox
+        for dtls in self.vehicles:
+            if dtls.displayName.startswith(specifiedName):
+                specifiedCar = dtls
             else:
-                otherJuiceBox = juiceBox
+                otherCar = dtls
         # end for
 
-        if not specifiedJuiceBox:
-            raise Exception(f"Unable to locate JuiceBox starting with {specifiedName},"
-                            f" found {[jb.name for jb in self.juiceBoxes]}")
+        if not specifiedCar:
+            raise Exception(f"Unable to locate car starting with {specifiedName},"
+                            f" found {[car.displayName for car in self.vehicles]}")
 
-        if not otherJuiceBox:
-            raise Exception(f"Unable to locate both JuiceBoxes,"
-                            f" found {[jb.name for jb in self.juiceBoxes]}")
+        if not otherCar:
+            raise Exception(f"Unable to locate both cars,"
+                            f" found {[car.displayName for car in self.vehicles]}")
 
-        await self.jbIntrfc.setNewMaximums(specifiedJuiceBox, specifiedMaxAmps, otherJuiceBox)
+        await self.tsIntrfc.setMaximums(specifiedCar, specifiedMaxAmps, otherCar)
     # end specifyMaxCurrent(str, int)
 
 # end class MaxCurrentControl
