@@ -295,7 +295,7 @@ class ChargeLimitControl(AutoCurrentControl):
             if persistedLimit is not None:
                 # use persisted limit instead of parameter value
                 percent = persistedLimit
-            percent = dtls.limitToCapabilities(percent)
+            percent = dtls.limitChargeLimit(percent)
 
             if percent != dtls.chargeLimit:
                 if not dtls.awake():

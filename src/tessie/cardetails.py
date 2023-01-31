@@ -92,7 +92,7 @@ class CarDetails(object):
         return self.chargeLimit == self.limitMinPercent
     # end chargeLimitIsMin()
 
-    def limitToCapabilities(self, chargeLimit: int) -> int:
+    def limitChargeLimit(self, chargeLimit: int) -> int:
         """Return a charge limit within the valid range for this vehicle
         :param chargeLimit: The proposed charge limit
         :return: The nearest valid charge limit
@@ -100,15 +100,15 @@ class CarDetails(object):
         if chargeLimit < self.limitMinPercent:
             logging.info(f"{chargeLimit}% is too small for {self.displayName}"
                          f" -- minimum is {self.limitMinPercent}%")
-            return self.limitMinPercent
+            chargeLimit = self.limitMinPercent
 
         if chargeLimit > self.limitMaxPercent:
             logging.info(f"{chargeLimit}% is too large for {self.displayName}"
                          f" -- maximum is {self.limitMaxPercent}%")
-            return self.limitMaxPercent
+            chargeLimit = self.limitMaxPercent
 
         return chargeLimit
-    # end limitToCapabilities(int)
+    # end limitChargeLimit(int)
 
     def chargeNeeded(self) -> int:
         """Return the percent increase the battery needs to reach its charge limit"""
