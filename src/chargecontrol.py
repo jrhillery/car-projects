@@ -318,6 +318,10 @@ class CarChargingEnabler(ChargeLimitControl):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.chargingStatusSummary())
+
+                if dtls.pluggedInAtHome() and not dtls.awake():
+                    # schedule a task to wake up this vehicle but don't wait for it yet
+                    self.tsIntrfc.getWakeTask(dtls)
                 tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
