@@ -270,8 +270,7 @@ class ChargeLimitControl(AutoCurrentControl):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit,
-                                                   waitForCompletion=False))
+                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
@@ -279,13 +278,11 @@ class ChargeLimitControl(AutoCurrentControl):
         await self.automaticallySetMaxCurrent()
     # end process()
 
-    async def setChargeLimit(self, dtls: CarDetails, percent: int,
-                             waitForCompletion=True) -> None:
+    async def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
         """If the specified vehicle's charge limit is minimum,
            ensure the vehicle is awake and set a specified charge limit percent
         :param dtls: Details of the vehicle to set
         :param percent: Charging limit percent to use if none persisted
-        :param waitForCompletion: Flag indicating to wait for limit to be set
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
@@ -302,7 +299,7 @@ class ChargeLimitControl(AutoCurrentControl):
                     # try to wake up this car
                     await self.tsIntrfc.getWakeTask(dtls)
 
-                await self.tsIntrfc.setChargeLimit(dtls, percent, waitForCompletion)
+                await self.tsIntrfc.setChargeLimit(dtls, percent)
             else:
                 logging.info(f"No change made to {dtls.displayName} charge limit")
     # end setChargeLimit(CarDetails, int, bool)
