@@ -154,6 +154,7 @@ class CarDetails(object):
         summary = SummaryStr(f"{self.displayName} was {self.sleepStatus}"
                              f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
                              f" with charging {self.chargingState}"
+                             f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A"
                              f", limit {self.chargeLimit}%"
                              f" and battery {self.battLevel}%",
                              self.updatedSinceSummary)
