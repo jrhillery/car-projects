@@ -22,8 +22,8 @@ class ChargeControl(object):
         """
         self.autoMax: bool = args.autoMax
         self.disable: bool = args.disable
-        self.enableLimit: int | None = args.enableLimit
-        self.setLimit: int | None = args.setLimit
+        self.enable: bool = args.enable
+        self.restoreLimit: bool = args.restoreLimit
         self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
         self.maxAmpsName: str | None = args.maxAmps[0] if args.maxAmps else None
         self.persistentData = PersistentData()
@@ -49,11 +49,11 @@ class ChargeControl(object):
                            help="set maximum currents based on cars' charging needs")
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
-        group.add_argument("-e", "--enableLimit", type=int, metavar="percent",
-                           help="enable charging with each car at limit 'percent' if 50%%,"
+        group.add_argument("-e", "--enable", action="store_true",
+                           help="enable charging restoring each car's limit if 50%%,"
                                 " setting currents based on cars' needs")
-        group.add_argument("-s", "--setLimit", type=int, metavar="percent",
-                           help="set each car to charge limit 'percent' if 50%%,"
+        group.add_argument("-r", "--restoreLimit", action="store_true",
+                           help="restore each car's charge limit if 50%%,"
                                 " setting currents based on cars' needs")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
                            help="name prefix of car and maximum current to set (amps)"
@@ -73,9 +73,9 @@ class ChargeControl(object):
                 processor = MaxCurrentControl(self)
             case _ if self.autoMax:
                 processor = AutoCurrentControl(self)
-            case _ if self.setLimit is not None:
+            case _ if self.restoreLimit:
                 processor = ChargeLimitControl(self)
-            case _ if self.enableLimit is not None:
+            case _ if self.enable:
                 processor = CarChargingEnabler(self)
             case _ if self.disable:
                 processor = CarChargingDisabler(self)
@@ -263,14 +263,14 @@ class AutoCurrentControl(TessieProc):
 
 
 class ChargeLimitControl(AutoCurrentControl):
-    """Processor to set each car to a specified charge limit if 50%,
+    """Processor to restore each car to a persisted charge limit if 50%,
        setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.setLimit))
+                tg.create_task(self.restoreChargeLimit(dtls))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
@@ -278,20 +278,20 @@ class ChargeLimitControl(AutoCurrentControl):
         await self.automaticallySetMaxCurrent()
     # end process()
 
-    async def setChargeLimit(self, dtls: CarDetails, percent: int) -> None:
+    async def restoreChargeLimit(self, dtls: CarDetails) -> None:
         """If the specified vehicle's charge limit is minimum,
-           ensure the vehicle is awake and set a specified charge limit percent
-        :param dtls: Details of the vehicle to set
-        :param percent: Charging limit percent to use if none persisted
+           ensure the vehicle is awake and restore its charge limit to a persisted percent
+        :param dtls: Details of the vehicle to restore
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
-            persistedLimit: int | None = self.chargeCtl.persistentData.getVal(
+            percent: int | None = self.chargeCtl.persistentData.getVal(
                 ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
 
-            if persistedLimit is not None:
-                # use persisted limit instead of parameter value
-                percent = persistedLimit
+            if percent is None:
+                # use an average value if no limit is persisted
+                percent = (dtls.limitMinPercent + dtls.limitMaxPercent) // 2
+
             percent = dtls.limitChargeLimit(percent)
 
             if percent != dtls.chargeLimit:
@@ -308,7 +308,7 @@ class ChargeLimitControl(AutoCurrentControl):
 
 
 class CarChargingEnabler(ChargeLimitControl):
-    """Processor to enable charging with each car set to a specified charge limit if 50%,
+    """Processor to enable charging with each car restored to a persisted charge limit if 50%,
        setting maximum currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -319,7 +319,7 @@ class CarChargingEnabler(ChargeLimitControl):
                 if dtls.pluggedInAtHome() and not dtls.awake():
                     # schedule a task to wake up this vehicle but don't wait for it yet
                     self.tsIntrfc.getWakeTask(dtls)
-                tg.create_task(self.setChargeLimit(dtls, self.chargeCtl.enableLimit))
+                tg.create_task(self.restoreChargeLimit(dtls))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)

@@ -1,2 +1,2 @@
 @Echo Starting %0%
-python src\chargecontrol.py --setLimit 67
+python src\chargecontrol.py --restoreLimit
