@@ -110,13 +110,16 @@ class CarDetails(object):
         return chargeLimit
     # end limitChargeLimit(int)
 
-    def chargeNeeded(self) -> int:
+    def chargeNeeded(self, chargeLimit: int | None = None) -> int:
         """Return the percent increase the battery needs to reach its charge limit"""
-        if self.chargeLimit <= self.battLevel:
+        if chargeLimit is None:
+            chargeLimit = self.chargeLimit
+
+        if chargeLimit <= self.battLevel:
             return 0
         else:
-            return self.chargeLimit - self.battLevel
-    # end chargeNeeded()
+            return chargeLimit - self.battLevel
+    # end chargeNeeded(int | None)
 
     def rangeNeeded(self) -> float:
         """Return the range increase the battery needs to reach its charge limit"""
@@ -128,15 +131,15 @@ class CarDetails(object):
             return rangeLimit - self.battRange
     # end rangeNeeded()
 
-    def energyNeededC(self) -> float:
+    def energyNeededC(self, chargeLimit: int | None = None) -> float:
         """Return the energy needed to reach the charge limit, in kWh
            - this estimate is based on the reported battery charge level"""
         if self.pluggedInAtHome():
-            return self.chargeNeeded() * 0.01 * self.battCapacity
+            return self.chargeNeeded(chargeLimit) * 0.01 * self.battCapacity
             # no improvement from: self.rangeNeeded() / self.battMaxRange * self.battCapacity
         else:
             return 0.0
-    # end energyNeededC()
+    # end energyNeededC(int | None)
 
     def dataAge(self) -> float:
         """Return the age of this CarDetails' data in seconds"""
