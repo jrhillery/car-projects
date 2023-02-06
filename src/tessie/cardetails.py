@@ -111,7 +111,10 @@ class CarDetails(object):
     # end limitChargeLimit(int)
 
     def chargeNeeded(self, chargeLimit: int | None = None) -> int:
-        """Return the percent increase the battery needs to reach its charge limit"""
+        """Return the percent increase the battery needs to reach its charge limit
+        :param chargeLimit: The charge limit to use, defaulting to existing charge limit
+        :return: The percent increase needed
+        """
         if chargeLimit is None:
             chargeLimit = self.chargeLimit
 
@@ -133,7 +136,10 @@ class CarDetails(object):
 
     def energyNeededC(self, chargeLimit: int | None = None) -> float:
         """Return the energy needed to reach the charge limit, in kWh
-           - this estimate is based on the reported battery charge level"""
+           - this estimate is based on the reported battery charge level
+        :param chargeLimit: The charge limit to use, defaulting to existing charge limit
+        :return: The energy needed
+        """
         if self.pluggedInAtHome():
             return self.chargeNeeded(chargeLimit) * 0.01 * self.battCapacity
             # no improvement from: self.rangeNeeded() / self.battMaxRange * self.battCapacity
