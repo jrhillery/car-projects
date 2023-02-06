@@ -5,6 +5,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
+from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from juicebox import JbDetails, JbInterface, LgDetails
@@ -227,6 +228,43 @@ class AutoCurrentControl(TessieProc):
         await self.automaticallySetMaxCurrent()
     # end process()
 
+    def getPriorLimit(self, dtls: CarDetails) -> int:
+        """Get the persisted charge limit for the specified car
+           - using an average value if no limit is persisted
+        :param dtls: Details of the specified vehicle
+        :return: Persisted charge limit
+        """
+        percent: int | None = self.chargeCtl.persistentData.getVal(
+            ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
+
+        if percent is None:
+            # use an average value if no limit is persisted
+            percent = (dtls.limitMinPercent + dtls.limitMaxPercent) // 2
+
+        return dtls.limitChargeLimit(percent)
+    # end getPriorLimit(CarDetails)
+
+    def getAutoRequestCurrents(self) -> Sequence[float] | None:
+        """Get request currents to fairly share total based on each cars' charging needs
+           - depends on having battery health details
+        :return: Sequence of currents that fairly shares total current
+        """
+        energiesNeeded: list[float] = []
+        totalEnergyNeeded = 0.0
+
+        for dtls in self.vehicles:
+            energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
+                                              else self.getPriorLimit(dtls))
+            energiesNeeded.append(energyNeeded)
+            totalEnergyNeeded += energyNeeded
+
+        if totalEnergyNeeded:
+            return [self.chargeCtl.totalCurrent *
+                    (energy / totalEnergyNeeded) for energy in energiesNeeded]
+        else:
+            return None
+    # end getAutoRequestCurrents()
+
     async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
         """Automatically set cars' maximum currents based on each cars' charging needs
            - depends on having battery health details
@@ -257,7 +295,7 @@ class AutoCurrentControl(TessieProc):
 
             await self.tsIntrfc.setMaximums(self.vehicles[0], int(fairShare0 + 0.5),
                                             self.vehicles[1], waitForCompletion)
-    # end automaticallySetMaxCurrent()
+    # end automaticallySetMaxCurrent(bool)
 
 # end class AutoCurrentControl
 
@@ -285,14 +323,7 @@ class ChargeLimitControl(AutoCurrentControl):
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
-            percent: int | None = self.chargeCtl.persistentData.getVal(
-                ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
-
-            if percent is None:
-                # use an average value if no limit is persisted
-                percent = (dtls.limitMinPercent + dtls.limitMaxPercent) // 2
-
-            percent = dtls.limitChargeLimit(percent)
+            percent = self.getPriorLimit(dtls)
 
             if percent != dtls.chargeLimit:
                 if not dtls.awake():
@@ -315,12 +346,22 @@ class CarChargingEnabler(ChargeLimitControl):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.chargingStatusSummary())
+                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
+            # end for
+        # end async with (tasks are awaited)
 
+        # schedule tasks to wake up vehicles that will have their maximum current changed
+        # but don't wait for them yet
+        maxAmps = self.tsIntrfc.limitRequestCurrents(
+            self.vehicles, self.getAutoRequestCurrents())
+        self.tsIntrfc.getSetMaxWakeFutures(self.vehicles, maxAmps)
+
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
                 if dtls.pluggedInAtHome() and not dtls.awake():
                     # schedule a task to wake up this vehicle but don't wait for it yet
                     self.tsIntrfc.getWakeTask(dtls)
                 tg.create_task(self.restoreChargeLimit(dtls))
-                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
 
