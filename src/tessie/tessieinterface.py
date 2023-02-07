@@ -304,8 +304,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
                 logging.info(f"{dtls.displayName} charging current changed"
                              f" from {oldMax} to {maxCurrent} A")
-            elif maxCurrent != self.totalCurrent // 2:
-                # supress already set messages when sharing current equally - they're common
+            else:
                 logging.info(f"{dtls.displayName} charging current already"
                              f" set to {maxCurrent} A")
     # end setChargingCurrent(CarDetails, int, bool)
@@ -393,7 +392,7 @@ class TessieInterface(AsyncContextManager[Self]):
             wait4Compl = True if i != lastIndex else waitForCompletion
             await self.setChargingCurrent(vehicles[i], maxAmps[i], wait4Compl)
         # end for
-    # end setMaximums(CarDetails, int, CarDetails, bool)
+    # end setMaximums(Sequence[CarDetails], Sequence[float], bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle
