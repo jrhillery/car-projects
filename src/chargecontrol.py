@@ -272,7 +272,7 @@ class AutoCurrentControl(TessieProc):
                     (energy / totalEnergyNeeded) for energy in energiesNeeded]
         else:
             return None
-    # end getAutoRequestCurrents()
+    # end getAutoRequestCurrents(bool)
 
     async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
         """Automatically set cars' maximum currents based on each cars' charging needs
@@ -393,7 +393,7 @@ class CarChargingEnabler(ChargeLimitControl):
 
 
 class CarChargingDisabler(TessieProc):
-    """Processor to disable charging, sharing current equally"""
+    """Processor to disable charging"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
