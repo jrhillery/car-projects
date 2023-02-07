@@ -337,8 +337,12 @@ class TessieInterface(AsyncContextManager[Self]):
         remainingCurrent = self.totalCurrent
 
         for dtls, maxReqCurrent in zip_longest(vehicles, maxReqCurrents):
+            dtls: CarDetails
             requestCurrent = dtls.limitRequestCurrent(
                 int(maxReqCurrent + 0.5) if maxReqCurrent is not None else remainingCurrent)
+
+            if requestCurrent > remainingCurrent:
+                requestCurrent = remainingCurrent
             requestCurrents.append(requestCurrent)
             remainingCurrent -= requestCurrent
         # end for
