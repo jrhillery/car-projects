@@ -209,7 +209,7 @@ class MaxCurrentControl(TessieProc):
             raise Exception(f"Unable to locate both cars,"
                             f" found {[car.displayName for car in self.vehicles]}")
 
-        await self.tsIntrfc.setMaximums(specifiedCar, specifiedMaxAmps, otherCar)
+        await self.tsIntrfc.setMaximums((specifiedCar, otherCar), (specifiedMaxAmps, ))
     # end specifyMaxCurrent(str, int)
 
 # end class MaxCurrentControl
@@ -244,7 +244,7 @@ class AutoCurrentControl(TessieProc):
         return dtls.limitChargeLimit(percent)
     # end getPriorLimit(CarDetails)
 
-    def getAutoRequestCurrents(self) -> Sequence[float] | None:
+    def getAutoRequestCurrents(self, logSummery=False) -> Sequence[float] | None:
         """Get request currents to fairly share total based on each cars' charging needs
            - depends on having battery health details
         :return: Sequence of currents that fairly shares total current
@@ -255,8 +255,17 @@ class AutoCurrentControl(TessieProc):
         for dtls in self.vehicles:
             energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
                                               else self.getPriorLimit(dtls))
+            if logSummery:
+                summary = dtls.chargingStatusSummary()
+
+                if energyNeeded:
+                    summary += f" ({energyNeeded:.1f} kWh < limit)"
+
+                if summary.updatedSinceLastSummary or energyNeeded:
+                    logging.info(summary)
             energiesNeeded.append(energyNeeded)
             totalEnergyNeeded += energyNeeded
+        # end for
 
         if totalEnergyNeeded:
             return [self.chargeCtl.totalCurrent *
@@ -270,31 +279,10 @@ class AutoCurrentControl(TessieProc):
            - depends on having battery health details
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        totalEnergyNeeded = 0.0
+        maxReqCurrents = self.getAutoRequestCurrents(logSummery=True)
 
-        for carDetails in self.vehicles:
-            energyNeeded = carDetails.energyNeededC()
-            summary = carDetails.chargingStatusSummary()
-
-            if energyNeeded:
-                summary += f" ({energyNeeded:.1f} kWh < limit)"
-
-            if summary.updatedSinceLastSummary or energyNeeded:
-                logging.info(summary)
-            totalEnergyNeeded += energyNeeded
-        # end for
-
-        if len(self.vehicles) < 2:
-            raise Exception(f"Unable to locate both cars,"
-                            f" found {[car.displayName for car in self.vehicles]}")
-
-        if totalEnergyNeeded:
-            self.vehicles.sort(key=lambda car: car.energyNeededC(), reverse=True)
-            fairShare0 = self.chargeCtl.totalCurrent * (
-                    self.vehicles[0].energyNeededC() / totalEnergyNeeded)
-
-            await self.tsIntrfc.setMaximums(self.vehicles[0], int(fairShare0 + 0.5),
-                                            self.vehicles[1], waitForCompletion)
+        if maxReqCurrents is not None:
+            await self.tsIntrfc.setMaximums(self.vehicles, maxReqCurrents, waitForCompletion)
     # end automaticallySetMaxCurrent(bool)
 
 # end class AutoCurrentControl

@@ -366,28 +366,29 @@ class TessieInterface(AsyncContextManager[Self]):
         return wakeFutures
     # end getSetMaxWakeFutures(Sequence[CarDetails], Sequence[int] | None)
 
-    async def setMaximums(self, dtlsA: CarDetails, maxAmpsA: int, dtlsB: CarDetails,
-                          waitForCompletion=False) -> None:
+    async def setMaximums(self, vehicles: Sequence[CarDetails],
+                          maxReqCurrents: Sequence[float], waitForCompletion=False) -> None:
         """Set cars' maximum request currents, decrease one before increasing the other
-        :param dtlsA: Details of one of the cars to set
-        :param maxAmpsA: Desired maximum request current for dtlsA (amps)
-        :param dtlsB: Details of the other car to set (gets remaining current)
+           - 'maxReqCurrents' can be short - each car is given a value from remaining current
+        :param vehicles: Sequence of cars to set
+        :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        maxAmps = self.limitRequestCurrents((dtlsA, dtlsB), (maxAmpsA, ))
+        maxAmps = self.limitRequestCurrents(vehicles, maxReqCurrents)
 
         # run tasks to wake cars that will have their charging current set
-        await asyncio.gather(*self.getSetMaxWakeFutures((dtlsA, dtlsB), maxAmps))
-        maxAmpsA = maxAmps[0]
-        maxAmpsB = maxAmps[1]
+        await asyncio.gather(*self.getSetMaxWakeFutures(vehicles, maxAmps))
 
-        if maxAmpsA <= maxAmpsB:
-            # change to smaller maximum request current first
-            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion=True)
-            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion)
-        else:
-            await self.setChargingCurrent(dtlsB, maxAmpsB, waitForCompletion=True)
-            await self.setChargingCurrent(dtlsA, maxAmpsA, waitForCompletion)
+        indices: list[int] = list(range(len(vehicles)))
+
+        # sort indices ascending by maximum current, will set in increasing current order
+        indices.sort(key=maxAmps.__getitem__)
+        lastIndex = indices[len(indices) - 1]
+
+        for i in indices:
+            wait4Compl = True if i != lastIndex else waitForCompletion
+            await self.setChargingCurrent(vehicles[i], maxAmps[i], wait4Compl)
+        # end for
     # end setMaximums(CarDetails, int, CarDetails, bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
