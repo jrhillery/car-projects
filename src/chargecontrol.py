@@ -5,7 +5,6 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from juicebox import JbDetails, JbInterface, LgDetails
@@ -244,10 +243,10 @@ class AutoCurrentControl(TessieProc):
         return dtls.limitChargeLimit(percent)
     # end getPriorLimit(CarDetails)
 
-    def getAutoRequestCurrents(self, logSummery=False) -> Sequence[float] | None:
-        """Get request currents to fairly share total based on each cars' charging needs
+    async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
+        """Automatically set cars' maximum currents based on each cars' charging needs
            - depends on having battery health details
-        :return: Sequence of currents that fairly shares total current
+        :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         energiesNeeded: list[float] = []
         totalEnergyNeeded = 0.0
@@ -255,33 +254,21 @@ class AutoCurrentControl(TessieProc):
         for dtls in self.vehicles:
             energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
                                               else self.getPriorLimit(dtls))
-            if logSummery:
-                summary = dtls.chargingStatusSummary()
+            summary = dtls.chargingStatusSummary()
 
-                if energyNeeded:
-                    summary += f" ({energyNeeded:.1f} kWh < limit)"
+            if energyNeeded:
+                summary += f" ({energyNeeded:.1f} kWh < limit)"
 
-                if summary.updatedSinceLastSummary or energyNeeded:
-                    logging.info(summary)
+            if summary.updatedSinceLastSummary or energyNeeded:
+                logging.info(summary)
             energiesNeeded.append(energyNeeded)
             totalEnergyNeeded += energyNeeded
         # end for
 
         if totalEnergyNeeded:
-            return [self.chargeCtl.totalCurrent *
-                    (energy / totalEnergyNeeded) for energy in energiesNeeded]
-        else:
-            return None
-    # end getAutoRequestCurrents(bool)
+            maxReqCurrents = [self.chargeCtl.totalCurrent * (
+                    energy / totalEnergyNeeded) for energy in energiesNeeded]
 
-    async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
-        """Automatically set cars' maximum currents based on each cars' charging needs
-           - depends on having battery health details
-        :param waitForCompletion: Flag indicating to wait for final request current to be set
-        """
-        maxReqCurrents = self.getAutoRequestCurrents(logSummery=True)
-
-        if maxReqCurrents is not None:
             await self.tsIntrfc.setMaximums(self.vehicles, maxReqCurrents, waitForCompletion)
     # end automaticallySetMaxCurrent(bool)
 
@@ -296,12 +283,16 @@ class ChargeLimitControl(AutoCurrentControl):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.restoreChargeLimit(dtls))
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
 
-        await self.automaticallySetMaxCurrent()
+        async with asyncio.TaskGroup() as tg:
+            for dtls in self.vehicles:
+                tg.create_task(self.restoreChargeLimit(dtls))
+            # end for
+            tg.create_task(self.automaticallySetMaxCurrent())
+        # end async with (tasks are awaited)
     # end process()
 
     async def restoreChargeLimit(self, dtls: CarDetails) -> None:
@@ -338,12 +329,6 @@ class CarChargingEnabler(ChargeLimitControl):
             # end for
         # end async with (tasks are awaited)
 
-        # schedule tasks to wake up vehicles that will have their maximum current changed
-        # but don't wait for them yet
-        maxAmps = self.tsIntrfc.limitRequestCurrents(
-            self.vehicles, self.getAutoRequestCurrents())
-        self.tsIntrfc.getSetMaxWakeFutures(self.vehicles, maxAmps)
-
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 if dtls.pluggedInAtHome() and not dtls.awake():
@@ -351,9 +336,8 @@ class CarChargingEnabler(ChargeLimitControl):
                     self.tsIntrfc.getWakeTask(dtls)
                 tg.create_task(self.restoreChargeLimit(dtls))
             # end for
+            tg.create_task(self.automaticallySetMaxCurrent(waitForCompletion=True))
         # end async with (tasks are awaited)
-
-        await self.automaticallySetMaxCurrent(waitForCompletion=True)
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:

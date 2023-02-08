@@ -3,7 +3,6 @@ import asyncio
 import json
 import logging
 from collections.abc import MutableSequence, Sequence
-from itertools import zip_longest
 from typing import AsyncContextManager, Self
 
 from aiohttp import ClientResponse, ClientSession
@@ -322,23 +321,19 @@ class TessieInterface(AsyncContextManager[Self]):
     # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[asyncio.Future])
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
-                             maxReqCurrents: Sequence[float] | None) -> Sequence[int] | None:
+                             maxReqCurrents: Sequence[float]) -> Sequence[int]:
         """Get corresponding maximum request currents valid for each charge adapter
            - 'maxReqCurrents' can be short - each car is given a value from remaining current
         :param vehicles: Sequence of cars to have their maximum request currents limited
         :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
         :return: Corresponding sequence of valid request currents, length same as 'vehicles'
         """
-        if maxReqCurrents is None:
-            return None
-
         requestCurrents: list[int] = []
         remainingCurrent = self.totalCurrent
 
-        for dtls, maxReqCurrent in zip_longest(vehicles, maxReqCurrents):
-            dtls: CarDetails
+        for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
-                int(maxReqCurrent + 0.5) if maxReqCurrent is not None else remainingCurrent)
+                int(maxReqCurrents[i] + 0.5) if i < len(maxReqCurrents) else remainingCurrent)
 
             if requestCurrent > remainingCurrent:
                 requestCurrent = remainingCurrent
@@ -350,24 +345,7 @@ class TessieInterface(AsyncContextManager[Self]):
             requestCurrents[0] += remainingCurrent
 
         return requestCurrents
-    # end limitRequestCurrents(Sequence[CarDetails], Sequence[float] | None)
-
-    def getSetMaxWakeFutures(self, vehicles: Sequence[CarDetails],
-                             reqCurrents: Sequence[int] | None) -> Sequence[asyncio.Future]:
-        """Get tasks to wake cars that will have their charging current set
-           and are not already awake
-        :param vehicles: Sequence of details of candidate cars
-        :param reqCurrents: Corresponding sequence of maximum currents to request (amps)
-        :return: A sequence of tasks to wake any candidate cars that will need to be awake
-        """
-        wakeFutures: list[asyncio.Future] = []
-
-        if reqCurrents is not None:
-            for dtls, maxCurrent in zip(vehicles, reqCurrents):
-                self.wakeIfSettingCurrent(dtls, maxCurrent, wakeFutures)
-
-        return wakeFutures
-    # end getSetMaxWakeFutures(Sequence[CarDetails], Sequence[int] | None)
+    # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
 
     async def setMaximums(self, vehicles: Sequence[CarDetails],
                           maxReqCurrents: Sequence[float], waitForCompletion=False) -> None:
@@ -377,20 +355,23 @@ class TessieInterface(AsyncContextManager[Self]):
         :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        maxAmps = self.limitRequestCurrents(vehicles, maxReqCurrents)
+        reqCurrents = self.limitRequestCurrents(vehicles, maxReqCurrents)
+        wakeFutures: list[asyncio.Future] = []
 
-        # run tasks to wake cars that will have their charging current set
-        await asyncio.gather(*self.getSetMaxWakeFutures(vehicles, maxAmps))
+        # run tasks to wake sleeping cars that will have their maximum request current set
+        for dtls, maxCurrent in zip(vehicles, reqCurrents):
+            self.wakeIfSettingCurrent(dtls, maxCurrent, wakeFutures)
 
+        await asyncio.gather(*wakeFutures)
         indices: list[int] = list(range(len(vehicles)))
 
-        # sort indices ascending by maximum current, will set in increasing current order
-        indices.sort(key=maxAmps.__getitem__)
+        # sort indices ascending by max request current, will set in increasing current order
+        indices.sort(key=reqCurrents.__getitem__)
         lastIndex = indices[len(indices) - 1]
 
         for i in indices:
             wait4Compl = True if i != lastIndex else waitForCompletion
-            await self.setChargingCurrent(vehicles[i], maxAmps[i], wait4Compl)
+            await self.setChargingCurrent(vehicles[i], reqCurrents[i], wait4Compl)
         # end for
     # end setMaximums(Sequence[CarDetails], Sequence[float], bool)
 
