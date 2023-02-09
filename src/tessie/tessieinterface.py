@@ -377,13 +377,13 @@ class TessieInterface(AsyncContextManager[Self]):
         await asyncio.gather(*wakeFutures)
         indices: list[int] = list(range(len(vehicles)))
 
-        # sort indices ascending by max request current, will set in increasing current order
-        indices.sort(key=reqCurrents.__getitem__)
+        # to decrease first, sort indices ascending by increase in max request current
+        indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
         lastIndex = indices[len(indices) - 1]
 
-        for i in indices:
-            wait4Compl = True if i != lastIndex else waitForCompletion
-            await self.setChargingCurrent(vehicles[i], reqCurrents[i], wait4Compl)
+        for idx in indices:
+            wait4Compl = (idx != lastIndex) or waitForCompletion
+            await self.setChargingCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
         # end for
     # end setMaximums(Sequence[CarDetails], Sequence[float], bool)
 
