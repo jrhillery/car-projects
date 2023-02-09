@@ -77,15 +77,15 @@ class CarDetails(object):
         return self.sleepStatus == "awake"
     # end awake()
 
-    def limitRequestCurrent(self, maxCurrent: int) -> int:
-        """Return a maximum request current that does not exceed the charge adapter's maximum
-        :param maxCurrent: Desired maximum request current (amps)
+    def limitRequestCurrent(self, reqCurrent: int) -> int:
+        """Return a request current that does not exceed the charge adapter's maximum
+        :param reqCurrent: Desired request current (amps)
         :return: Nearest valid request current
         """
-        if maxCurrent > self.requestMaxAmps:
-            maxCurrent = self.requestMaxAmps
+        if reqCurrent > self.requestMaxAmps:
+            reqCurrent = self.requestMaxAmps
 
-        return maxCurrent
+        return reqCurrent
     # end limitRequestCurrent(int)
 
     def chargeLimitIsMin(self) -> bool:

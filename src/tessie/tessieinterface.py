@@ -289,55 +289,55 @@ class TessieInterface(AsyncContextManager[Self]):
                      f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int, bool)
 
-    async def setChargingCurrent(self, dtls: CarDetails, maxCurrent: int,
-                                 waitForCompletion=False) -> None:
-        """Set the car's maximum request current to a specified value
+    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int,
+                                waitForCompletion=False) -> None:
+        """Set the car's request current to a specified value
         :param dtls: Details of the vehicle to set
-        :param maxCurrent: New maximum current to request (amps)
+        :param reqCurrent: New maximum current to request (amps)
         :param waitForCompletion: Flag indicating to wait for request current to be set
         """
         if dtls.atHome():
-            if maxCurrent != dtls.chargeCurrentRequest:
+            if reqCurrent != dtls.chargeCurrentRequest:
                 url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
                 qryParms = {
                     "retry_duration": 60,
                     "wait_for_completion": "true" if waitForCompletion else "false",
-                    "amps": maxCurrent,
+                    "amps": reqCurrent,
                 }
 
                 async with self.session.get(url, params=qryParms) as resp:
-                    oldMax = dtls.chargeCurrentRequest
-                    dtls.chargeCurrentRequest = maxCurrent
+                    oldReq = dtls.chargeCurrentRequest
+                    dtls.chargeCurrentRequest = reqCurrent
 
                     if resp.status != 200:
                         raise await HTTPException.fromError(resp, dtls.displayName)
 
-                logging.info(f"{dtls.displayName} charging current"
+                logging.info(f"{dtls.displayName} request current"
                              f" chang{self.edOrIng(waitForCompletion)}"
-                             f" from {oldMax} to {maxCurrent} A")
+                             f" from {oldReq} to {reqCurrent} A")
             else:
-                logging.info(f"{dtls.displayName} charging current already"
-                             f" set to {maxCurrent} A")
-    # end setChargingCurrent(CarDetails, int, bool)
+                logging.info(f"{dtls.displayName} request current already"
+                             f" set to {reqCurrent} A")
+    # end setRequestCurrent(CarDetails, int, bool)
 
-    def wakeIfSettingCurrent(self, dtls: CarDetails, maxCurrent: int,
+    def wakeIfSettingCurrent(self, dtls: CarDetails, reqCurrent: int,
                              wakeFutures: MutableSequence[asyncio.Future]) -> None:
-        """Store a task to wake this car if the setChargingCurrent logic says this
-           car will have its charging current set and this car is not already awake
+        """Store a task to wake this car if the setRequestCurrent logic says this
+           car will have its request current set and this car is not already awake
         :param dtls: Details of the vehicle to wake
-        :param maxCurrent: Maximum current to request (amps)
+        :param reqCurrent: Current to request (amps)
         :param wakeFutures: Mutable sequence to hold the resulting task
         """
-        if dtls.atHome() and maxCurrent != dtls.chargeCurrentRequest and not dtls.awake():
+        if dtls.atHome() and reqCurrent != dtls.chargeCurrentRequest and not dtls.awake():
             wakeFutures.append(self.getWakeTask(dtls))
     # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[asyncio.Future])
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
-                             maxReqCurrents: Sequence[float]) -> Sequence[int]:
-        """Get corresponding maximum request currents valid for each charge adapter
-           - 'maxReqCurrents' can be short - each car is given a value from remaining current
-        :param vehicles: Sequence of cars to have their maximum request currents limited
-        :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
+                             reqCurrents: Sequence[float]) -> Sequence[int]:
+        """Get corresponding request currents valid for each charge adapter
+           - 'reqCurrents' can be short - each car is given a value from remaining current
+        :param vehicles: Sequence of cars to have their request currents limited
+        :param reqCurrents: Corresponding sequence of desired request currents (amps)
         :return: Corresponding sequence of valid request currents, length same as 'vehicles'
         """
         requestCurrents: list[int] = []
@@ -345,7 +345,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
         for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
-                int(maxReqCurrents[i] + 0.5) if i < len(maxReqCurrents) else remainingCurrent)
+                int(reqCurrents[i] + 0.5) if i < len(reqCurrents) else remainingCurrent)
 
             if requestCurrent > remainingCurrent:
                 requestCurrent = remainingCurrent
@@ -359,9 +359,9 @@ class TessieInterface(AsyncContextManager[Self]):
         return requestCurrents
     # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
 
-    async def setMaximums(self, vehicles: Sequence[CarDetails],
-                          maxReqCurrents: Sequence[float], waitForCompletion=False) -> None:
-        """Set cars' maximum request currents, decrease one before increasing the other
+    async def setReqCurrents(self, vehicles: Sequence[CarDetails],
+                             maxReqCurrents: Sequence[float], waitForCompletion=False) -> None:
+        """Set cars' request currents, decrease one before increasing the other
            - 'maxReqCurrents' can be short - each car is given a value from remaining current
         :param vehicles: Sequence of cars to set
         :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
@@ -370,22 +370,22 @@ class TessieInterface(AsyncContextManager[Self]):
         reqCurrents = self.limitRequestCurrents(vehicles, maxReqCurrents)
         wakeFutures: list[asyncio.Future] = []
 
-        # run tasks to wake sleeping cars that will have their maximum request current set
-        for dtls, maxCurrent in zip(vehicles, reqCurrents):
-            self.wakeIfSettingCurrent(dtls, maxCurrent, wakeFutures)
+        # run tasks to wake sleeping cars that will have their request current set
+        for dtls, reqCurrent in zip(vehicles, reqCurrents):
+            self.wakeIfSettingCurrent(dtls, reqCurrent, wakeFutures)
 
         await asyncio.gather(*wakeFutures)
         indices: list[int] = list(range(len(vehicles)))
 
-        # to decrease first, sort indices ascending by increase in max request current
+        # to decrease first, sort indices ascending by increase in request current
         indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
         lastIndex = indices[len(indices) - 1]
 
         for idx in indices:
             wait4Compl = (idx != lastIndex) or waitForCompletion
-            await self.setChargingCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
+            await self.setRequestCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
         # end for
-    # end setMaximums(Sequence[CarDetails], Sequence[float], bool)
+    # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle

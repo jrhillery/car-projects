@@ -42,21 +42,21 @@ class ChargeControl(object):
         :return: A Namespace instance with parsed command line arguments
         """
         ap = ArgumentParser(description="Module to control charging all authorized cars"
-                                        " and to set maximum request currents",
+                                        " and to set request currents",
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
         group.add_argument("-a", "--autoMax", action="store_true",
-                           help="set maximum currents based on cars' charging needs")
+                           help="set request currents based on cars' charging needs")
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enable", action="store_true",
                            help="enable charging restoring each car's limit if 50%%,"
-                                " setting currents based on cars' needs")
+                                " setting request currents based on cars' needs")
         group.add_argument("-r", "--restoreLimit", action="store_true",
                            help="restore each car's charge limit if 50%%,"
-                                " setting currents based on cars' needs")
+                                " setting request currents based on cars' needs")
         group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
-                           help="name prefix of car and maximum current to set (amps)"
+                           help="name prefix of car and request current to set (amps)"
                                 " (other gets remaining current)")
 
         return ap.parse_args()
@@ -70,7 +70,7 @@ class ChargeControl(object):
 
         match True:
             case _ if self.maxAmps is not None:
-                processor = MaxCurrentControl(self)
+                processor = ReqCurrentControl(self)
             case _ if self.autoMax:
                 processor = AutoCurrentControl(self)
             case _ if self.restoreLimit:
@@ -176,19 +176,19 @@ class JuiceBoxProc(ParallelProc, ABC):
 # end class JuiceBoxProc
 
 
-class MaxCurrentControl(TessieProc):
-    """Processor to set a specified car to a specified maximum request current (amps)
+class ReqCurrentControl(TessieProc):
+    """Processor to set a specified car to a specified request current (amps)
        (the other car gets the remaining current)"""
 
     async def process(self) -> None:
-        await self.specifyMaxCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
+        await self.specifyReqCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
     # end process()
 
-    async def specifyMaxCurrent(self, specifiedName: str, specifiedMaxAmps: int) -> None:
-        """Set the specified vehicle's maximum request current to a given value
+    async def specifyReqCurrent(self, specifiedName: str, specifiedReqAmps: int) -> None:
+        """Set the specified vehicle's request current to a given value
            (the other vehicle gets the remaining current)
         :param specifiedName: Prefix of the vehicle name being specified
-        :param specifiedMaxAmps: The maximum current (amps) to set for the specified vehicle
+        :param specifiedReqAmps: The request current (amps) to set for the specified vehicle
         """
         specifiedCar: CarDetails | None = None
         otherCar: CarDetails | None = None
@@ -208,14 +208,14 @@ class MaxCurrentControl(TessieProc):
             raise Exception(f"Unable to locate both cars,"
                             f" found {[car.displayName for car in self.vehicles]}")
 
-        await self.tsIntrfc.setMaximums((specifiedCar, otherCar), (specifiedMaxAmps, ))
-    # end specifyMaxCurrent(str, int)
+        await self.tsIntrfc.setReqCurrents((specifiedCar, otherCar), (specifiedReqAmps, ))
+    # end specifyReqCurrent(str, int)
 
-# end class MaxCurrentControl
+# end class ReqCurrentControl
 
 
 class AutoCurrentControl(TessieProc):
-    """Processor to automatically set maximum currents based on cars' charging needs"""
+    """Processor to automatically set request currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -224,7 +224,7 @@ class AutoCurrentControl(TessieProc):
             # end for
         # end async with (tasks are awaited)
 
-        await self.automaticallySetMaxCurrent()
+        await self.automaticallySetReqCurrent()
     # end process()
 
     def getPriorLimit(self, dtls: CarDetails) -> int:
@@ -243,8 +243,8 @@ class AutoCurrentControl(TessieProc):
         return dtls.limitChargeLimit(percent)
     # end getPriorLimit(CarDetails)
 
-    async def automaticallySetMaxCurrent(self, waitForCompletion=False) -> None:
-        """Automatically set cars' maximum currents based on each cars' charging needs
+    async def automaticallySetReqCurrent(self, waitForCompletion=False) -> None:
+        """Automatically set cars' request currents based on each cars' charging needs
            - depends on having battery health details
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
@@ -266,18 +266,18 @@ class AutoCurrentControl(TessieProc):
         # end for
 
         if totalEnergyNeeded:
-            maxReqCurrents = [self.chargeCtl.totalCurrent * (
+            reqCurrents = [self.chargeCtl.totalCurrent * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
 
-            await self.tsIntrfc.setMaximums(self.vehicles, maxReqCurrents, waitForCompletion)
-    # end automaticallySetMaxCurrent(bool)
+            await self.tsIntrfc.setReqCurrents(self.vehicles, reqCurrents, waitForCompletion)
+    # end automaticallySetReqCurrent(bool)
 
 # end class AutoCurrentControl
 
 
 class ChargeLimitControl(AutoCurrentControl):
     """Processor to restore each car to a persisted charge limit if 50%,
-       setting maximum currents based on cars' charging needs"""
+       setting request currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -291,7 +291,7 @@ class ChargeLimitControl(AutoCurrentControl):
             for dtls in self.vehicles:
                 tg.create_task(self.restoreChargeLimit(dtls))
             # end for
-            tg.create_task(self.automaticallySetMaxCurrent())
+            tg.create_task(self.automaticallySetReqCurrent())
         # end async with (tasks are awaited)
     # end process()
 
@@ -319,7 +319,7 @@ class ChargeLimitControl(AutoCurrentControl):
 
 class CarChargingEnabler(ChargeLimitControl):
     """Processor to enable charging with each car restored to a persisted charge limit if 50%,
-       setting maximum currents based on cars' charging needs"""
+       setting request currents based on cars' charging needs"""
 
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
@@ -336,7 +336,7 @@ class CarChargingEnabler(ChargeLimitControl):
                     self.tsIntrfc.getWakeTask(dtls)
                 tg.create_task(self.restoreChargeLimit(dtls))
             # end for
-            tg.create_task(self.automaticallySetMaxCurrent(waitForCompletion=True))
+            tg.create_task(self.automaticallySetReqCurrent(waitForCompletion=True))
         # end async with (tasks are awaited)
 
         async with asyncio.TaskGroup() as tg:
