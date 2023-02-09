@@ -253,6 +253,16 @@ class TessieInterface(AsyncContextManager[Self]):
         return dtls.wakeTask
     # end getWakeTask(CarDetails)
 
+    @staticmethod
+    def edOrIng(pastTense: bool) -> str:
+        """Retrive either "ed" or "ing" depending on past tense argument
+        :param pastTense: Flag indicating past tense
+        :return: selected string
+        """
+
+        return "ed" if pastTense else "ing"
+    # end edOrIng(bool)
+
     async def setChargeLimit(self, dtls: CarDetails, percent: int,
                              waitForCompletion=False) -> None:
         """Set a specified vehicle's charge limit
@@ -274,7 +284,8 @@ class TessieInterface(AsyncContextManager[Self]):
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
-        logging.info(f"{dtls.displayName} charge limit changed"
+        logging.info(f"{dtls.displayName} charge limit"
+                     f" chang{self.edOrIng(waitForCompletion)}"
                      f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int, bool)
 
@@ -301,7 +312,8 @@ class TessieInterface(AsyncContextManager[Self]):
                     if resp.status != 200:
                         raise await HTTPException.fromError(resp, dtls.displayName)
 
-                logging.info(f"{dtls.displayName} charging current changed"
+                logging.info(f"{dtls.displayName} charging current"
+                             f" chang{self.edOrIng(waitForCompletion)}"
                              f" from {oldMax} to {maxCurrent} A")
             else:
                 logging.info(f"{dtls.displayName} charging current already"
@@ -392,7 +404,8 @@ class TessieInterface(AsyncContextManager[Self]):
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
-        logging.info(f"{dtls.displayName} charging started")
+        logging.info(f"{dtls.displayName} charging"
+                     f" start{self.edOrIng(waitForCompletion)}")
     # end startCharging(CarDetails, bool)
 
     async def stopCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
@@ -412,7 +425,8 @@ class TessieInterface(AsyncContextManager[Self]):
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
-        logging.info(f"{dtls.displayName} charging stopped")
+        logging.info(f"{dtls.displayName} charging"
+                     f" stopp{self.edOrIng(waitForCompletion)}")
     # end stopCharging(CarDetails, bool)
 
     async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
