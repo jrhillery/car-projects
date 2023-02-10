@@ -74,7 +74,7 @@ class ChargeControl(object):
             case _ if self.autoReq:
                 processor = AutoCurrentControl(self)
             case _ if self.restoreLimit:
-                processor = ChargeLimitControl(self)
+                processor = ChargeLimitRestore(self)
             case _ if self.enable:
                 processor = CarChargingEnabler(self)
             case _ if self.disable:
@@ -275,7 +275,7 @@ class AutoCurrentControl(TessieProc):
 # end class AutoCurrentControl
 
 
-class ChargeLimitControl(AutoCurrentControl):
+class ChargeLimitRestore(AutoCurrentControl):
     """Processor to restore each car to a persisted charge limit if 50%,
        setting request currents based on cars' charging needs"""
 
@@ -314,10 +314,10 @@ class ChargeLimitControl(AutoCurrentControl):
                 logging.info(f"No change made to {dtls.displayName} charge limit")
     # end restoreChargeLimit(CarDetails)
 
-# end class ChargeLimitControl
+# end class ChargeLimitRestore
 
 
-class CarChargingEnabler(ChargeLimitControl):
+class CarChargingEnabler(ChargeLimitRestore):
     """Processor to enable charging with each car restored to a persisted charge limit if 50%,
        setting request currents based on cars' charging needs"""
 
