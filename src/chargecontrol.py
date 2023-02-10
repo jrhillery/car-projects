@@ -20,12 +20,12 @@ class ChargeControl(object):
         """Initialize this instance and allocate resources
         :param args: A Namespace instance with parsed command line arguments
         """
-        self.autoMax: bool = args.autoMax
+        self.autoReq: bool = args.autoReq
         self.disable: bool = args.disable
         self.enable: bool = args.enable
         self.restoreLimit: bool = args.restoreLimit
-        self.maxAmps: int | None = int(args.maxAmps[1]) if args.maxAmps else None
-        self.maxAmpsName: str | None = args.maxAmps[0] if args.maxAmps else None
+        self.specifyReq: int | None = int(args.specifyReq[1]) if args.specifyReq else None
+        self.specifyReqName: str | None = args.specifyReq[0] if args.specifyReq else None
         self.persistentData = PersistentData()
 
         with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
@@ -45,17 +45,17 @@ class ChargeControl(object):
                                         " and to set request currents",
                             epilog="Just displays status when no option is specified")
         group = ap.add_mutually_exclusive_group()
-        group.add_argument("-a", "--autoMax", action="store_true",
+        group.add_argument("-a", "--autoReq", action="store_true",
                            help="set request currents based on cars' charging needs")
         group.add_argument("-d", "--disable", action="store_true",
                            help="disable charging")
         group.add_argument("-e", "--enable", action="store_true",
                            help="enable charging restoring each car's limit if 50%%,"
-                                " setting request currents based on cars' needs")
+                                " setting request currents based on need")
         group.add_argument("-r", "--restoreLimit", action="store_true",
                            help="restore each car's charge limit if 50%%,"
-                                " setting request currents based on cars' needs")
-        group.add_argument("-m", "--maxAmps", nargs=2, metavar=("name", "amps"),
+                                " setting request currents based on need")
+        group.add_argument("-s", "--specifyReq", nargs=2, metavar=("name", "amps"),
                            help="name prefix of car and request current to set (amps)"
                                 " (other gets remaining current)")
 
@@ -69,9 +69,9 @@ class ChargeControl(object):
         processor: ParallelProc
 
         match True:
-            case _ if self.maxAmps is not None:
+            case _ if self.specifyReq is not None:
                 processor = ReqCurrentControl(self)
-            case _ if self.autoMax:
+            case _ if self.autoReq:
                 processor = AutoCurrentControl(self)
             case _ if self.restoreLimit:
                 processor = ChargeLimitControl(self)
@@ -181,7 +181,7 @@ class ReqCurrentControl(TessieProc):
        (the other car gets the remaining current)"""
 
     async def process(self) -> None:
-        await self.specifyReqCurrent(self.chargeCtl.maxAmpsName, self.chargeCtl.maxAmps)
+        await self.specifyReqCurrent(self.chargeCtl.specifyReqName, self.chargeCtl.specifyReq)
     # end process()
 
     async def specifyReqCurrent(self, specifiedName: str, specifiedReqAmps: int) -> None:
