@@ -360,14 +360,14 @@ class TessieInterface(AsyncContextManager[Self]):
     # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
 
     async def setReqCurrents(self, vehicles: Sequence[CarDetails],
-                             maxReqCurrents: Sequence[float], waitForCompletion=False) -> None:
+                             desReqCurrents: Sequence[float], waitForCompletion=False) -> None:
         """Set cars' request currents, decrease one before increasing the other
-           - 'maxReqCurrents' can be short - each car is given a value from remaining current
+           - 'desReqCurrents' can be short - each car is given a value from remaining current
         :param vehicles: Sequence of cars to set
-        :param maxReqCurrents: Corresponding sequence of desired max request currents (amps)
+        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        reqCurrents = self.limitRequestCurrents(vehicles, maxReqCurrents)
+        reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
         wakeFutures: list[asyncio.Future] = []
 
         # run tasks to wake sleeping cars that will have their request current set
