@@ -333,11 +333,11 @@ class TessieInterface(AsyncContextManager[Self]):
     # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[asyncio.Future])
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
-                             reqCurrents: Sequence[float]) -> Sequence[int]:
+                             desReqCurrents: Sequence[float]) -> Sequence[int]:
         """Get corresponding request currents valid for each charge adapter
-           - 'reqCurrents' can be short - each car is given a value from remaining current
+           - 'desReqCurrents' can be short - each car is given a value from remaining current
         :param vehicles: Sequence of cars to have their request currents limited
-        :param reqCurrents: Corresponding sequence of desired request currents (amps)
+        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
         :return: Corresponding sequence of valid request currents, length same as 'vehicles'
         """
         requestCurrents: list[int] = []
@@ -345,7 +345,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
         for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
-                int(reqCurrents[i] + 0.5) if i < len(reqCurrents) else remainingCurrent)
+                int(desReqCurrents[i] + 0.5) if i < len(desReqCurrents) else remainingCurrent)
 
             if requestCurrent > remainingCurrent:
                 requestCurrent = remainingCurrent
