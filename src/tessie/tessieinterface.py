@@ -248,7 +248,8 @@ class TessieInterface(AsyncContextManager[Self]):
         :return: Wake up task instance
         """
         if dtls.wakeTask is None:
-            dtls.wakeTask = asyncio.create_task(self.wake(dtls))
+            dtls.wakeTask = asyncio.create_task(self.wake(dtls),
+                                                name=f"Wake {dtls.displayName}")
 
         return dtls.wakeTask
     # end getWakeTask(CarDetails)
@@ -321,7 +322,7 @@ class TessieInterface(AsyncContextManager[Self]):
     # end setRequestCurrent(CarDetails, int, bool)
 
     def wakeIfSettingCurrent(self, dtls: CarDetails, reqCurrent: int,
-                             wakeFutures: MutableSequence[asyncio.Future]) -> None:
+                             wakeFutures: MutableSequence[asyncio.Task]) -> None:
         """Store a task to wake this car if the setRequestCurrent logic says this
            car will have its request current set and this car is not already awake
         :param dtls: Details of the vehicle to wake
@@ -330,7 +331,7 @@ class TessieInterface(AsyncContextManager[Self]):
         """
         if dtls.atHome() and reqCurrent != dtls.chargeCurrentRequest and not dtls.awake():
             wakeFutures.append(self.getWakeTask(dtls))
-    # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[asyncio.Future])
+    # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[Task])
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
                              desReqCurrents: Sequence[float]) -> Sequence[int]:
@@ -368,13 +369,19 @@ class TessieInterface(AsyncContextManager[Self]):
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
-        wakeFutures: list[asyncio.Future] = []
+        wakeTasks: list[asyncio.Task] = []
 
         # run tasks to wake sleeping cars that will have their request current set
         for dtls, reqCurrent in zip(vehicles, reqCurrents):
-            self.wakeIfSettingCurrent(dtls, reqCurrent, wakeFutures)
+            self.wakeIfSettingCurrent(dtls, reqCurrent, wakeTasks)
 
-        await asyncio.gather(*wakeFutures)
+        wakeResults = await asyncio.gather(*wakeTasks, return_exceptions=True)
+
+        for wakeTask, wakeRes in zip(wakeTasks, wakeResults):
+            if wakeRes is not None:
+                logging.error(f"Problem in task {wakeTask.get_name()}:"
+                              f" Exception {wakeRes.__class__.__name__}:"
+                              f" {str(wakeRes)}", exc_info=wakeRes)
         indices: list[int] = list(range(len(vehicles)))
 
         # to decrease first, sort indices ascending by increase in request current
