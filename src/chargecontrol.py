@@ -62,11 +62,11 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    def getSpecifiedProcessor(self) -> "ParallelProc":
+    def getSpecifiedProcessor(self) -> "TessieProc":
         """Get the processor indicated on the command line
         :return: Processor corresponding to command line arguments
         """
-        processor: ParallelProc
+        processor: TessieProc
 
         match True:
             case _ if self.specifyReq is not None:
@@ -95,11 +95,9 @@ class ChargeControl(object):
             cStack.callback(self.persistentData.save)
 
             async with asyncio.TaskGroup() as tg:
-                if isinstance(processor, TessieProc):
-                    # Create TessieInterface registered so it cleans up when cStack closes
-                    tsIntrfc = await cStack.enter_async_context(
-                        TessieInterface(self.totalCurrent))
-                    tg.create_task(processor.addTs(tsIntrfc))
+                # Create TessieInterface registered so it cleans up when cStack closes
+                tsIntrfc = await cStack.enter_async_context(TessieInterface(self.totalCurrent))
+                tg.create_task(processor.addTs(tsIntrfc))
 
                 if isinstance(processor, JuiceBoxProc):
                     # Create JbInterface registered so it cleans up when cStack closes
