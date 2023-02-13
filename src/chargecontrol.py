@@ -5,6 +5,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
+from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from juicebox import JbDetails, JbInterface, LgDetails
@@ -136,7 +137,7 @@ class TessieProc(ParallelProc, ABC):
     """Abstract base class for processors that use a Tessie interface"""
     # fields set by addTs
     tsIntrfc: TessieInterface
-    vehicles: list[CarDetails]
+    vehicles: Sequence[CarDetails]
 
     async def addTs(self, tsIntrfc: TessieInterface) -> None:
         """Store an interface to Tessie and a list of vehicles
@@ -153,7 +154,7 @@ class JuiceBoxProc(ParallelProc, ABC):
     """Abstract base class for processors that use a JuiceBox interface"""
     # fields set by addJb
     jbIntrfc: JbInterface
-    juiceBoxes: list[JbDetails]
+    juiceBoxes: Sequence[JbDetails]
     loadGroup: LgDetails
 
     async def addJb(self, jbIntrfc: JbInterface) -> None:
