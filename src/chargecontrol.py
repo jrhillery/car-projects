@@ -193,6 +193,8 @@ class ReqCurrentControl(TessieProc):
         otherCar: CarDetails | None = None
 
         for dtls in self.vehicles:
+            logging.info(dtls.chargingStatusSummary())
+
             if dtls.displayName.startswith(specifiedName):
                 specifiedCar = dtls
             else:
@@ -219,6 +221,7 @@ class AutoCurrentControl(TessieProc):
     async def process(self) -> None:
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
+                logging.info(dtls.chargingStatusSummary())
                 tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
             # end for
         # end async with (tasks are awaited)
