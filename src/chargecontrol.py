@@ -8,7 +8,6 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
-from juicebox import JbDetails, JbInterface, LgDetails
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler, PersistentData
 
@@ -33,7 +32,6 @@ class ChargeControl(object):
                   "r", encoding="utf-8") as mappingFile:
             carJuiceBoxMapping: dict = json.load(mappingFile)
 
-        self.minPluggedCurrent: int = carJuiceBoxMapping["minPluggedCurrent"]
         self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
     # end __init__(Namespace)
 
@@ -95,17 +93,9 @@ class ChargeControl(object):
             # Register persistent data to save when cStack closes
             cStack.callback(self.persistentData.save)
 
-            async with asyncio.TaskGroup() as tg:
-                # Create TessieInterface registered so it cleans up when cStack closes
-                tsIntrfc = await cStack.enter_async_context(TessieInterface(self.totalCurrent))
-                tg.create_task(processor.addTs(tsIntrfc))
-
-                if isinstance(processor, JuiceBoxProc):
-                    # Create JbInterface registered so it cleans up when cStack closes
-                    jbIntrfc = await cStack.enter_async_context(
-                        JbInterface(self.minPluggedCurrent, self.totalCurrent))
-                    tg.create_task(processor.addJb(jbIntrfc))
-            # end async with (tasks are awaited)
+            # Create TessieInterface registered so it cleans up when cStack closes
+            tsIntrfc = await cStack.enter_async_context(TessieInterface(self.totalCurrent))
+            await processor.addTs(tsIntrfc)
 
             await processor.process()
         # end async with (interfaces are closed)
@@ -148,31 +138,6 @@ class TessieProc(ParallelProc, ABC):
     # end addTs(TessieInterface)
 
 # end class TessieProc
-
-
-class JuiceBoxProc(ParallelProc, ABC):
-    """Abstract base class for processors that use a JuiceBox interface"""
-    # fields set by addJb
-    jbIntrfc: JbInterface
-    juiceBoxes: Sequence[JbDetails]
-    loadGroup: LgDetails
-
-    async def addJb(self, jbIntrfc: JbInterface) -> None:
-        """Store an interface to, and a list of, JuiceBoxes
-        :param jbIntrfc: Interface to JuiceBoxes
-        """
-        self.jbIntrfc = jbIntrfc
-        await jbIntrfc.logIn()
-
-        async with asyncio.TaskGroup() as tg:
-            juiceBoxesTask = tg.create_task(jbIntrfc.getStateOfJuiceBoxes())
-            loadGroupTask = tg.create_task(jbIntrfc.getLoadGroup())
-        # end async with (tasks are awaited)
-        self.juiceBoxes = juiceBoxesTask.result()
-        self.loadGroup = loadGroupTask.result()
-    # end addJb(JbInterface)
-
-# end class JuiceBoxProc
 
 
 class ReqCurrentControl(TessieProc):
@@ -413,15 +378,12 @@ class CarChargingDisabler(TessieProc):
 # end class CarChargingDisabler
 
 
-class StatusPresenter(TessieProc, JuiceBoxProc):
+class StatusPresenter(TessieProc):
     """Processor to just display status"""
 
     async def process(self) -> None:
         for dtls in self.vehicles:
             logging.info(dtls.chargingStatusSummary())
-
-        for juiceBox in self.juiceBoxes:
-            logging.info(juiceBox.statusStr())
     # end process()
 
 # end class StatusPresenter
