@@ -95,8 +95,8 @@ class ChargeControl(object):
 
             # Create TessieInterface registered so it cleans up when cStack closes
             tsIntrfc = await cStack.enter_async_context(TessieInterface(self.totalCurrent))
-            await processor.addTs(tsIntrfc)
 
+            await processor.addTs(tsIntrfc)
             await processor.process()
         # end async with (interfaces are closed)
     # end main()
@@ -104,8 +104,11 @@ class ChargeControl(object):
 # end class ChargeControl
 
 
-class ParallelProc(ABC):
-    """Abstract base class for all processors"""
+class TessieProc(ABC):
+    """Abstract base class for processors that use a Tessie interface"""
+    # fields set by addTs
+    tsIntrfc: TessieInterface
+    vehicles: Sequence[CarDetails]
 
     def __init__(self, chargeCtl: ChargeControl):
         """Sole constructor - store a charge control reference
@@ -114,21 +117,6 @@ class ParallelProc(ABC):
         self.chargeCtl = chargeCtl
     # end __init__(ChargeControl)
 
-    @abstractmethod
-    async def process(self) -> None:
-        """Method that will accomplish the goal of this processor"""
-        pass
-    # end process()
-
-# end class ParallelProc
-
-
-class TessieProc(ParallelProc, ABC):
-    """Abstract base class for processors that use a Tessie interface"""
-    # fields set by addTs
-    tsIntrfc: TessieInterface
-    vehicles: Sequence[CarDetails]
-
     async def addTs(self, tsIntrfc: TessieInterface) -> None:
         """Store an interface to Tessie and a list of vehicles
         :param tsIntrfc: Interface to Tessie
@@ -136,6 +124,12 @@ class TessieProc(ParallelProc, ABC):
         self.tsIntrfc = tsIntrfc
         self.vehicles = await tsIntrfc.getStateOfActiveVehicles()
     # end addTs(TessieInterface)
+
+    @abstractmethod
+    async def process(self) -> None:
+        """Method that will accomplish the goal of this processor"""
+        pass
+    # end process()
 
 # end class TessieProc
 
