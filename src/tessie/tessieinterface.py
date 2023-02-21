@@ -200,6 +200,7 @@ class TessieInterface(AsyncContextManager[Self]):
         url = f"https://api.tessie.com/{dtls.vin}/wake"
 
         while attempts:
+            logging.info(f"Waking {dtls.displayName}")
             async with self.session.get(url) as resp:
                 if resp.status != 200:
                     raise await HTTPException.fromError(resp, dtls.displayName)
