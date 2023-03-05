@@ -61,6 +61,21 @@ class CarDetails(object):
         self.updatedSinceSummary = True
     # end updateFromDict(dict)
 
+    def setChargeCurrentRequest(self, reqCurrent: int) -> None:
+        self.chargeCurrentRequest = reqCurrent
+        self.updatedSinceSummary = True
+    # end setChargeCurrentRequest(int)
+
+    def setChargeLimit(self, percent: int) -> None:
+        self.chargeLimit = percent
+        self.updatedSinceSummary = True
+    # end setChargeLimit(int)
+
+    def setChargingState(self, state: str) -> None:
+        self.chargingState = state
+        self.updatedSinceSummary = True
+    # end setChargingState(str)
+
     def pluggedIn(self) -> bool:
         return self.chargingState != "Disconnected"
     # end pluggedIn()

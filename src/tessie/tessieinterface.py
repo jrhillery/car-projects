@@ -281,7 +281,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
         async with self.session.get(url, params=qryParms) as resp:
             oldLimit = dtls.chargeLimit
-            dtls.chargeLimit = percent
+            dtls.setChargeLimit(percent)
 
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
@@ -309,7 +309,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
                 async with self.session.get(url, params=qryParms) as resp:
                     oldReq = dtls.chargeCurrentRequest
-                    dtls.chargeCurrentRequest = reqCurrent
+                    dtls.setChargeCurrentRequest(reqCurrent)
 
                     if resp.status != 200:
                         raise await HTTPException.fromError(resp, dtls.displayName)
@@ -407,7 +407,7 @@ class TessieInterface(AsyncContextManager[Self]):
         }
 
         async with self.session.get(url, params=qryParms) as resp:
-            dtls.chargingState = "Charging"
+            dtls.setChargingState("Charging")
 
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
@@ -428,7 +428,7 @@ class TessieInterface(AsyncContextManager[Self]):
         }
 
         async with self.session.get(url, params=qryParms) as resp:
-            dtls.chargingState = "Stopping"
+            dtls.setChargingState("Stopping")
 
             if resp.status != 200:
                 raise await HTTPException.fromError(resp, dtls.displayName)
