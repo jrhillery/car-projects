@@ -256,10 +256,11 @@ class ChargeLimitRestore(AutoCurrentControl):
         # end async with (tasks are awaited)
     # end process()
 
-    async def restoreChargeLimit(self, dtls: CarDetails) -> None:
+    async def restoreChargeLimit(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """If the specified vehicle's charge limit is minimum,
            ensure the vehicle is awake and restore its charge limit to a persisted percent
         :param dtls: Details of the vehicle to restore
+        :param waitForCompletion: Flag indicating to wait for limit to be restored
         """
         if dtls.chargeLimitIsMin():
             # this vehicle is set to charge limit minimum
@@ -270,10 +271,10 @@ class ChargeLimitRestore(AutoCurrentControl):
                     # try to wake up this car
                     await self.tsIntrfc.getWakeTask(dtls)
 
-                await self.tsIntrfc.setChargeLimit(dtls, percent)
+                await self.tsIntrfc.setChargeLimit(dtls, percent, waitForCompletion)
             else:
                 logging.info(f"No change made to {dtls.displayName} charge limit")
-    # end restoreChargeLimit(CarDetails)
+    # end restoreChargeLimit(CarDetails, bool)
 
 # end class ChargeLimitRestore
 
@@ -295,7 +296,7 @@ class CarChargingEnabler(ChargeLimitRestore):
                 if dtls.pluggedInAtHome() and not dtls.awake():
                     # schedule a task to wake up this vehicle but don't wait for it yet
                     self.tsIntrfc.getWakeTask(dtls)
-                tg.create_task(self.restoreChargeLimit(dtls))
+                tg.create_task(self.restoreChargeLimit(dtls, waitForCompletion=True))
             # end for
             tg.create_task(self.automaticallySetReqCurrent(waitForCompletion=True))
         # end async with (tasks are awaited)
