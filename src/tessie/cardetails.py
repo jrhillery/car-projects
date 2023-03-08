@@ -24,6 +24,7 @@ class CarDetails(object):
     chargingState: str
     lastSeen: float
     updatedSinceSummary: bool
+    modifiedBySetter: bool
 
     # field set in TessieInterface.addSleepStatus
     sleepStatus: str
@@ -59,21 +60,22 @@ class CarDetails(object):
         self.chargingState = chargeState["charging_state"]
         self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
         self.updatedSinceSummary = True
+        self.modifiedBySetter = False
     # end updateFromDict(dict)
 
     def setChargeCurrentRequest(self, reqCurrent: int) -> None:
         self.chargeCurrentRequest = reqCurrent
-        self.updatedSinceSummary = True
+        self.modifiedBySetter = True
     # end setChargeCurrentRequest(int)
 
     def setChargeLimit(self, percent: int) -> None:
         self.chargeLimit = percent
-        self.updatedSinceSummary = True
+        self.modifiedBySetter = True
     # end setChargeLimit(int)
 
     def setChargingState(self, state: str) -> None:
         self.chargingState = state
-        self.updatedSinceSummary = True
+        self.modifiedBySetter = True
     # end setChargingState(str)
 
     def pluggedIn(self) -> bool:

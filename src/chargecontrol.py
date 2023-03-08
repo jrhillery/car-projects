@@ -316,7 +316,7 @@ class CarChargingEnabler(ChargeLimitRestore):
             if not dtls.awake():
                 await self.tsIntrfc.getWakeTask(dtls)
 
-            if dtls.dataAge() > 10 or dtls.updatedSinceSummary:
+            if dtls.dataAge() > 10 or dtls.modifiedBySetter:
                 # make sure we have the current vehicle details
                 await self.tsIntrfc.getCurrentState(dtls)
 
