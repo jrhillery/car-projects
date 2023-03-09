@@ -83,7 +83,7 @@ class TessieInterface(AsyncContextManager[Self]):
         return f"Encountered {await Interpret.responseErr(resp, dtls.displayName)}"
     # end respErrLog(ClientResponse, CarDetails)
 
-    async def getCurrentState(self, dtls: CarDetails, attempts: int = 10) -> None:
+    async def getCurrentState(self, dtls: CarDetails, attempts: int = 1) -> None:
         """Get the latest state of a specified vehicle - uses a live connection, which may
            return {"state": "asleep"} or network errors depending on vehicle connectivity
         :param dtls: Details of the vehicle to query
@@ -232,7 +232,7 @@ class TessieInterface(AsyncContextManager[Self]):
 
         while retries:
             await asyncio.sleep(4)
-            await self.getCurrentState(dtls, attempts=1)
+            await self.getCurrentState(dtls)
 
             if dtls.awake():
                 return True

@@ -318,7 +318,7 @@ class CarChargingEnabler(ChargeLimitRestore):
 
             if dtls.dataAge() > 10 or dtls.modifiedBySetter:
                 # make sure we have the current vehicle details
-                await self.tsIntrfc.getCurrentState(dtls)
+                await self.tsIntrfc.getCurrentState(dtls, attempts=5)
 
         if dtls.pluggedInAtHome() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
             # this vehicle is plugged in at home, not charging and could use a charge
@@ -328,7 +328,7 @@ class CarChargingEnabler(ChargeLimitRestore):
                     and dtls.chargeNeeded() and retries:
                 # wait for charging state to change from Complete or NoPower
                 await asyncio.sleep(9)
-                await self.tsIntrfc.getCurrentState(dtls, attempts=1)
+                await self.tsIntrfc.getCurrentState(dtls)
                 retries -= 1
             # end while
 
