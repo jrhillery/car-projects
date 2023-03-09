@@ -231,13 +231,13 @@ class TessieInterface(AsyncContextManager[Self]):
         retries = 8
 
         while retries:
+            await asyncio.sleep(4)
             await self.getCurrentState(dtls, attempts=1)
 
             if dtls.awake():
                 return True
 
-            if retries := retries - 1:
-                await asyncio.sleep(4)
+            retries -= 1
         # end while
 
         return False
