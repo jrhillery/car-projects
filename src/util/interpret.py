@@ -1,8 +1,26 @@
 
+import logging
+from asyncio import gather, Task
+from collections.abc import Sequence
+
 from aiohttp import ClientResponse
 
 
 class Interpret(object):
+    @staticmethod
+    async def waitForTasks(tasks: Sequence[Task]) -> None:
+        """Wait for all of a given sequence of tasks to complete
+        :param tasks: Tasks to wait for, all of which must return None or raise an exception
+        """
+        results = await gather(*tasks, return_exceptions=True)
+
+        for task, res in zip(tasks, results):
+            if res is not None:
+                logging.error(f"Problem in task {task.get_name()}:"
+                              f" Exception {res.__class__.__name__}:"
+                              f" {str(res)}", exc_info=res)
+    # end waitForTasks(Sequence[Task])
+
     @staticmethod
     async def responseErr(resp: ClientResponse, target: str) -> str:
         """Summarize an error in a given response

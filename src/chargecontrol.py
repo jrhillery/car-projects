@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from tessie import CarDetails, TessieInterface
-from util import Configure, ExceptionGroupHandler, PersistentData
+from util import Configure, ExceptionGroupHandler, Interpret, PersistentData
 
 
 class ChargeControl(object):
@@ -209,6 +209,14 @@ class AutoCurrentControl(TessieProc):
            - depends on having battery health details
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
+        # wait for all existing wake tasks to complete in case a battery level changes
+        wakeTasks: list[asyncio.Task] = []
+
+        for dtls in self.vehicles:
+            if dtls.wakeTask is not None:
+                wakeTasks.append(dtls.wakeTask)
+
+        await Interpret.waitForTasks(wakeTasks)
         energiesNeeded: list[float] = []
         totalEnergyNeeded = 0.0
 

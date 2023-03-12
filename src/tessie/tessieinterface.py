@@ -376,13 +376,7 @@ class TessieInterface(AsyncContextManager[Self]):
         for dtls, reqCurrent in zip(vehicles, reqCurrents):
             self.wakeIfSettingCurrent(dtls, reqCurrent, wakeTasks)
 
-        wakeResults = await asyncio.gather(*wakeTasks, return_exceptions=True)
-
-        for wakeTask, wakeRes in zip(wakeTasks, wakeResults):
-            if wakeRes is not None:
-                logging.error(f"Problem in task {wakeTask.get_name()}:"
-                              f" Exception {wakeRes.__class__.__name__}:"
-                              f" {str(wakeRes)}", exc_info=wakeRes)
+        await Interpret.waitForTasks(wakeTasks)
         indices: list[int] = list(range(len(vehicles)))
 
         # to decrease first, sort indices ascending by increase in request current
