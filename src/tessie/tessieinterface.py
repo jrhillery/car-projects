@@ -191,7 +191,7 @@ class TessieInterface(AsyncContextManager[Self]):
         return dtls
     # end addBatteryHealth(CarDetails)
 
-    async def wake(self, dtls: CarDetails, attempts: int = 6) -> None:
+    async def _wake(self, dtls: CarDetails, attempts: int = 6) -> None:
         """Attempt to wake a specified vehicle from sleep
            - logs a message indicating if fails to wake up, or times out (30s)
         :param dtls: Details of the vehicle to wake
@@ -221,7 +221,7 @@ class TessieInterface(AsyncContextManager[Self]):
             if attempts:
                 await asyncio.sleep(60)
         # end while
-    # end wake(CarDetails, int)
+    # end _wake(CarDetails, int)
 
     async def waitTillAwake(self, dtls: CarDetails) -> bool:
         """Wait for this vehicle's sleep status to show awake
@@ -244,16 +244,24 @@ class TessieInterface(AsyncContextManager[Self]):
     # end waitTillAwake(CarDetails)
 
     def getWakeTask(self, dtls: CarDetails) -> asyncio.Task:
-        """Get a task scheduled to wake up this vehicle
+        """Get a task scheduled to wake up a specified vehicle
         :param dtls: Details of the vehicle to wake
-        :return: Wake up task instance
+        :return: Common wake up task instance for the vehicle
         """
         if dtls.wakeTask is None:
-            dtls.wakeTask = asyncio.create_task(self.wake(dtls),
+            dtls.wakeTask = asyncio.create_task(self._wake(dtls),
                                                 name=f"Wake {dtls.displayName}")
 
         return dtls.wakeTask
     # end getWakeTask(CarDetails)
+
+    async def wakeVehicle(self, dtls: CarDetails) -> None:
+        """Wake up a specified vehicle using its common wake task
+           - this is needed so TaskGroups can create their own wake-up tasks
+        :param dtls: Details of the vehicle to wake
+        """
+        await self.getWakeTask(dtls)
+    # end wakeVehicle(CarDetails)
 
     @staticmethod
     def edOrIng(pastTense: bool) -> str:
