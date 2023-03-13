@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from tessie import CarDetails, TessieInterface
-from util import Configure, ExceptionGroupHandler, Interpret, PersistentData
+from util import Configure, ExceptionGroupHandler, PersistentData
 
 
 class ChargeControl(object):
@@ -209,14 +209,6 @@ class AutoCurrentControl(TessieProc):
            - depends on having battery health details
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
-        # wait for all existing wake tasks to complete in case a battery level changes
-        wakeTasks: list[asyncio.Task] = []
-
-        for dtls in self.vehicles:
-            if dtls.wakeTask is not None:
-                wakeTasks.append(dtls.wakeTask)
-
-        await Interpret.waitForTasks(wakeTasks)
         energiesNeeded: list[float] = []
         totalEnergyNeeded = 0.0
 
@@ -260,8 +252,9 @@ class ChargeLimitRestore(AutoCurrentControl):
             for dtls in self.vehicles:
                 tg.create_task(self.restoreChargeLimit(dtls))
             # end for
-            tg.create_task(self.automaticallySetReqCurrent())
         # end async with (tasks are awaited)
+
+        await self.automaticallySetReqCurrent()
     # end process()
 
     async def restoreChargeLimit(self, dtls: CarDetails, waitForCompletion=False) -> None:
@@ -302,12 +295,13 @@ class CarChargingEnabler(ChargeLimitRestore):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 if dtls.pluggedInAtHome() and not dtls.awake():
-                    # schedule a task to wake up this vehicle but don't wait for it yet
-                    self.tsIntrfc.getWakeTask(dtls)
+                    # wake up this vehicle to prepare for self.startChargingWhenReady
+                    tg.create_task(self.tsIntrfc.wakeVehicle(dtls))
                 tg.create_task(self.restoreChargeLimit(dtls, waitForCompletion=True))
             # end for
-            tg.create_task(self.automaticallySetReqCurrent(waitForCompletion=True))
         # end async with (tasks are awaited)
+
+        await self.automaticallySetReqCurrent(waitForCompletion=True)
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
@@ -318,12 +312,10 @@ class CarChargingEnabler(ChargeLimitRestore):
 
     async def startChargingWhenReady(self, dtls: CarDetails) -> None:
         """Start charging if plugged in at home, not charging and could use a charge
+           - depends on the vehicle being awake if plugged in at home
         :param dtls: Details of the vehicle to start charging
         """
         if dtls.pluggedInAtHome():
-            if not dtls.awake():
-                await self.tsIntrfc.getWakeTask(dtls)
-
             if dtls.dataAge() > 10 or dtls.modifiedBySetter:
                 # make sure we have the current vehicle details
                 await self.tsIntrfc.getCurrentState(dtls, attempts=5)
