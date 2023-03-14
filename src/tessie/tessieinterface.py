@@ -2,7 +2,7 @@
 import asyncio
 import json
 import logging
-from collections.abc import MutableSequence, Sequence
+from collections.abc import Sequence
 from typing import AsyncContextManager, Self
 
 from aiohttp import ClientResponse, ClientSession
@@ -331,16 +331,16 @@ class TessieInterface(AsyncContextManager[Self]):
     # end setRequestCurrent(CarDetails, int, bool)
 
     def wakeIfSettingCurrent(self, dtls: CarDetails, reqCurrent: int,
-                             wakeFutures: MutableSequence[asyncio.Task]) -> None:
+                             tg: asyncio.TaskGroup) -> None:
         """Store a task to wake this car if the setRequestCurrent logic says this
            car will have its request current set and this car is not already awake
         :param dtls: Details of the vehicle to wake
         :param reqCurrent: Current to request (amps)
-        :param wakeFutures: Mutable sequence to hold the resulting task
+        :param tg: Task group for the resulting task
         """
         if dtls.atHome() and reqCurrent != dtls.chargeCurrentRequest and not dtls.awake():
-            wakeFutures.append(self.getWakeTask(dtls))
-    # end wakeIfSettingCurrent(CarDetails, int, MutableSequence[Task])
+            tg.create_task(self.wakeVehicle(dtls))
+    # end wakeIfSettingCurrent(CarDetails, int, TaskGroup)
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
                              desReqCurrents: Sequence[float]) -> Sequence[int]:
@@ -378,13 +378,13 @@ class TessieInterface(AsyncContextManager[Self]):
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
-        wakeTasks: list[asyncio.Task] = []
 
         # run tasks to wake sleeping cars that will have their request current set
-        for dtls, reqCurrent in zip(vehicles, reqCurrents):
-            self.wakeIfSettingCurrent(dtls, reqCurrent, wakeTasks)
+        async with asyncio.TaskGroup() as tg:
+            for dtls, reqCurrent in zip(vehicles, reqCurrents):
+                self.wakeIfSettingCurrent(dtls, reqCurrent, tg)
+        # end async with (tasks are awaited)
 
-        await Interpret.waitForTasks(wakeTasks)
         indices: list[int] = list(range(len(vehicles)))
 
         # to decrease first, sort indices ascending by increase in request current
