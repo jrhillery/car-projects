@@ -370,11 +370,13 @@ class TessieInterface(AsyncContextManager[Self]):
     # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
 
     async def setReqCurrents(self, vehicles: Sequence[CarDetails],
-                             desReqCurrents: Sequence[float], waitForCompletion=False) -> None:
+                             desReqCurrents: Sequence[float], onlyWake=False,
+                             waitForCompletion=False) -> None:
         """Set cars' request currents, decrease one before increasing the other
            - 'desReqCurrents' can be short - each car is given a value from remaining current
         :param vehicles: Sequence of cars to set
         :param desReqCurrents: Corresponding sequence of desired request currents (amps)
+        :param onlyWake: Flag indicating to only wake up vehicles needing their currents set
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
@@ -385,17 +387,18 @@ class TessieInterface(AsyncContextManager[Self]):
                 self.wakeIfSettingCurrent(dtls, reqCurrent, tg)
         # end async with (tasks are awaited)
 
-        indices: list[int] = list(range(len(vehicles)))
+        if not onlyWake:
+            indices: list[int] = list(range(len(vehicles)))
 
-        # to decrease first, sort indices ascending by increase in request current
-        indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
-        lastIndex = indices[len(indices) - 1]
+            # to decrease first, sort indices ascending by increase in request current
+            indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
+            lastIndex = indices[len(indices) - 1]
 
-        for idx in indices:
-            wait4Compl = (idx != lastIndex) or waitForCompletion
-            await self.setRequestCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
-        # end for
-    # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool)
+            for idx in indices:
+                wait4Compl = (idx != lastIndex) or waitForCompletion
+                await self.setRequestCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
+            # end for
+    # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool, bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle

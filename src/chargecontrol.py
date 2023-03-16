@@ -204,9 +204,11 @@ class AutoCurrentControl(TessieProc):
         return dtls.limitChargeLimit(percent)
     # end getPriorLimit(CarDetails)
 
-    async def automaticallySetReqCurrent(self, waitForCompletion=False) -> None:
+    async def automaticallySetReqCurrent(self, onlyWake=False,
+                                         waitForCompletion=False) -> None:
         """Automatically set cars' request currents based on each cars' charging needs
            - depends on having battery health details
+        :param onlyWake: Flag indicating to only wake up vehicles needing their currents set
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         energiesNeeded: list[float] = []
@@ -215,13 +217,14 @@ class AutoCurrentControl(TessieProc):
         for dtls in self.vehicles:
             energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
                                               else self.getPriorLimit(dtls))
-            summary = dtls.chargingStatusSummary()
+            if not onlyWake:
+                summary = dtls.chargingStatusSummary()
 
-            if energyNeeded:
-                summary += f" ({energyNeeded:.1f} kWh < limit)"
+                if summary.updatedSinceLastSummary or energyNeeded:
+                    if energyNeeded:
+                        summary += f" ({energyNeeded:.1f} kWh < limit)"
+                    logging.info(summary)
 
-            if summary.updatedSinceLastSummary or energyNeeded:
-                logging.info(summary)
             energiesNeeded.append(energyNeeded)
             totalEnergyNeeded += energyNeeded
         # end for
@@ -230,8 +233,9 @@ class AutoCurrentControl(TessieProc):
             reqCurrents = [self.chargeCtl.totalCurrent * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
 
-            await self.tsIntrfc.setReqCurrents(self.vehicles, reqCurrents, waitForCompletion)
-    # end automaticallySetReqCurrent(bool)
+            await self.tsIntrfc.setReqCurrents(self.vehicles, reqCurrents,
+                                               onlyWake, waitForCompletion)
+    # end automaticallySetReqCurrent(bool, bool)
 
 # end class AutoCurrentControl
 
@@ -251,7 +255,8 @@ class ChargeLimitRestore(AutoCurrentControl):
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
                 tg.create_task(self.restoreChargeLimit(dtls))
-            # end for
+            # wake vehicles needing their currents set in case battery levels change
+            tg.create_task(self.automaticallySetReqCurrent(onlyWake=True))
         # end async with (tasks are awaited)
 
         await self.automaticallySetReqCurrent()
@@ -298,7 +303,8 @@ class CarChargingEnabler(ChargeLimitRestore):
                     # wake up this vehicle to prepare for self.startChargingWhenReady
                     tg.create_task(self.tsIntrfc.wakeVehicle(dtls))
                 tg.create_task(self.restoreChargeLimit(dtls, waitForCompletion=True))
-            # end for
+            # wake vehicles needing their currents set in case battery levels change
+            tg.create_task(self.automaticallySetReqCurrent(onlyWake=True))
         # end async with (tasks are awaited)
 
         await self.automaticallySetReqCurrent(waitForCompletion=True)
