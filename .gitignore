@@ -1,4 +1,3 @@
 /parmFiles/accesstoken.json
-/parmFiles/juicenetlogincreds.json
 /parmFiles/*.persist
 /chargecontrol.log*
