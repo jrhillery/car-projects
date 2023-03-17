@@ -28,11 +28,11 @@ class ChargeControl(object):
         self.specifyReqName: str | None = args.specifyReq[0] if args.specifyReq else None
         self.persistentData = PersistentData()
 
-        with open(Configure.findParmPath().joinpath("carjuiceboxmapping.json"),
+        with open(Configure.findParmPath().joinpath("circuitmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
-            carJuiceBoxMapping: dict = json.load(mappingFile)
+            circuitMapping: dict = json.load(mappingFile)
 
-        self.totalCurrent: int = carJuiceBoxMapping["totalCurrent"]
+        self.totalCurrent: int = circuitMapping["totalCurrent"]
     # end __init__(Namespace)
 
     @staticmethod
