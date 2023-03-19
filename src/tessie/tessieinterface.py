@@ -335,65 +335,6 @@ class TessieInterface(AsyncContextManager[Self]):
                              f" set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int, bool, bool)
 
-    def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
-                             desReqCurrents: Sequence[float]) -> Sequence[int]:
-        """Get corresponding request currents valid for each charge adapter
-           - 'desReqCurrents' can be short - each car is given a value from remaining current
-        :param vehicles: Sequence of cars to have their request currents limited
-        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
-        :return: Corresponding sequence of valid request currents, length same as 'vehicles'
-        """
-        requestCurrents: list[int] = []
-        remainingCurrent = self.totalCurrent
-
-        for i, dtls in enumerate(vehicles):
-            requestCurrent = dtls.limitRequestCurrent(
-                int(desReqCurrents[i] + 0.5) if i < len(desReqCurrents) else remainingCurrent)
-
-            if requestCurrent > remainingCurrent:
-                requestCurrent = remainingCurrent
-            requestCurrents.append(requestCurrent)
-            remainingCurrent -= requestCurrent
-        # end for
-
-        if len(requestCurrents) > 0:
-            requestCurrents[0] += remainingCurrent
-
-        return requestCurrents
-    # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
-
-    async def setReqCurrents(self, vehicles: Sequence[CarDetails],
-                             desReqCurrents: Sequence[float], onlyWake=False,
-                             waitForCompletion=False) -> None:
-        """Set cars' request currents, decrease one before increasing the other
-           - 'desReqCurrents' can be short - each car is given a value from remaining current
-        :param vehicles: Sequence of cars to set
-        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
-        :param onlyWake: Flag indicating to only wake up vehicles needing their currents set
-        :param waitForCompletion: Flag indicating to wait for final request current to be set
-        """
-        reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
-
-        # run tasks to wake sleeping cars that will have their request current set
-        async with asyncio.TaskGroup() as tg:
-            for dtls, reqCurrent in zip(vehicles, reqCurrents):
-                tg.create_task(self.setRequestCurrent(dtls, reqCurrent, onlyWake=True))
-        # end async with (tasks are awaited)
-
-        if not onlyWake:
-            indices: list[int] = list(range(len(vehicles)))
-
-            # to decrease first, sort indices ascending by increase in request current
-            indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
-            lastIndex = indices[len(indices) - 1]
-
-            for idx in indices:
-                wait4Compl = (idx != lastIndex) or waitForCompletion
-                await self.setRequestCurrent(vehicles[idx], reqCurrents[idx],
-                                             waitForCompletion=wait4Compl)
-            # end for
-    # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool, bool)
-
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle
         :param dtls: Details of the vehicle to start charging

@@ -161,14 +161,73 @@ class ReqCurrentControl(TessieProc):
             raise Exception(f"Unable to locate both cars,"
                             f" found {[car.displayName for car in self.vehicles]}")
 
-        await self.tsIntrfc.setReqCurrents((specifiedCar, otherCar),
-                                           (self.chargeCtl.specifyReq, ))
+        await self.setReqCurrents((specifiedCar, otherCar), (self.chargeCtl.specifyReq, ))
     # end process()
+
+    def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
+                             desReqCurrents: Sequence[float]) -> Sequence[int]:
+        """Get corresponding request currents valid for each charge adapter
+           - 'desReqCurrents' can be short - each car is given a value from remaining current
+        :param vehicles: Sequence of cars to have their request currents limited
+        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
+        :return: Corresponding sequence of valid request currents, length same as 'vehicles'
+        """
+        requestCurrents: list[int] = []
+        remainingCurrent = self.chargeCtl.totalCurrent
+
+        for i, dtls in enumerate(vehicles):
+            requestCurrent = dtls.limitRequestCurrent(
+                int(desReqCurrents[i] + 0.5) if i < len(desReqCurrents) else remainingCurrent)
+
+            if requestCurrent > remainingCurrent:
+                requestCurrent = remainingCurrent
+            requestCurrents.append(requestCurrent)
+            remainingCurrent -= requestCurrent
+        # end for
+
+        if len(requestCurrents) > 0:
+            requestCurrents[0] += remainingCurrent
+
+        return requestCurrents
+    # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
+
+    async def setReqCurrents(self, vehicles: Sequence[CarDetails],
+                             desReqCurrents: Sequence[float], onlyWake=False,
+                             waitForCompletion=False) -> None:
+        """Set cars' request currents, decrease one before increasing the other
+           - 'desReqCurrents' can be short - each car is given a value from remaining current
+        :param vehicles: Sequence of cars to set
+        :param desReqCurrents: Corresponding sequence of desired request currents (amps)
+        :param onlyWake: Flag indicating to only wake up vehicles needing their currents set
+        :param waitForCompletion: Flag indicating to wait for final request current to be set
+        """
+        reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
+
+        # run tasks to wake sleeping cars that will have their request current set
+        async with asyncio.TaskGroup() as tg:
+            for dtls, reqCurrent in zip(vehicles, reqCurrents):
+                tg.create_task(self.tsIntrfc.setRequestCurrent(dtls, reqCurrent,
+                                                               onlyWake=True))
+        # end async with (tasks are awaited)
+
+        if not onlyWake:
+            indices: list[int] = list(range(len(vehicles)))
+
+            # to decrease first, sort indices ascending by increase in request current
+            indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
+            lastIndex = indices[len(indices) - 1]
+
+            for idx in indices:
+                wait4Compl = (idx != lastIndex) or waitForCompletion
+                await self.tsIntrfc.setRequestCurrent(vehicles[idx], reqCurrents[idx],
+                                                      waitForCompletion=wait4Compl)
+            # end for
+    # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool, bool)
 
 # end class ReqCurrentControl
 
 
-class AutoCurrentControl(TessieProc):
+class AutoCurrentControl(ReqCurrentControl):
     """Processor to automatically set request currents based on cars' charging needs"""
 
     async def process(self) -> None:
@@ -227,8 +286,7 @@ class AutoCurrentControl(TessieProc):
             reqCurrents = [self.chargeCtl.totalCurrent * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
 
-            await self.tsIntrfc.setReqCurrents(self.vehicles, reqCurrents,
-                                               onlyWake, waitForCompletion)
+            await self.setReqCurrents(self.vehicles, reqCurrents, onlyWake, waitForCompletion)
     # end automaticallySetReqCurrent(bool, bool)
 
 # end class AutoCurrentControl
