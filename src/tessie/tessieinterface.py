@@ -299,36 +299,41 @@ class TessieInterface(AsyncContextManager[Self]):
                      f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int, bool)
 
-    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int,
+    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int, onlyWake=False,
                                 waitForCompletion=False) -> None:
         """Set the car's request current to a specified value
         :param dtls: Details of the vehicle to set
         :param reqCurrent: New maximum current to request (amps)
+        :param onlyWake: Flag indicating to only wake up a vehicle needing its current set
         :param waitForCompletion: Flag indicating to wait for request current to be set
         """
         if dtls.atHome():
             if reqCurrent != dtls.chargeCurrentRequest:
-                url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
-                qryParms = {
-                    "retry_duration": 60,
-                    "wait_for_completion": "true" if waitForCompletion else "false",
-                    "amps": reqCurrent,
-                }
+                if not dtls.awake():
+                    await self.getWakeTask(dtls)
 
-                async with self.session.get(url, params=qryParms) as resp:
-                    oldReq = dtls.chargeCurrentRequest
-                    dtls.setChargeCurrentRequest(reqCurrent)
+                if not onlyWake:
+                    url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
+                    qryParms = {
+                        "retry_duration": 60,
+                        "wait_for_completion": "true" if waitForCompletion else "false",
+                        "amps": reqCurrent,
+                    }
 
-                    if resp.status != 200:
-                        raise await HTTPException.fromError(resp, dtls.displayName)
+                    async with self.session.get(url, params=qryParms) as resp:
+                        oldReq = dtls.chargeCurrentRequest
+                        dtls.setChargeCurrentRequest(reqCurrent)
 
-                logging.info(f"{dtls.displayName} request current"
-                             f" chang{self.edOrIng(waitForCompletion)}"
-                             f" from {oldReq} to {reqCurrent} A")
+                        if resp.status != 200:
+                            raise await HTTPException.fromError(resp, dtls.displayName)
+
+                    logging.info(f"{dtls.displayName} request current"
+                                 f" chang{self.edOrIng(waitForCompletion)}"
+                                 f" from {oldReq} to {reqCurrent} A")
             else:
                 logging.info(f"{dtls.displayName} request current already"
                              f" set to {reqCurrent} A")
-    # end setRequestCurrent(CarDetails, int, bool)
+    # end setRequestCurrent(CarDetails, int, bool, bool)
 
     def wakeIfSettingCurrent(self, dtls: CarDetails, reqCurrent: int,
                              tg: asyncio.TaskGroup) -> None:
@@ -396,7 +401,8 @@ class TessieInterface(AsyncContextManager[Self]):
 
             for idx in indices:
                 wait4Compl = (idx != lastIndex) or waitForCompletion
-                await self.setRequestCurrent(vehicles[idx], reqCurrents[idx], wait4Compl)
+                await self.setRequestCurrent(vehicles[idx], reqCurrents[idx],
+                                             waitForCompletion=wait4Compl)
             # end for
     # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool, bool)
 
