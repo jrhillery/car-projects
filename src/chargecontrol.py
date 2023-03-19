@@ -139,37 +139,31 @@ class ReqCurrentControl(TessieProc):
        (the other car gets the remaining current)"""
 
     async def process(self) -> None:
-        await self.specifyReqCurrent(self.chargeCtl.specifyReqName, self.chargeCtl.specifyReq)
-    # end process()
-
-    async def specifyReqCurrent(self, specifiedName: str, specifiedReqAmps: int) -> None:
-        """Set the specified vehicle's request current to a given value
-           (the other vehicle gets the remaining current)
-        :param specifiedName: Prefix of the vehicle name being specified
-        :param specifiedReqAmps: The request current (amps) to set for the specified vehicle
-        """
+        # self.chargeCtl.specifyReqName is the prefix of the vehicle name being specified
+        # self.chargeCtl.specifyReq is the request current (amps) to set for the vehicle
         specifiedCar: CarDetails | None = None
         otherCar: CarDetails | None = None
 
         for dtls in self.vehicles:
             logging.info(dtls.chargingStatusSummary())
 
-            if dtls.displayName.startswith(specifiedName):
+            if dtls.displayName.startswith(self.chargeCtl.specifyReqName):
                 specifiedCar = dtls
             else:
                 otherCar = dtls
         # end for
 
         if not specifiedCar:
-            raise Exception(f"Unable to locate car starting with {specifiedName},"
+            raise Exception(f"Unable to locate car starting with"
+                            f" {self.chargeCtl.specifyReqName},"
                             f" found {[car.displayName for car in self.vehicles]}")
-
         if not otherCar:
             raise Exception(f"Unable to locate both cars,"
                             f" found {[car.displayName for car in self.vehicles]}")
 
-        await self.tsIntrfc.setReqCurrents((specifiedCar, otherCar), (specifiedReqAmps, ))
-    # end specifyReqCurrent(str, int)
+        await self.tsIntrfc.setReqCurrents((specifiedCar, otherCar),
+                                           (self.chargeCtl.specifyReq, ))
+    # end process()
 
 # end class ReqCurrentControl
 
