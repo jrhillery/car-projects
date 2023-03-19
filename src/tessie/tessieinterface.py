@@ -335,18 +335,6 @@ class TessieInterface(AsyncContextManager[Self]):
                              f" set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int, bool, bool)
 
-    def wakeIfSettingCurrent(self, dtls: CarDetails, reqCurrent: int,
-                             tg: asyncio.TaskGroup) -> None:
-        """Store a task to wake this car if the setRequestCurrent logic says this
-           car will have its request current set and this car is not already awake
-        :param dtls: Details of the vehicle to wake
-        :param reqCurrent: Current to request (amps)
-        :param tg: Task group for the resulting task
-        """
-        if dtls.atHome() and reqCurrent != dtls.chargeCurrentRequest and not dtls.awake():
-            tg.create_task(self.wakeVehicle(dtls))
-    # end wakeIfSettingCurrent(CarDetails, int, TaskGroup)
-
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
                              desReqCurrents: Sequence[float]) -> Sequence[int]:
         """Get corresponding request currents valid for each charge adapter
@@ -389,7 +377,7 @@ class TessieInterface(AsyncContextManager[Self]):
         # run tasks to wake sleeping cars that will have their request current set
         async with asyncio.TaskGroup() as tg:
             for dtls, reqCurrent in zip(vehicles, reqCurrents):
-                self.wakeIfSettingCurrent(dtls, reqCurrent, tg)
+                tg.create_task(self.setRequestCurrent(dtls, reqCurrent, onlyWake=True))
         # end async with (tasks are awaited)
 
         if not onlyWake:
