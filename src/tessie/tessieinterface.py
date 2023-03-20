@@ -255,14 +255,6 @@ class TessieInterface(AsyncContextManager[Self]):
         return dtls.wakeTask
     # end getWakeTask(CarDetails)
 
-    async def wakeVehicle(self, dtls: CarDetails) -> None:
-        """Wake up a specified vehicle using its common wake task
-           - this is needed so TaskGroups can create their own wake-up tasks
-        :param dtls: Details of the vehicle to wake
-        """
-        await self.getWakeTask(dtls)
-    # end wakeVehicle(CarDetails)
-
     @staticmethod
     def edOrIng(pastTense: bool) -> str:
         """Retrive either "ed" or "ing" depending on past tense argument

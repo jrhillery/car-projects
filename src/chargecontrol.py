@@ -351,9 +351,7 @@ class CarChargingEnabler(ChargeLimitRestore):
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
-                if dtls.pluggedInAtHome() and not dtls.awake():
-                    # wake up this vehicle to prepare for self.startChargingWhenReady
-                    tg.create_task(self.tsIntrfc.wakeVehicle(dtls))
+                tg.create_task(self.startChargingWhenReady(dtls, onlyWake=True))
                 tg.create_task(self.restoreChargeLimit(dtls, waitForCompletion=True))
             # wake vehicles needing their currents set in case battery levels change
             tg.create_task(self.automaticallySetReqCurrent(onlyWake=True))
@@ -368,17 +366,21 @@ class CarChargingEnabler(ChargeLimitRestore):
         # end async with (tasks are awaited)
     # end process()
 
-    async def startChargingWhenReady(self, dtls: CarDetails) -> None:
+    async def startChargingWhenReady(self, dtls: CarDetails, onlyWake=False) -> None:
         """Start charging if plugged in at home, not charging and could use a charge
-           - depends on the vehicle being awake if plugged in at home
         :param dtls: Details of the vehicle to start charging
+        :param onlyWake: Flag indicating to only wake up a vehicle needing to charge
         """
         if dtls.pluggedInAtHome():
-            if dtls.dataAge() > 10 or dtls.modifiedBySetter:
+            if not dtls.awake():
+                await self.tsIntrfc.getWakeTask(dtls)
+
+            if not onlyWake and (dtls.dataAge() > 10 or dtls.modifiedBySetter):
                 # make sure we have the current vehicle details
                 await self.tsIntrfc.getCurrentState(dtls, attempts=5)
 
-        if dtls.pluggedInAtHome() and dtls.chargingState != "Charging" and dtls.chargeNeeded():
+        if not onlyWake and dtls.pluggedInAtHome() and dtls.chargingState != "Charging" \
+                and dtls.chargeNeeded():
             # this vehicle is plugged in at home, not charging and could use a charge
             retries = 6
 
@@ -391,7 +393,7 @@ class CarChargingEnabler(ChargeLimitRestore):
             # end while
 
             await self.tsIntrfc.startCharging(dtls)
-    # end startChargingWhenReady(CarDetails)
+    # end startChargingWhenReady(CarDetails, bool)
 
 # end class CarChargingEnabler
 
