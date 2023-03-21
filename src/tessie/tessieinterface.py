@@ -14,13 +14,6 @@ from . import CarDetails
 class TessieInterface(AsyncContextManager[Self]):
     """Provides an interface through Tessie to authorized vehicles"""
 
-    def __init__(self, totalCurrent: int):
-        """Initialize this instance
-        :param totalCurrent: The total current available to all cars
-        """
-        self.totalCurrent: int = totalCurrent
-    # end __init__(int)
-
     async def __aenter__(self) -> Self:
         """Allocate resources"""
         headers = {

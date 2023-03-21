@@ -94,7 +94,7 @@ class ChargeControl(object):
             cStack.callback(self.persistentData.save)
 
             # Create TessieInterface registered so it cleans up when cStack closes
-            tsIntrfc = await cStack.enter_async_context(TessieInterface(self.totalCurrent))
+            tsIntrfc = await cStack.enter_async_context(TessieInterface())
 
             await processor.addTs(tsIntrfc)
             await processor.process()
