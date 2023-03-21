@@ -322,7 +322,7 @@ class TessieInterface(AsyncContextManager[Self]):
                     logging.info(f"{dtls.displayName} request current"
                                  f" chang{self.edOrIng(waitForCompletion)}"
                                  f" from {oldReq} to {reqCurrent} A")
-            else:
+            elif not onlyWake:
                 logging.info(f"{dtls.displayName} request current already"
                              f" set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int, bool, bool)
