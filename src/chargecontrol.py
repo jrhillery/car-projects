@@ -8,6 +8,8 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
+from wakepy import keepawake
+
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler, PersistentData
 
@@ -90,6 +92,9 @@ class ChargeControl(object):
         processor = self.getSpecifiedProcessor()
 
         async with AsyncExitStack() as cStack:
+            # Prevent the computer from going to sleep until cStack closes
+            cStack.enter_context(keepawake())
+
             # Register persistent data to save when cStack closes
             cStack.callback(self.persistentData.save)
 
@@ -98,7 +103,7 @@ class ChargeControl(object):
 
             await processor.addTs(tsIntrfc)
             await processor.process()
-        # end async with (interfaces are closed)
+        # end async with, callbacks are invoked in the reverse order of registration
     # end main()
 
 # end class ChargeControl
