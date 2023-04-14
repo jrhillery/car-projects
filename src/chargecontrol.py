@@ -28,7 +28,6 @@ class ChargeControl(object):
         self.restoreLimit: bool = args.restoreLimit
         self.specifyReq: int | None = int(args.specifyReq[1]) if args.specifyReq else None
         self.specifyReqName: str | None = args.specifyReq[0] if args.specifyReq else None
-        self.persistentData = PersistentData()
 
         with open(Configure.findParmPath().joinpath("circuitmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
@@ -63,40 +62,42 @@ class ChargeControl(object):
         return ap.parse_args()
     # end parseArgs()
 
-    def getSpecifiedProcessor(self) -> "TessieProc":
+    def getSpecifiedProcessor(self, persistData: PersistentData) -> "TessieProc":
         """Get the processor indicated on the command line
         :return: Processor corresponding to command line arguments
+        :param persistData: Persistent data reference
         """
         processor: TessieProc
 
         match True:
             case _ if self.specifyReq is not None:
-                processor = ReqCurrentControl(self)
+                processor = ReqCurrentControl(self, persistData)
             case _ if self.autoReq:
-                processor = AutoCurrentControl(self)
+                processor = AutoCurrentControl(self, persistData)
             case _ if self.restoreLimit:
-                processor = ChargeLimitRestore(self)
+                processor = ChargeLimitRestore(self, persistData)
             case _ if self.enable:
-                processor = CarChargingEnabler(self)
+                processor = CarChargingEnabler(self, persistData)
             case _ if self.disable:
-                processor = CarChargingDisabler(self)
+                processor = CarChargingDisabler(self, persistData)
             case _:
-                processor = StatusPresenter(self)
+                processor = StatusPresenter(self, persistData)
         # end match
 
         return processor
-    # end getSpecifiedProcessor()
+    # end getSpecifiedProcessor(PersistentData)
 
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
-        processor = self.getSpecifiedProcessor()
 
         async with AsyncExitStack() as cStack:
             # Prevent the computer from going to sleep until cStack closes
             cStack.enter_context(keepawake())
 
             # Register persistent data to save when cStack closes
-            cStack.callback(self.persistentData.save)
+            persistentData = PersistentData()
+            processor = self.getSpecifiedProcessor(persistentData)
+            cStack.callback(persistentData.save)
 
             # Create TessieInterface registered so it cleans up when cStack closes
             tsIntrfc = await cStack.enter_async_context(TessieInterface())
@@ -115,12 +116,14 @@ class TessieProc(ABC):
     tsIntrfc: TessieInterface
     vehicles: Sequence[CarDetails]
 
-    def __init__(self, chargeCtl: ChargeControl):
-        """Sole constructor - store a charge control reference
+    def __init__(self, chargeCtl: ChargeControl, persistData: PersistentData):
+        """Sole constructor - store charge control and persistent data references
         :param chargeCtl: Charge control reference
+        :param persistData: Persistent data reference
         """
         self.chargeCtl = chargeCtl
-    # end __init__(ChargeControl)
+        self.persistData = persistData
+    # end __init__(ChargeControl, PersistentData)
 
     async def addTs(self, tsIntrfc: TessieInterface) -> None:
         """Store an interface to Tessie and a list of vehicles
@@ -252,7 +255,7 @@ class AutoCurrentControl(ReqCurrentControl):
         :param dtls: Details of the specified vehicle
         :return: Persisted charge limit
         """
-        percent: int | None = self.chargeCtl.persistentData.getVal(
+        percent: int | None = self.persistData.getVal(
             ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
 
         if percent is None:
@@ -430,7 +433,7 @@ class CarChargingDisabler(TessieProc):
 
             if not dtls.chargeLimitIsMin():
                 # this vehicle is not set to minimum limit already
-                self.chargeCtl.persistentData.setVal(
+                self.persistData.setVal(
                     ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin, dtls.chargeLimit)
                 await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)
     # end disableCarCharging(CarDetails)
