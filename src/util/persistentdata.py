@@ -28,16 +28,13 @@ class PersistentData(AbstractContextManager[Self]):
 
     def __exit__(self, exc_type, exc, exc_tb) -> None:
         """Close this instance and free up resources"""
-        self.save()
-    # end __exit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
-    def save(self) -> None:
-        """Save this persistent data instance to file if needed"""
+        # Save this persistent data instance to file if needed
         if self.needsSave:
             with open(self.persistPath(), "w", encoding="utf-8", newline="\n") as persistFile:
                 json.dump(self._data, persistFile, ensure_ascii=False, indent=2)
             self.needsSave = False
-    # end save()
+    # end __exit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
     @staticmethod
     def persistPath() -> Path:
@@ -82,15 +79,13 @@ class PersistentData(AbstractContextManager[Self]):
 
 
 if __name__ == "__main__":
-    pd = PersistentData()
-    bouncyToy: int | None = pd.getVal("bouncy", "j")
+    with PersistentData() as pd:
+        bouncyToy: int | None = pd.getVal("bouncy", "j")
 
-    if bouncyToy is None:
-        bouncyToy = 646
-        pd.setVal("bouncy", "j", bouncyToy)
-        pd.setVal("clove", "s", 42)
-    else:
-        pd.setVal("bouncy", "s", 747)
-        pd.setVal("bouncy", "j", 848)
-
-    pd.save()
+        if bouncyToy is None:
+            bouncyToy = 646
+            pd.setVal("bouncy", "j", bouncyToy)
+            pd.setVal("clove", "s", 42)
+        else:
+            pd.setVal("bouncy", "s", 747)
+            pd.setVal("bouncy", "j", 848)
