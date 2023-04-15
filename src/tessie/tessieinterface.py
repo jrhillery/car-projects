@@ -26,6 +26,11 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         return self
     # end __aenter__()
 
+    async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
+        """Close this instance and free up resources"""
+        await self.session.close()
+    # end __aexit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
+
     @staticmethod
     async def loadToken() -> str:
         filePath = Configure.findParmPath().joinpath("accesstoken.json")
@@ -362,10 +367,5 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         logging.info(f"{dtls.displayName} charging"
                      f" stopp{self.edOrIng(waitForCompletion)}")
     # end stopCharging(CarDetails, bool)
-
-    async def __aexit__(self, exc_type, exc: BaseException | None, exc_tb) -> None:
-        """Close this instance and free up resources"""
-        await self.session.close()
-    # end __aexit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
 # end class TessieInterface
