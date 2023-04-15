@@ -1,23 +1,35 @@
 
 import __main__ as main
 import json
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from util import Configure
 
 
-class PersistentData(object):
+class PersistentData(AbstractContextManager[Self]):
 
     def __init__(self):
-        """Initialize this instance and allocate resources"""
+        """Initialize this instance"""
         self.needsSave = False
+    # end __init__()
+
+    def __enter__(self) -> Self:
+        """Allocate resources"""
         try:
             with open(self.persistPath(), "r", encoding="utf-8") as persistFile:
                 self._data: dict[str, dict] = json.load(persistFile)
         except FileNotFoundError:
             self._data: dict[str, dict] = {}
-    # end __init__()
+
+        return self
+    # end __enter__()
+
+    def __exit__(self, exc_type, exc, exc_tb) -> None:
+        """Close this instance and free up resources"""
+        self.save()
+    # end __exit__(Type[BaseException] | None, BaseException | None, TracebackType | None)
 
     def save(self) -> None:
         """Save this persistent data instance to file if needed"""
@@ -29,7 +41,7 @@ class PersistentData(object):
 
     @staticmethod
     def persistPath() -> Path:
-        """Locate our persist file path
+        """Locate our persist file
         :return: Path to our persist file
         """
         mainPath = Path(main.__file__)
@@ -41,7 +53,7 @@ class PersistentData(object):
         """Store a value in this persistent data
         :param category: Classification given to this type of data
         :param instanceId: Identifier for this instance of data
-        :param val: Data value
+        :param val: Value to store
         """
         if category not in self._data:
             self._data[category] = {instanceId: val}
@@ -58,7 +70,7 @@ class PersistentData(object):
         """Retrieve a value from  this persistent data
         :param category: Classification given to this type of data
         :param instanceId: Identifier for this instance of data
-        :return: Data value, if exists, otherwise None
+        :return: Persisted data value, if exists, otherwise None
         """
         try:
             return self._data[category][instanceId]

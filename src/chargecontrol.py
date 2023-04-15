@@ -95,9 +95,8 @@ class ChargeControl(object):
             cStack.enter_context(keepawake())
 
             # Register persistent data to save when cStack closes
-            persistentData = PersistentData()
+            persistentData = cStack.enter_context(PersistentData())
             processor = self.getSpecifiedProcessor(persistentData)
-            cStack.callback(persistentData.save)
 
             # Create TessieInterface registered so it cleans up when cStack closes
             tsIntrfc = await cStack.enter_async_context(TessieInterface())
