@@ -3,7 +3,8 @@ import asyncio
 import json
 import logging
 from collections.abc import Sequence
-from typing import AsyncContextManager, Self
+from contextlib import AbstractAsyncContextManager
+from typing import Self
 
 from aiohttp import ClientResponse, ClientSession
 
@@ -11,7 +12,7 @@ from util import Configure, HTTPException, Interpret
 from . import CarDetails
 
 
-class TessieInterface(AsyncContextManager[Self]):
+class TessieInterface(AbstractAsyncContextManager[Self]):
     """Provides an interface through Tessie to authorized vehicles"""
 
     async def __aenter__(self) -> Self:
