@@ -16,7 +16,6 @@ from util import Configure, ExceptionGroupHandler, PersistentData
 
 class ChargeControl(object):
     """Controls vehicles charging activity"""
-    PRIOR_CHARGE_LIMIT = "priorChargeLimit"
 
     def __init__(self, args: Namespace):
         """Initialize this instance and allocate resources
@@ -111,6 +110,8 @@ class ChargeControl(object):
 
 class TessieProc(ABC):
     """Abstract base class for processors that use a Tessie interface"""
+    PRIOR_CHARGE_LIMIT = "priorChargeLimit"
+
     # fields set by addTs
     tsIntrfc: TessieInterface
     vehicles: Sequence[CarDetails]
@@ -254,8 +255,7 @@ class AutoCurrentControl(ReqCurrentControl):
         :param dtls: Details of the specified vehicle
         :return: Persisted charge limit
         """
-        percent: int | None = self.persistData.getVal(
-            ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin)
+        percent: int | None = self.persistData.getVal(self.PRIOR_CHARGE_LIMIT, dtls.vin)
 
         if percent is None:
             # use an average value if no limit is persisted
@@ -432,8 +432,7 @@ class CarChargingDisabler(TessieProc):
 
             if not dtls.chargeLimitIsMin():
                 # this vehicle is not set to minimum limit already
-                self.persistData.setVal(
-                    ChargeControl.PRIOR_CHARGE_LIMIT, dtls.vin, dtls.chargeLimit)
+                self.persistData.setVal(self.PRIOR_CHARGE_LIMIT, dtls.vin, dtls.chargeLimit)
                 await self.tsIntrfc.setChargeLimit(dtls, dtls.limitMinPercent)
     # end disableCarCharging(CarDetails)
 
