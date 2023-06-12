@@ -298,7 +298,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         :param onlyWake: Flag indicating to only wake up a vehicle needing its current set
         :param waitForCompletion: Flag indicating to wait for request current to be set
         """
-        if dtls.atHome():
+        if dtls.pluggedInAtHome():
             if reqCurrent != dtls.chargeCurrentRequest:
                 if not dtls.awake():
                     await self.getWakeTask(dtls)
