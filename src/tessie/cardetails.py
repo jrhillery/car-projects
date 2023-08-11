@@ -23,6 +23,7 @@ class CarDetails(object):
     limitMaxPercent: int
     chargingState: str
     lastSeen: float
+    outsideTemp: int
     updatedSinceSummary: bool
     modifiedBySetter: bool
 
@@ -59,6 +60,8 @@ class CarDetails(object):
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
         self.chargingState = chargeState["charging_state"]
         self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
+        climateState = vehicleState["climate_state"]
+        self.outsideTemp = climateState["outside_temp"]
         self.updatedSinceSummary = True
         self.modifiedBySetter = False
     # end updateFromDict(dict)
