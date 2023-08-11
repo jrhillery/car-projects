@@ -200,22 +200,26 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
 
         while attempts:
             logging.info(f"Waking {dtls.displayName}")
-            async with self.session.get(url) as resp:
-                if resp.status != 200:
-                    raise await HTTPException.fromError(resp, dtls.displayName)
-
-                try:
-                    wakeOkay: bool = (await resp.json())["result"]
-                except Exception as e:
-                    raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
             attempts -= 1
+            try:
+                async with self.session.get(url) as resp:
+                    if resp.status != 200:
+                        raise await HTTPException.fromError(resp, dtls.displayName)
 
-            if wakeOkay:
-                if await self.waitTillAwake(dtls):
-                    break
-                logging.info(f"{dtls.displayName} never woke up, {attempts} more attempts")
-            else:
-                logging.info(f"{dtls.displayName} timed out waking, {attempts} more attempts")
+                    try:
+                        wakeOkay: bool = (await resp.json())["result"]
+                    except Exception as e:
+                        raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
+
+                if wakeOkay:
+                    if await self.waitTillAwake(dtls):
+                        break
+                    logging.info(f"{dtls.displayName} never woke up, {attempts} more attempts")
+                else:
+                    logging.info(f"{dtls.displayName} timed out waking, {attempts} more attempts")
+            except Exception as e:
+                logging.error(e)
+                logging.debug(f"{e.__class__.__name__} suppressed:", exc_info=e)
 
             if attempts:
                 await asyncio.sleep(60)
