@@ -33,6 +33,7 @@ class ChargeControl(object):
             circuitMapping: dict = json.load(mappingFile)
 
         self.totalCurrent: int = circuitMapping["totalCurrent"]
+        self.deratePercentPerDegC: float = circuitMapping["deratePercentPerDegreeC"]
     # end __init__(Namespace)
 
     @staticmethod
@@ -146,6 +147,8 @@ class ReqCurrentControl(TessieProc):
     """Processor to set a specified car to a specified request current (amps)
        (the other car gets the remaining current)"""
 
+    BREAKER_SPEC_DEG_C = 25
+
     async def process(self) -> None:
         # self.chargeCtl.specifyReqName is the prefix of the vehicle name being specified
         # self.chargeCtl.specifyReq is the request current (amps) to set for the vehicle
@@ -172,6 +175,32 @@ class ReqCurrentControl(TessieProc):
         await self.setReqCurrents((specifiedCar, otherCar), (self.chargeCtl.specifyReq, ))
     # end process()
 
+    @staticmethod
+    def mostRecentOutsideTemp(vehicles: Sequence[CarDetails]) -> int:
+        lastSeen = 0.0
+        outsideTemp = 0
+
+        for dtls in vehicles:
+            if dtls.lastSeen > lastSeen:
+                lastSeen = dtls.lastSeen
+                outsideTemp = dtls.outsideTemp
+
+        return outsideTemp
+    # end mostRecentOutsideTemp(Sequence[CarDetails])
+
+    def derateTotalCurrent(self, vehicles: Sequence[CarDetails]) -> int:
+        outsideTemp = self.mostRecentOutsideTemp(vehicles)
+
+        if outsideTemp <= self.BREAKER_SPEC_DEG_C:  # degrees C
+            derated = self.chargeCtl.totalCurrent
+        else:
+            deratePercent = self.chargeCtl.deratePercentPerDegC * (
+                    outsideTemp - self.BREAKER_SPEC_DEG_C)
+            derated = int(self.chargeCtl.totalCurrent * (1.0 - deratePercent/100.0))
+
+        return derated
+    # end derateTotalCurrent(Sequence[CarDetails])
+
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
                              desReqCurrents: Sequence[float]) -> Sequence[int]:
         """Get corresponding request currents valid for each charge adapter
@@ -181,7 +210,7 @@ class ReqCurrentControl(TessieProc):
         :return: Corresponding sequence of valid request currents, length same as 'vehicles'
         """
         requestCurrents: list[int] = []
-        remainingCurrent = self.chargeCtl.totalCurrent
+        remainingCurrent = self.derateTotalCurrent(vehicles)
 
         for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
@@ -290,7 +319,7 @@ class AutoCurrentControl(ReqCurrentControl):
         # end for
 
         if totalEnergyNeeded:
-            reqCurrents = [self.chargeCtl.totalCurrent * (
+            reqCurrents = [self.derateTotalCurrent(self.vehicles) * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
 
             await self.setReqCurrents(self.vehicles, reqCurrents, onlyWake, waitForCompletion)
