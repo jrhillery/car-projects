@@ -175,7 +175,7 @@ class ReqCurrentControl(TessieProc):
         await self.setReqCurrents((specifiedCar, otherCar), (self.chargeCtl.specifyReq, ))
     # end process()
 
-    def mostRecentOutsideTemp(self) -> int:
+    def mostRecentTemp(self) -> int:
         lastSeen = 0.0
         outsideTemp = 0
 
@@ -185,17 +185,16 @@ class ReqCurrentControl(TessieProc):
                 outsideTemp = dtls.outsideTemp
 
         return outsideTemp
-    # end mostRecentOutsideTemp()
+    # end mostRecentTemp()
 
     def derateTotalCurrent(self) -> int:
-        outsideTemp = self.mostRecentOutsideTemp()
+        roomTemp = self.mostRecentTemp()
+        derated = self.chargeCtl.totalCurrent
 
-        if outsideTemp <= self.BREAKER_SPEC_DEG_C:  # degrees C
-            derated = self.chargeCtl.totalCurrent
-        else:
+        if roomTemp > self.BREAKER_SPEC_DEG_C:  # degrees C
             deratePercent = self.chargeCtl.deratePercentPerDegC * (
-                    outsideTemp - self.BREAKER_SPEC_DEG_C)
-            derated = int(self.chargeCtl.totalCurrent * (1.0 - deratePercent/100.0))
+                    roomTemp - self.BREAKER_SPEC_DEG_C)
+            derated = int(derated * (1.0 - deratePercent/100.0))
 
         return derated
     # end derateTotalCurrent()
