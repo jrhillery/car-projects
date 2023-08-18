@@ -175,21 +175,20 @@ class ReqCurrentControl(TessieProc):
         await self.setReqCurrents((specifiedCar, otherCar), (self.chargeCtl.specifyReq, ))
     # end process()
 
-    @staticmethod
-    def mostRecentOutsideTemp(vehicles: Sequence[CarDetails]) -> int:
+    def mostRecentOutsideTemp(self) -> int:
         lastSeen = 0.0
         outsideTemp = 0
 
-        for dtls in vehicles:
+        for dtls in self.vehicles:
             if dtls.lastSeen > lastSeen:
                 lastSeen = dtls.lastSeen
                 outsideTemp = dtls.outsideTemp
 
         return outsideTemp
-    # end mostRecentOutsideTemp(Sequence[CarDetails])
+    # end mostRecentOutsideTemp()
 
-    def derateTotalCurrent(self, vehicles: Sequence[CarDetails]) -> int:
-        outsideTemp = self.mostRecentOutsideTemp(vehicles)
+    def derateTotalCurrent(self) -> int:
+        outsideTemp = self.mostRecentOutsideTemp()
 
         if outsideTemp <= self.BREAKER_SPEC_DEG_C:  # degrees C
             derated = self.chargeCtl.totalCurrent
@@ -199,7 +198,7 @@ class ReqCurrentControl(TessieProc):
             derated = int(self.chargeCtl.totalCurrent * (1.0 - deratePercent/100.0))
 
         return derated
-    # end derateTotalCurrent(Sequence[CarDetails])
+    # end derateTotalCurrent()
 
     def limitRequestCurrents(self, vehicles: Sequence[CarDetails],
                              desReqCurrents: Sequence[float]) -> Sequence[int]:
@@ -210,7 +209,7 @@ class ReqCurrentControl(TessieProc):
         :return: Corresponding sequence of valid request currents, length same as 'vehicles'
         """
         requestCurrents: list[int] = []
-        remainingCurrent = self.derateTotalCurrent(vehicles)
+        remainingCurrent = self.derateTotalCurrent()
 
         for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
@@ -319,7 +318,7 @@ class AutoCurrentControl(ReqCurrentControl):
         # end for
 
         if totalEnergyNeeded:
-            reqCurrents = [self.derateTotalCurrent(self.vehicles) * (
+            reqCurrents = [self.derateTotalCurrent() * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
 
             await self.setReqCurrents(self.vehicles, reqCurrents, onlyWake, waitForCompletion)
