@@ -175,9 +175,9 @@ class ReqCurrentControl(TessieProc):
         await self.setReqCurrents((specifiedCar, otherCar), (self.chargeCtl.specifyReq, ))
     # end process()
 
-    def mostRecentTemp(self) -> int:
+    def mostRecentTemp(self) -> float:
         lastSeen = 0.0
-        outsideTemp = 0
+        outsideTemp = 0.0
 
         for dtls in self.vehicles:
             if dtls.lastSeen > lastSeen:

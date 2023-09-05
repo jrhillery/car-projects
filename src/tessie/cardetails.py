@@ -23,7 +23,7 @@ class CarDetails(object):
     limitMaxPercent: int
     chargingState: str
     lastSeen: float
-    outsideTemp: int
+    outsideTemp: float
     updatedSinceSummary: bool
     modifiedBySetter: bool
 
