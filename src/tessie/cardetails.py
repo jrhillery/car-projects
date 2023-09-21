@@ -181,6 +181,7 @@ class CarDetails(object):
     def chargingStatusSummary(self) -> SummaryStr:
         """Return a summary charging status suitable for display"""
         summary = SummaryStr(f"{self.displayName} was {self.sleepStatus}"
+                             f" {self.outsideTemp}\u00B0"
                              f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
                              f" {self.chargingState}"
                              f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A"
