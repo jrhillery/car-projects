@@ -258,6 +258,14 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         return dtls.wakeTask
     # end getWakeTask(CarDetails)
 
+    async def wakeVehicle(self, dtls: CarDetails) -> None:
+        """Wake up a specified vehicle using its common wake task
+           - this is needed so TaskGroups can create their own wake-up tasks
+        :param dtls: Details of the vehicle to wake
+        """
+        await self.getWakeTask(dtls)
+    # end wakeVehicle(CarDetails)
+
     @staticmethod
     def edOrIng(pastTense: bool) -> str:
         """Retrive either "ed" or "ing" depending on past tense argument
@@ -294,41 +302,38 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                      f" from {oldLimit}% to {percent}%")
     # end setChargeLimit(CarDetails, int, bool)
 
-    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int, onlyWake=False,
+    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int,
                                 waitForCompletion=False) -> None:
         """Set the car's request current to a specified value
         :param dtls: Details of the vehicle to set
         :param reqCurrent: New maximum current to request (amps)
-        :param onlyWake: Flag indicating to only wake up a vehicle needing its current set
         :param waitForCompletion: Flag indicating to wait for request current to be set
         """
-        if dtls.pluggedInAtHome():
-            if reqCurrent != dtls.chargeCurrentRequest:
-                if not dtls.awake():
-                    await self.getWakeTask(dtls)
+        if reqCurrent != dtls.chargeCurrentRequest:
+            if not dtls.awake():
+                await self.getWakeTask(dtls)
 
-                if not onlyWake:
-                    url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
-                    qryParms = {
-                        "retry_duration": 60,
-                        "wait_for_completion": "true" if waitForCompletion else "false",
-                        "amps": reqCurrent,
-                    }
+            url = f"https://api.tessie.com/{dtls.vin}/command/set_charging_amps"
+            qryParms = {
+                "retry_duration": 60,
+                "wait_for_completion": "true" if waitForCompletion else "false",
+                "amps": reqCurrent,
+            }
 
-                    async with self.session.get(url, params=qryParms) as resp:
-                        oldReq = dtls.chargeCurrentRequest
-                        dtls.setChargeCurrentRequest(reqCurrent)
+            async with self.session.get(url, params=qryParms) as resp:
+                oldReq = dtls.chargeCurrentRequest
+                dtls.setChargeCurrentRequest(reqCurrent)
 
-                        if resp.status != 200:
-                            raise await HTTPException.fromError(resp, dtls.displayName)
+                if resp.status != 200:
+                    raise await HTTPException.fromError(resp, dtls.displayName)
 
-                    logging.info(f"{dtls.displayName} request current"
-                                 f" chang{self.edOrIng(waitForCompletion)}"
-                                 f" from {oldReq} to {reqCurrent} A")
-            elif not onlyWake:
-                logging.info(f"{dtls.displayName} request current already"
-                             f" set to {reqCurrent} A")
-    # end setRequestCurrent(CarDetails, int, bool, bool)
+            logging.info(f"{dtls.displayName} request current"
+                         f" chang{self.edOrIng(waitForCompletion)}"
+                         f" from {oldReq} to {reqCurrent} A")
+        else:
+            logging.info(f"{dtls.displayName} request current already"
+                         f" set to {reqCurrent} A")
+    # end setRequestCurrent(CarDetails, int, bool)
 
     async def startCharging(self, dtls: CarDetails, waitForCompletion=False) -> None:
         """Start charging a specified vehicle
