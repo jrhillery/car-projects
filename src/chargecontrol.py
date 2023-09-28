@@ -11,7 +11,7 @@ from contextlib import AsyncExitStack
 from wakepy import keepawake
 
 from tessie import CarDetails, TessieInterface
-from util import Configure, ExceptionGroupHandler, PersistentData
+from util import Configure, ExceptionGroupHandler, Interpret, PersistentData
 
 
 class ChargeControl(object):
@@ -237,13 +237,16 @@ class ReqCurrentControl(TessieProc):
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
         reqCurrents = self.limitRequestCurrents(vehicles, desReqCurrents)
+        wakeTasks: list[asyncio.Task] = []
 
-        # run tasks to wake sleeping cars that will have their request current set
-        async with asyncio.TaskGroup() as tg:
-            for dtls, reqCurrent in zip(vehicles, reqCurrents):
-                tg.create_task(self.tsIntrfc.setRequestCurrent(dtls, reqCurrent,
-                                                               onlyWake=True))
-        # end async with (tasks are awaited)
+        # run tasks to wake sleeping cars of interest
+        for idx, dtls in enumerate(vehicles):
+            if dtls.pluggedInAtHome() and not dtls.awake():
+                # wake when current is to change or to get new temperature reading for onlyWake
+                if (reqCurrents[idx] != dtls.chargeCurrentRequest) or onlyWake:
+                    wakeTasks.append(self.tsIntrfc.getWakeTask(dtls))
+
+        await Interpret.waitForTasks(wakeTasks)
 
         if not onlyWake:
             indices: list[int] = list(range(len(vehicles)))
@@ -253,9 +256,10 @@ class ReqCurrentControl(TessieProc):
             lastIndex = indices[len(indices) - 1]
 
             for idx in indices:
-                wait4Compl = (idx != lastIndex) or waitForCompletion
-                await self.tsIntrfc.setRequestCurrent(vehicles[idx], reqCurrents[idx],
-                                                      waitForCompletion=wait4Compl)
+                if vehicles[idx].pluggedInAtHome():
+                    wait4Compl = (idx != lastIndex) or waitForCompletion
+                    await self.tsIntrfc.setRequestCurrent(vehicles[idx], reqCurrents[idx],
+                                                          waitForCompletion=wait4Compl)
             # end for
     # end setReqCurrents(Sequence[CarDetails], Sequence[float], bool, bool)
 
