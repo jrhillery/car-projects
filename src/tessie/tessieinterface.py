@@ -187,6 +187,11 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
             else:
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
+            if dtls.battCapacity is None:
+                dtls.battCapacity = 1.0  # avoid execution errors
+                logging.debug("Missing data"
+                              + await Interpret.responseContext(resp, dtls.displayName))
+
         return dtls
     # end addBatteryHealth(CarDetails)
 
