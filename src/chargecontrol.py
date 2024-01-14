@@ -459,6 +459,8 @@ class CarChargingDisabler(TessieProc):
             if not dtls.awake():
                 await self.tsIntrfc.getWakeTask(dtls)
 
+        # Sometimes the plugged-in state changes when a car awakes
+        if dtls.pluggedInAtHome():
             await self.tsIntrfc.stopCharging(dtls, waitForCompletion=True)
 
             if not dtls.chargeLimitIsMin():
