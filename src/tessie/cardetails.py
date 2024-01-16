@@ -180,14 +180,16 @@ class CarDetails(object):
 
     def chargingStatusSummary(self) -> SummaryStr:
         """Return a summary charging status suitable for display"""
-        summary = SummaryStr(f"{self.displayName} was {self.sleepStatus}"
-                             f" {self.outsideTemp}\u00B0"
-                             f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
-                             f" {self.chargingState}"
-                             f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A"
-                             f", limit {self.chargeLimit}%"
-                             f" and battery {self.battLevel}%",
-                             self.updatedSinceSummary)
+        parts: list[str] = [f"{self.displayName} was {self.sleepStatus}"
+                            f" {self.outsideTemp}\u00B0"
+                            f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
+                            f" {self.chargingState}"]
+        if self.pluggedIn():
+            parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
+        parts.append(f", limit {self.chargeLimit}%"
+                     f" and battery {self.battLevel}%")
+
+        summary = SummaryStr("".join(parts), self.updatedSinceSummary)
         self.updatedSinceSummary = False
 
         return summary
