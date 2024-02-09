@@ -236,10 +236,10 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         :param dtls: Details of the vehicle to wait for
         :return: True when this vehicle is awake
         """
-        retries = 8
+        retries = 5
 
         while retries:
-            await asyncio.sleep(4)
+            await asyncio.sleep(6)
             await self.getCurrentState(dtls)
 
             if dtls.awake():
