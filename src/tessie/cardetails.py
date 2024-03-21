@@ -9,6 +9,7 @@ from util import SummaryStr
 
 class CarDetails(object):
     """Details of a vehicle as reported by Tessie"""
+    TESLA_APP_REQ_MIN_AMPS = 5
 
     # fields set in CarDetails.updateFromDict
     vin: str
@@ -98,12 +99,17 @@ class CarDetails(object):
     # end awake()
 
     def limitRequestCurrent(self, reqCurrent: int) -> int:
-        """Return a request current that does not exceed the charge adapter's maximum
+        """Return a request current that does not exceed
+           - the charge adapter's maximum
+           - the minumum supported by Tesla's app
         :param reqCurrent: Desired request current (amps)
         :return: Nearest valid request current
         """
         if reqCurrent > self.requestMaxAmps:
             reqCurrent = self.requestMaxAmps
+
+        if reqCurrent < self.TESLA_APP_REQ_MIN_AMPS and self.pluggedInAtHome():
+            reqCurrent = self.TESLA_APP_REQ_MIN_AMPS
 
         return reqCurrent
     # end limitRequestCurrent(int)
