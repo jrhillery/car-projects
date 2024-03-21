@@ -213,15 +213,15 @@ class ReqCurrentControl(TessieProc):
         for i, dtls in enumerate(vehicles):
             requestCurrent = dtls.limitRequestCurrent(
                 int(desReqCurrents[i] + 0.5) if i < len(desReqCurrents) else remainingCurrent)
-
-            if requestCurrent > remainingCurrent:
-                requestCurrent = remainingCurrent
             requestCurrents.append(requestCurrent)
             remainingCurrent -= requestCurrent
         # end for
 
-        if len(requestCurrents) > 0:
-            requestCurrents[0] += remainingCurrent
+        if remainingCurrent < 0 < len(requestCurrents):
+            # we oversubscribed, reduce the largest request current
+            indices: list[int] = list(range(len(requestCurrents)))
+            indices.sort(key=lambda j: requestCurrents[j], reverse=True)
+            requestCurrents[indices[0]] += remainingCurrent
 
         return requestCurrents
     # end limitRequestCurrents(Sequence[CarDetails], Sequence[float])
