@@ -8,7 +8,7 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
-from wakepy import keepawake
+from wakepy import keep
 
 from tessie import CarDetails, TessieInterface
 from util import Configure, ExceptionGroupHandler, Interpret, PersistentData
@@ -92,7 +92,8 @@ class ChargeControl(object):
 
         async with AsyncExitStack() as cStack:
             # Prevent the computer from going to sleep until cStack closes
-            cStack.enter_context(keepawake())
+            if not cStack.enter_context(keep.running()).success:
+                logging.info(f"Unable to prevent sleep using {keep.__name__}")
 
             # Register persistent data to save when cStack closes
             persistentData = cStack.enter_context(PersistentData())
