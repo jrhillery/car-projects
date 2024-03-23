@@ -23,7 +23,7 @@ class Interpret(object):
 
     @staticmethod
     async def responseErr(resp: ClientResponse, target: str) -> str:
-        """Summarize an error in a given response
+        """Summarize an error in a given response object
         :param resp: Response from an HTTP request
         :param target: What we are attempting to access
         :return: Summary string
@@ -34,7 +34,7 @@ class Interpret(object):
 
     @staticmethod
     async def responseXcp(resp: ClientResponse, xcp: BaseException, target: str) -> str:
-        """Summarize an exception related to a given response
+        """Summarize an exception related to a given response object
         :param resp: Response from an HTTP request
         :param xcp: Corresponding exception
         :param target: What we are attempting to access
@@ -46,7 +46,7 @@ class Interpret(object):
 
     @staticmethod
     async def responseContext(resp: ClientResponse, target: str) -> str:
-        """Produce some context for a given response
+        """Produce some context for a given response object
         :param resp: Response from an HTTP request
         :param target: What we are attempting to access
         :return: Context string
