@@ -64,6 +64,11 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                         tg.create_task(self.addLocation(car))
                 # end async with (tasks are awaited)
 
+                for car in vehicles:
+                    logging.debug(f"{car.displayName}"
+                                  f" charging state [{car.chargingState}],"
+                                  f" location [{car.savedLocation}]")
+
                 return vehicles
             except HTTPException:
                 raise
@@ -105,6 +110,9 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                                 tg.create_task(self.addSleepStatus(dtls))
                                 tg.create_task(self.addLocation(dtls))
                             # end async with (tasks are awaited)
+                            logging.debug(f"{dtls.displayName}"
+                                          f" charging state [{dtls.chargingState}],"
+                                          f" location [{dtls.savedLocation}]")
 
                             return logging.info(dtls.chargingStatusSummary())
                     except HTTPException:
