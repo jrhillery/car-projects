@@ -43,7 +43,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
     async def getStateOfActiveVehicles(self) -> Sequence[CarDetails]:
         """Get all active vehicles and their latest state - this call always
            returns a complete set of data and doesn't impact vehicle sleep
-           - if the vehicle is awake, the data is usually less than 10 seconds old
+           - if the vehicle is awake, the data is usually less than 15 seconds old
            - if the vehicle is asleep, the data is from the time the vehicle went to sleep
         :return: A sequence with details of the active vehicles in the account
         """
