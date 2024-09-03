@@ -14,7 +14,7 @@ class CarDetails(object):
     # fields set in CarDetails.updateFromDict
     vin: str
     displayName: str
-    battLevel: int
+    battLevel: float
     battRange: float
     chargeAmps: int
     chargeCurrentRequest: int
@@ -136,7 +136,7 @@ class CarDetails(object):
         return chargeLimit
     # end limitChargeLimit(int)
 
-    def chargeNeeded(self, chargeLimit: int | None = None) -> int:
+    def chargeNeeded(self, chargeLimit: int | None = None) -> float:
         """Return the percent increase the battery needs to reach its charge limit
         :param chargeLimit: The charge limit to use, defaulting to existing charge limit
         :return: The percent increase needed
@@ -145,7 +145,7 @@ class CarDetails(object):
             chargeLimit = self.chargeLimit
 
         if chargeLimit <= self.battLevel:
-            return 0
+            return 0.0
         else:
             return chargeLimit - self.battLevel
     # end chargeNeeded(int | None)
