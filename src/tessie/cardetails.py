@@ -14,8 +14,6 @@ class CarDetails(object):
     # fields set in CarDetails.updateFromDict
     vin: str
     displayName: str
-    battLevel: float
-    battRange: float
     chargeAmps: int
     chargeCurrentRequest: int
     requestMaxAmps: int
@@ -27,6 +25,11 @@ class CarDetails(object):
     outsideTemp: float
     updatedSinceSummary: bool
     modifiedBySetter: bool
+
+    # fields set in TessieInterface.addBattery
+    battLevel: float
+    battRange: float
+    energyLeft: float
 
     # field set in TessieInterface.addSleepStatus
     sleepStatus: str
@@ -51,8 +54,6 @@ class CarDetails(object):
         self.vin = vehicleState["vin"]
         self.displayName = vehicleState["display_name"]
         chargeState = vehicleState["charge_state"]
-        self.battLevel = chargeState["battery_level"]
-        self.battRange = chargeState["battery_range"]
         self.chargeAmps = chargeState["charge_amps"]
         self.chargeCurrentRequest = chargeState["charge_current_request"]
         self.requestMaxAmps = chargeState["charge_current_request_max"]

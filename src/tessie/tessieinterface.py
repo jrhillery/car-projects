@@ -60,6 +60,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
 
                 async with asyncio.TaskGroup() as tg:
                     for car in vehicles:
+                        tg.create_task(self.addBattery(car))
                         tg.create_task(self.addSleepStatus(car))
                         tg.create_task(self.addLocation(car))
                 # end async with (tasks are awaited)
@@ -107,6 +108,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                         else:
                             dtls.updateFromDict(carState)
                             async with asyncio.TaskGroup() as tg:
+                                tg.create_task(self.addBattery(dtls))
                                 tg.create_task(self.addSleepStatus(dtls))
                                 tg.create_task(self.addLocation(dtls))
                             # end async with (tasks are awaited)
@@ -128,6 +130,32 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                 await asyncio.sleep(60)
         # end while
     # end getCurrentState(CarDetails, int)
+
+    async def addBattery(self, dtls: CarDetails) -> CarDetails:
+        """Augment details of a specified vehicle with its battery state
+        :param dtls: Details of the vehicle to augment
+        :return: The updated vehicle details
+        """
+        url = f"https://api.tessie.com/{dtls.vin}/battery"
+
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
+                try:
+                    batteryData = await resp.json()
+                    dtls.battLevel = batteryData["battery_level"]
+                    dtls.battRange = batteryData["battery_range"]
+                    dtls.energyLeft = batteryData["energy_remaining"]
+                except Exception as e:
+                    logging.error(f"Battery retrieval problem:"
+                                  f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  exc_info=e)
+                    dtls.battLevel = dtls.battRange = dtls.energyLeft = 0.0
+            else:
+                logging.error(await self.respErrLog(resp, dtls))
+                dtls.battLevel = dtls.battRange = dtls.energyLeft = 0.0
+
+        return dtls
+    # end addBattery(CarDetails)
 
     async def addSleepStatus(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with its status
