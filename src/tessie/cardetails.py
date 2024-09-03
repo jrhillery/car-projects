@@ -28,7 +28,6 @@ class CarDetails(object):
 
     # fields set in TessieInterface.addBattery
     battLevel: float
-    battRange: float
     energyLeft: float
 
     # field set in TessieInterface.addSleepStatus
@@ -37,8 +36,7 @@ class CarDetails(object):
     # field set in TessieInterface.addLocation
     savedLocation: str | None
 
-    # fields set in TessieInterface.addBatteryHealth
-    battMaxRange: float
+    # field set in TessieInterface.addBatteryHealth
     battCapacity: float
 
     def __init__(self, vehicleState: dict):
@@ -151,16 +149,6 @@ class CarDetails(object):
             return chargeLimit - self.battLevel
     # end chargeNeeded(int | None)
 
-    def rangeNeeded(self) -> float:
-        """Return the range increase the battery needs to reach its charge limit"""
-        rangeLimit = self.chargeLimit * self.battRange / self.battLevel
-
-        if rangeLimit <= self.battRange:
-            return 0.0
-        else:
-            return rangeLimit - self.battRange
-    # end rangeNeeded()
-
     def energyNeededC(self, chargeLimit: int | None = None) -> float:
         """Return the energy needed to reach the charge limit, in kWh
            - this estimate is based on the reported battery charge level
@@ -169,7 +157,6 @@ class CarDetails(object):
         """
         if self.pluggedInAtHome():
             return self.chargeNeeded(chargeLimit) * 0.01 * self.battCapacity
-            # no improvement from: self.rangeNeeded() / self.battMaxRange * self.battCapacity
         else:
             return 0.0
     # end energyNeededC(int | None)

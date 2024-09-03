@@ -143,16 +143,15 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                 try:
                     batteryData = await resp.json()
                     dtls.battLevel = batteryData["battery_level"]
-                    dtls.battRange = batteryData["battery_range"]
                     dtls.energyLeft = batteryData["energy_remaining"]
                 except Exception as e:
                     logging.error(f"Battery retrieval problem:"
                                   f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
-                    dtls.battLevel = dtls.battRange = dtls.energyLeft = 0.0
+                    dtls.battLevel = dtls.energyLeft = 0.0
             else:
                 logging.error(await self.respErrLog(resp, dtls))
-                dtls.battLevel = dtls.battRange = dtls.energyLeft = 0.0
+                dtls.battLevel = dtls.energyLeft = 0.0
 
         return dtls
     # end addBattery(CarDetails)
@@ -216,7 +215,6 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
             if resp.status == 200:
                 try:
                     result = (await resp.json())["result"]
-                    dtls.battMaxRange = result["max_range"]
                     dtls.battCapacity = result["capacity"]
                 except Exception as e:
                     raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
