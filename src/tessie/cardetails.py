@@ -36,7 +36,7 @@ class CarDetails(object):
     # field set in TessieInterface.addLocation
     savedLocation: str | None
 
-    # field set in TessieInterface.addBatteryHealth
+    # field set in AutoCurrentControl.setBatteryCapacity and TessieInterface.addBatteryHealth
     battCapacity: float
 
     def __init__(self, vehicleState: dict):
@@ -152,6 +152,7 @@ class CarDetails(object):
     def energyNeededC(self, chargeLimit: int | None = None) -> float:
         """Return the energy needed to reach the charge limit, in kWh
            - this estimate is based on the reported battery charge level
+           - depends on having battery capacity
         :param chargeLimit: The charge limit to use, defaulting to existing charge limit
         :return: The energy needed
         """

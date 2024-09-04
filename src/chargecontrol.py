@@ -271,15 +271,25 @@ class AutoCurrentControl(ReqCurrentControl):
     """Processor to automatically set request currents based on cars' charging needs"""
 
     async def process(self) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for dtls in self.vehicles:
-                logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
-            # end for
-        # end async with (tasks are awaited)
+        for dtls in self.vehicles:
+            logging.info(dtls.chargingStatusSummary())
+        # end for
 
         await self.automaticallySetReqCurrent()
     # end process()
+
+    async def setBatteryCapacity(self, dtls: CarDetails) -> None:
+        """Ensure the battery capacity is set in the details for a specified car
+        :param dtls: Details of the specified vehicle
+        """
+        if not hasattr(dtls, "battCapacity"):
+            if dtls.battLevel > 5.0:
+                dtls.battCapacity = dtls.energyLeft / (dtls.battLevel * 0.01)
+            else:
+                # avoid dividing by near-zero by using the (slow) battery health api
+                await self.tsIntrfc.addBatteryHealth(dtls)
+
+    # end setBatteryCapacity(CarDetails)
 
     def getPriorLimit(self, dtls: CarDetails) -> int:
         """Get the persisted charge limit for the specified car
@@ -299,7 +309,6 @@ class AutoCurrentControl(ReqCurrentControl):
     async def automaticallySetReqCurrent(self, onlyWake=False,
                                          waitForCompletion=False) -> None:
         """Automatically set cars' request currents based on each cars' charging needs
-           - depends on having battery health details
         :param onlyWake: Flag indicating to only wake up vehicles needing their currents set
         :param waitForCompletion: Flag indicating to wait for final request current to be set
         """
@@ -307,6 +316,7 @@ class AutoCurrentControl(ReqCurrentControl):
         totalEnergyNeeded = 0.0
 
         for dtls in self.vehicles:
+            await self.setBatteryCapacity(dtls)
             energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
                                               else self.getPriorLimit(dtls))
             if not onlyWake:
@@ -336,12 +346,9 @@ class ChargeLimitRestore(AutoCurrentControl):
        setting request currents based on cars' charging needs"""
 
     async def process(self) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for dtls in self.vehicles:
-                logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
-            # end for
-        # end async with (tasks are awaited)
+        for dtls in self.vehicles:
+            logging.info(dtls.chargingStatusSummary())
+        # end for
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
@@ -381,12 +388,9 @@ class CarChargingEnabler(ChargeLimitRestore):
        setting request currents based on cars' charging needs"""
 
     async def process(self) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for dtls in self.vehicles:
-                logging.info(dtls.chargingStatusSummary())
-                tg.create_task(self.tsIntrfc.addBatteryHealth(dtls))
-            # end for
-        # end async with (tasks are awaited)
+        for dtls in self.vehicles:
+            logging.info(dtls.chargingStatusSummary())
+        # end for
 
         async with asyncio.TaskGroup() as tg:
             for dtls in self.vehicles:
