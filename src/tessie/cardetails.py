@@ -182,7 +182,7 @@ class CarDetails(object):
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
-                     f" and battery {self.battLevel}%")
+                     f" and battery {self.battLevel:.2f}%")
 
         summary = SummaryStr("".join(parts), self.updatedSinceSummary)
         self.updatedSinceSummary = False
@@ -191,7 +191,7 @@ class CarDetails(object):
     # end chargingStatusSummary()
 
     def __str__(self) -> str:
-        return f"{self.displayName}@{self.battLevel}%"
+        return f"{self.displayName}@{self.battLevel:.2f}%"
     # end __str__()
 
 # end class CarDetails
