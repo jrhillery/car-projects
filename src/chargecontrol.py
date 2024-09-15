@@ -92,7 +92,7 @@ class ChargeControl(object):
 
         async with AsyncExitStack() as cStack:
             # Prevent the computer from going to sleep until cStack closes
-            if not cStack.enter_context(keep.running()).success:
+            if not cStack.enter_context(keep.running()).active:
                 logging.info(f"Unable to prevent sleep using {keep.__name__}")
 
             # Register persistent data to save when cStack closes
