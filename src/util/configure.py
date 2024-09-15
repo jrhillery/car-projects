@@ -54,7 +54,7 @@ class Configure(object):
                     "level": "DEBUG",
                     "formatter": "detail",
                     "filename": filePath,
-                    "maxBytes": 50000,
+                    "maxBytes": 200000,
                     "backupCount": 1,
                     "encoding": "utf-8"
                 }
