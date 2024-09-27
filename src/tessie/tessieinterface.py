@@ -307,7 +307,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
 
     @staticmethod
     def edOrIng(pastTense: bool) -> str:
-        """Retrive either "ed" or "ing" depending on past tense argument
+        """Retrieve either "ed" or "ing" depending on past tense argument
         :param pastTense: Flag indicating past tense
         :return: selected string
         """

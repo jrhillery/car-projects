@@ -492,8 +492,8 @@ if __name__ == "__main__":
     clArgs = ChargeControl.parseArgs()
     Configure.logToFile()
     try:
-        chrgCtl = ChargeControl(clArgs)
-        asyncio.run(chrgCtl.main())
+        chargeControl = ChargeControl(clArgs)
+        asyncio.run(chargeControl.main())
     except Exception as xcption:
         for xcpt in ExceptionGroupHandler.iterGroup(xcption):
             logging.error(xcpt)

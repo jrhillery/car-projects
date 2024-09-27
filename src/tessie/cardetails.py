@@ -100,7 +100,7 @@ class CarDetails(object):
     def limitRequestCurrent(self, reqCurrent: int) -> int:
         """Return a request current that does not exceed
            - the charge adapter's maximum
-           - the minumum supported by Tesla's app
+           - the minimum supported by Tesla's app
         :param reqCurrent: Desired request current (amps)
         :return: Nearest valid request current
         """
