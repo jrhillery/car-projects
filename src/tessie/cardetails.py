@@ -149,18 +149,19 @@ class CarDetails(object):
             return chargeLimit - self.battLevel
     # end chargeNeeded(int | None)
 
-    def energyNeededC(self, chargeLimit: int | None = None) -> float:
+    def energyNeededC(self, chargeLimit: int | None = None, plugInNeeded = True) -> float:
         """Return the energy needed to reach the charge limit, in kWh
            - this estimate is based on the reported battery charge level
            - depends on having battery capacity
         :param chargeLimit: The charge limit to use, defaulting to existing charge limit
+        :param plugInNeeded: The car needs to be plugged in at home to return non-zero
         :return: The energy needed
         """
-        if self.pluggedInAtHome():
+        if not plugInNeeded or self.pluggedInAtHome():
             return self.chargeNeeded(chargeLimit) * 0.01 * self.battCapacity
         else:
             return 0.0
-    # end energyNeededC(int | None)
+    # end energyNeededC(int | None, bool)
 
     def dataAge(self) -> float:
         """Return the age of this CarDetails' data in seconds"""
@@ -173,8 +174,11 @@ class CarDetails(object):
         return deltaSecs
     # end dataAge()
 
-    def chargingStatusSummary(self) -> SummaryStr:
-        """Return a summary charging status suitable for display"""
+    def chargingStatusSummary(self, energyNeeded: float = 0.0) -> SummaryStr:
+        """Return a summary charging status suitable for display
+        :param energyNeeded: The kilowatt-hours below limit to include
+        :return: Summary
+        """
         parts: list[str] = [f"{self.displayName} was {self.sleepStatus}"
                             f" {self.outsideTemp}\u00B0"
                             f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
@@ -183,12 +187,14 @@ class CarDetails(object):
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
                      f" and battery {self.battLevel:.2f}%")
+        if energyNeeded:
+            parts.append(f" ({energyNeeded:.1f} kWh < limit)")
 
         summary = SummaryStr("".join(parts), self.updatedSinceSummary)
         self.updatedSinceSummary = False
 
         return summary
-    # end chargingStatusSummary()
+    # end chargingStatusSummary(float)
 
     def __str__(self) -> str:
         return f"{self.displayName}@{self.battLevel:.2f}%"

@@ -24,6 +24,7 @@ class ChargeControl(object):
         self.autoReq: bool = args.autoReq
         self.disable: bool = args.disable
         self.enable: bool = args.enable
+        self.neededEnergy: bool = args.neededEnergy
         self.restoreLimit: bool = args.restoreLimit
         self.specifyReq: int | None = int(args.specifyReq[1]) if args.specifyReq else None
         self.specifyReqName: str | None = args.specifyReq[0] if args.specifyReq else None
@@ -52,6 +53,8 @@ class ChargeControl(object):
         group.add_argument("-e", "--enable", action="store_true",
                            help="enable charging restoring each car's limit if 50%%,"
                                 " setting request currents based on need")
+        group.add_argument("-n", "--neededEnergy", action="store_true",
+                           help="estimate the energy needed to charge the cars")
         group.add_argument("-r", "--restoreLimit", action="store_true",
                            help="restore each car's charge limit if 50%%,"
                                 " setting request currents based on need")
@@ -76,6 +79,8 @@ class ChargeControl(object):
                 processor = AutoCurrentControl(self, persistData)
             case _ if self.restoreLimit:
                 processor = ChargeLimitRestore(self, persistData)
+            case _ if self.neededEnergy:
+                processor = EstimateEnergyNeeded(self, persistData)
             case _ if self.enable:
                 processor = CarChargingEnabler(self, persistData)
             case _ if self.disable:
@@ -320,11 +325,9 @@ class AutoCurrentControl(ReqCurrentControl):
             energyNeeded = dtls.energyNeededC(None if not dtls.chargeLimitIsMin()
                                               else self.getPriorLimit(dtls))
             if not onlyWake:
-                summary = dtls.chargingStatusSummary()
+                summary = dtls.chargingStatusSummary(energyNeeded)
 
                 if summary.updatedSinceLastSummary or energyNeeded:
-                    if energyNeeded:
-                        summary += f" ({energyNeeded:.1f} kWh < limit)"
                     logging.info(summary)
 
             energiesNeeded.append(energyNeeded)
@@ -339,6 +342,22 @@ class AutoCurrentControl(ReqCurrentControl):
     # end automaticallySetReqCurrent(bool, bool)
 
 # end class AutoCurrentControl
+
+
+class EstimateEnergyNeeded(AutoCurrentControl):
+    """Processor to estimate how much energy each car needs to reach its charge limit"""
+
+    async def process(self) -> None:
+        for dtls in self.vehicles:
+            await self.setBatteryCapacity(dtls)
+            energyNeeded = dtls.energyNeededC(
+                None if not dtls.chargeLimitIsMin() else self.getPriorLimit(dtls),
+                False)
+            logging.info(dtls.chargingStatusSummary(energyNeeded))
+        # end for
+    # end process()
+
+# end class EstimateEnergyNeeded
 
 
 class ChargeLimitRestore(AutoCurrentControl):
