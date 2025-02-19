@@ -65,11 +65,6 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                         tg.create_task(self.addLocation(car))
                 # end async with (tasks are awaited)
 
-                for car in vehicles:
-                    logging.debug(f"{car.displayName}"
-                                  f" charging state [{car.chargingState}],"
-                                  f" location [{car.savedLocation}]")
-
                 return vehicles
             except HTTPException:
                 raise
@@ -112,9 +107,6 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                                 tg.create_task(self.addSleepStatus(dtls))
                                 tg.create_task(self.addLocation(dtls))
                             # end async with (tasks are awaited)
-                            logging.debug(f"{dtls.displayName}"
-                                          f" charging state [{dtls.chargingState}],"
-                                          f" location [{dtls.savedLocation}]")
 
                             return logging.info(dtls.chargingStatusSummary())
                     except HTTPException:
@@ -190,7 +182,13 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         async with self.session.get(url) as resp:
             if resp.status == 200:
                 try:
-                    dtls.savedLocation = (await resp.json())["saved_location"]
+                    respJson = await resp.json()
+                    dtls.savedLocation = respJson["saved_location"]
+
+                    if dtls.savedLocation is None:
+                        logging.debug(f"{dtls.displayName} location"
+                                      f" ({respJson["latitude"]}, {respJson["longitude"]})"
+                                      f" unknown")
                 except Exception as e:
                     logging.error(f"Location retrieval problem:"
                                   f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
