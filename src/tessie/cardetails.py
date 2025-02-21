@@ -186,7 +186,7 @@ class CarDetails(object):
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
-                     f" and battery {self.battLevel:.2f}%")
+                     f" and battery {self.battLevel}%")
         if energyNeeded:
             parts.append(f" ({energyNeeded:.1f} kWh < limit)")
 
@@ -197,7 +197,7 @@ class CarDetails(object):
     # end chargingStatusSummary(float)
 
     def __str__(self) -> str:
-        return f"{self.displayName}@{self.battLevel:.2f}%"
+        return f"{self.displayName}@{self.battLevel}%"
     # end __str__()
 
 # end class CarDetails
