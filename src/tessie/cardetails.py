@@ -179,10 +179,12 @@ class CarDetails(object):
         :param energyNeeded: The kilowatt-hours below limit to include
         :return: Summary
         """
-        parts: list[str] = [f"{self.displayName} was {self.sleepStatus}"
-                            f" {self.outsideTemp}\u00B0"
-                            f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
-                            f" {self.chargingState}"]
+        parts: list[str] = [f"{self.displayName} was {self.sleepStatus}"]
+        if self.savedLocation:
+            parts.append(f"@{self.savedLocation}")
+        parts.append(f" {self.outsideTemp}\u00B0"
+                     f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
+                     f" {self.chargingState}")
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
