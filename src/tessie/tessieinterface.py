@@ -177,26 +177,33 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         :param dtls: Details of the vehicle to augment
         :return: The updated vehicle details
         """
-        url = f"https://api.tessie.com/{dtls.vin}/location"
+        dtls.savedLocation = None
+        url = f"https://api.tessie.com/{dtls.vin}/drives"
+        qryParms = {"limit": 1}
 
-        async with self.session.get(url) as resp:
+        async with self.session.get(url, params=qryParms) as resp:
             if resp.status == 200:
                 try:
-                    respJson = await resp.json()
-                    dtls.savedLocation = respJson["saved_location"]
+                    allResults: list[dict] = (await resp.json())["results"]
 
-                    if dtls.savedLocation is None:
-                        logging.debug(f"{dtls.displayName} location"
-                                      f" ({respJson["latitude"]}, {respJson["longitude"]})"
-                                      f" unknown")
+                    if allResults:
+                        lastDrive = allResults[0]
+
+                        if "ending_saved_location" in lastDrive:
+                            dtls.savedLocation = lastDrive["ending_saved_location"]
+                        else:
+                            logging.debug(f"{dtls.displayName} location"
+                                          f" ({lastDrive["ending_latitude"]},"
+                                          f" {lastDrive["ending_longitude"]})"
+                                          f" unknown")
+                    else:
+                        logging.error(f"Unable to get {dtls.displayName}'s last drive details")
                 except Exception as e:
                     logging.error(f"Location retrieval problem:"
                                   f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
-                    dtls.savedLocation = None
             else:
                 logging.error(await self.respErrLog(resp, dtls))
-                dtls.savedLocation = None
 
         return dtls
     # end addLocation(CarDetails)
