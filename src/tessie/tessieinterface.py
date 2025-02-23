@@ -174,6 +174,8 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
 
     async def addLocation(self, dtls: CarDetails) -> CarDetails:
         """Augment details of a specified vehicle with its location
+           - Use location at the end of last drive because the
+             car's current location can go wrong while garaged
         :param dtls: Details of the vehicle to augment
         :return: The updated vehicle details
         """
