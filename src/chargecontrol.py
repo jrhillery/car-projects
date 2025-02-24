@@ -337,8 +337,11 @@ class AutoCurrentControl(ReqCurrentControl):
         if totalEnergyNeeded:
             reqCurrents = [self.derateTotalCurrent() * (
                     energy / totalEnergyNeeded) for energy in energiesNeeded]
+        else:
+            reqCurrent = self.derateTotalCurrent() / len(self.vehicles)
+            reqCurrents = [reqCurrent] * len(self.vehicles)
 
-            await self.setReqCurrents(self.vehicles, reqCurrents, onlyWake, waitForCompletion)
+        await self.setReqCurrents(self.vehicles, reqCurrents, onlyWake, waitForCompletion)
     # end automaticallySetReqCurrent(bool, bool)
 
 # end class AutoCurrentControl
