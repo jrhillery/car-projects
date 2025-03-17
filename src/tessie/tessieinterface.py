@@ -1,5 +1,6 @@
 
 import asyncio
+import haversine
 import json
 import logging
 from collections.abc import Sequence
@@ -194,10 +195,11 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                         if "ending_saved_location" in lastDrive:
                             dtls.savedLocation = lastDrive["ending_saved_location"]
                         else:
-                            logging.debug(f"{dtls.displayName} location"
-                                          f" ({lastDrive["ending_latitude"]},"
-                                          f" {lastDrive["ending_longitude"]})"
-                                          f" unknown")
+                            ending = (lastDrive["ending_latitude"], lastDrive["ending_longitude"])
+                            home = (35.35203, -80.77707)
+                            dist = haversine.haversine(home, ending, haversine.Unit.MILES)
+                            logging.debug(f"{dtls.displayName} location {ending} unknown"
+                                          f" {dist:.2f} mi from home")
                     else:
                         logging.error(f"Unable to get {dtls.displayName}'s last drive details")
                 except Exception as e:
