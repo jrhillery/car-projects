@@ -14,6 +14,7 @@ class CarDetails(object):
     # fields set in CarDetails.updateFromDict
     vin: str
     displayName: str
+    shiftState: str
     chargeAmps: int
     chargeCurrentRequest: int
     requestMaxAmps: int
@@ -51,6 +52,8 @@ class CarDetails(object):
         """
         self.vin = vehicleState["vin"]
         self.displayName = vehicleState["display_name"]
+        driveState = vehicleState["drive_state"]
+        self.shiftState = driveState["shift_state"]
         chargeState = vehicleState["charge_state"]
         self.chargeAmps = chargeState["charge_amps"]
         self.chargeCurrentRequest = chargeState["charge_current_request"]
