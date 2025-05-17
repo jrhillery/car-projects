@@ -108,8 +108,9 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                                 tg.create_task(self.addSleepStatus(dtls))
                                 tg.create_task(self.addLocation(dtls))
                             # end async with (tasks are awaited)
+                            logging.info(dtls.chargingStatusSummary())
 
-                            return logging.info(dtls.chargingStatusSummary())
+                            return
                     except HTTPException:
                         raise
                     except Exception as e:
@@ -173,14 +174,25 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         return dtls
     # end addSleepStatus(CarDetails)
 
-    async def addLocation(self, dtls: CarDetails) -> CarDetails:
-        """Augment details of a specified vehicle with its location
-           - Use location at the end of last drive because the
-             car's current location can go wrong while garaged
-        :param dtls: Details of the vehicle to augment
-        :return: The updated vehicle details
+    @staticmethod
+    def log_location(dtls: CarDetails, location: tuple[float, float]) -> None:
+        """Create a debug log of a specified unknown location
+
+        :param dtls: Details of the vehicle
+        :param location: Latitude and longitude of the location in decimal degrees
         """
-        dtls.savedLocation = None
+        home = (35.35203, -80.77707)
+        dist = haversine.haversine(home, location, haversine.Unit.MILES)
+        logging.debug(f"{dtls.displayName} location {location} unknown"
+                      f" {dist:.2f} mi from home")
+    # end log_location(CarDetails, tuple)
+
+    async def addEndingLocation(self, dtls: CarDetails) -> None:
+        """Add the location at the end of last drive because the
+        car's current location can go wrong while garaged
+
+        :param dtls: Details of the vehicle to augment
+        """
         url = f"https://api.tessie.com/{dtls.vin}/drives"
         qryParms = {"limit": 1}
 
@@ -196,18 +208,52 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                             dtls.savedLocation = lastDrive["ending_saved_location"]
                         else:
                             ending = (lastDrive["ending_latitude"], lastDrive["ending_longitude"])
-                            home = (35.35203, -80.77707)
-                            dist = haversine.haversine(home, ending, haversine.Unit.MILES)
-                            logging.debug(f"{dtls.displayName} location {ending} unknown"
-                                          f" {dist:.2f} mi from home")
+                            self.log_location(dtls, ending)
                     else:
                         logging.error(f"Unable to get {dtls.displayName}'s last drive details")
+                except Exception as e:
+                    logging.error(f"Drives retrieval problem:"
+                                  f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
+                                  exc_info=e)
+            else:
+                logging.error(await self.respErrLog(resp, dtls))
+    # end addEndingLocation(CarDetails)
+
+    async def addCurrentLocation(self, dtls: CarDetails) -> None:
+        """Add the car's current location
+
+        :param dtls: Details of the vehicle to augment
+        """
+        url = f"https://api.tessie.com/{dtls.vin}/location"
+
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
+                try:
+                    respJson: dict = await resp.json()
+                    dtls.savedLocation = respJson.get("saved_location")
+
+                    if dtls.savedLocation is None:
+                        self.log_location(dtls, (respJson["latitude"], respJson["longitude"]))
                 except Exception as e:
                     logging.error(f"Location retrieval problem:"
                                   f" {await Interpret.responseXcp(resp, e, dtls.displayName)}",
                                   exc_info=e)
             else:
                 logging.error(await self.respErrLog(resp, dtls))
+    # end addCurrentLocation(CarDetails)
+
+    async def addLocation(self, dtls: CarDetails) -> CarDetails:
+        """Augment details of a specified vehicle with its location
+
+        :param dtls: Details of the vehicle to augment
+        :return: The updated vehicle details
+        """
+        dtls.savedLocation = None
+
+        if dtls.shiftState == "P":
+            await self.addEndingLocation(dtls)
+        else:
+            await self.addCurrentLocation(dtls)
 
         return dtls
     # end addLocation(CarDetails)
@@ -223,10 +269,10 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         async with self.session.get(url, params=qryParms) as resp:
             if resp.status == 200:
                 try:
-                    result = (await resp.json())["result"]
-                    dtls.battCapacity = result["capacity"]
+                    result: dict = (await resp.json())["result"]
                 except Exception as e:
                     raise await HTTPException.fromXcp(e, resp, dtls.displayName) from e
+                dtls.battCapacity = result.get("capacity")
             else:
                 raise await HTTPException.fromError(resp, dtls.displayName)
 
