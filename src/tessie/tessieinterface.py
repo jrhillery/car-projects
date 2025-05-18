@@ -250,7 +250,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         """
         dtls.savedLocation = None
 
-        if dtls.shiftState == "P":
+        if dtls.inPark():
             await self.addEndingLocation(dtls)
         else:
             await self.addCurrentLocation(dtls)

@@ -96,6 +96,10 @@ class CarDetails(object):
         return self.pluggedIn() and self.atHome()
     # end pluggedInAtHome()
 
+    def inPark(self) -> bool:
+        return self.shiftState == "P"
+    # end inPark()
+
     def awake(self) -> bool:
         return self.sleepStatus == "awake"
     # end awake()
@@ -182,7 +186,11 @@ class CarDetails(object):
         :param energyNeeded: The kilowatt-hours below limit to include
         :return: Summary
         """
-        parts: list[str] = [f"{self.displayName} was {self.sleepStatus}"]
+        parts: list[str] = [f"{self.displayName} was "]
+        if self.inPark():
+            parts.append(self.sleepStatus)
+        else:
+            parts.append("driving")
         if self.savedLocation:
             parts.append(f"@{self.savedLocation}")
         parts.append(f" {self.outsideTemp}\u00B0"
