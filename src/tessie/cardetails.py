@@ -26,6 +26,7 @@ class CarDetails(object):
     outsideTemp: float
     updatedSinceSummary: bool
     modifiedBySetter: bool
+    odometer: float
 
     # fields set in TessieInterface.addBattery
     battLevel: float
@@ -46,15 +47,16 @@ class CarDetails(object):
         self.wakeTask: Task | None = None
     # end __init__(dict)
 
-    def updateFromDict(self, vehicleState: dict) -> None:
+    def updateFromDict(self, vehicleData: dict) -> None:
         """Populate details of this vehicle
-        :param vehicleState: Dictionary of Tessie JSON data
+
+        :param vehicleData: Dictionary of Tessie JSON data
         """
-        self.vin = vehicleState["vin"]
-        self.displayName = vehicleState["display_name"]
-        driveState = vehicleState["drive_state"]
+        self.vin = vehicleData["vin"]
+        self.displayName = vehicleData["display_name"]
+        driveState = vehicleData["drive_state"]
         self.shiftState = driveState["shift_state"]
-        chargeState = vehicleState["charge_state"]
+        chargeState = vehicleData["charge_state"]
         self.chargeAmps = chargeState["charge_amps"]
         self.chargeCurrentRequest = chargeState["charge_current_request"]
         self.requestMaxAmps = chargeState["charge_current_request_max"]
@@ -63,10 +65,12 @@ class CarDetails(object):
         self.limitMaxPercent = chargeState["charge_limit_soc_max"]
         self.chargingState = chargeState["charging_state"]
         self.lastSeen = chargeState["timestamp"] * 0.001  # convert ms to seconds
-        climateState = vehicleState["climate_state"]
+        climateState = vehicleData["climate_state"]
         self.outsideTemp = climateState["outside_temp"]
         self.updatedSinceSummary = True
         self.modifiedBySetter = False
+        vehicleState = vehicleData["vehicle_state"]
+        self.odometer = vehicleState["odometer"]
     # end updateFromDict(dict)
 
     def setChargeCurrentRequest(self, reqCurrent: int) -> None:

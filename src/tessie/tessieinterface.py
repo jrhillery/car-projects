@@ -1,4 +1,6 @@
 
+import math
+
 import asyncio
 import haversine
 import json
@@ -187,8 +189,8 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                       f" {dist:.2f} mi from home")
     # end log_location(CarDetails, tuple)
 
-    async def addEndingLocation(self, dtls: CarDetails) -> None:
-        """Add the location at the end of last drive because the
+    async def getLastDrive(self, dtls: CarDetails) -> dict | None:
+        """Get data from the last drive because the
         car's current location can go wrong while garaged
 
         :param dtls: Details of the vehicle to augment
@@ -202,13 +204,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                     allResults: list[dict] = (await resp.json())["results"]
 
                     if allResults:
-                        lastDrive = allResults[0]
-
-                        if "ending_saved_location" in lastDrive:
-                            dtls.savedLocation = lastDrive["ending_saved_location"]
-                        else:
-                            ending = (lastDrive["ending_latitude"], lastDrive["ending_longitude"])
-                            self.log_location(dtls, ending)
+                        return allResults[0]
                     else:
                         logging.error(f"Unable to get {dtls.displayName}'s last drive details")
                 except Exception as e:
@@ -217,7 +213,9 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
                                   exc_info=e)
             else:
                 logging.error(await self.respErrLog(resp, dtls))
-    # end addEndingLocation(CarDetails)
+
+        return None
+    # end getLastDrive(CarDetails)
 
     async def addCurrentLocation(self, dtls: CarDetails) -> None:
         """Add the car's current location
@@ -249,9 +247,14 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         :return: The updated vehicle details
         """
         dtls.savedLocation = None
+        lastDrive = await self.getLastDrive(dtls)
 
-        if dtls.inPark():
-            await self.addEndingLocation(dtls)
+        if lastDrive and math.isclose(lastDrive["ending_odometer"], dtls.odometer, abs_tol=0.01):
+            if "ending_saved_location" in lastDrive:
+                dtls.savedLocation = lastDrive["ending_saved_location"]
+            else:
+                ending = (lastDrive["ending_latitude"], lastDrive["ending_longitude"])
+                self.log_location(dtls, ending)
         else:
             await self.addCurrentLocation(dtls)
 
