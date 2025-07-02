@@ -249,7 +249,7 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         dtls.savedLocation = None
         lastDrive = await self.getLastDrive(dtls)
 
-        if lastDrive and math.isclose(lastDrive["ending_odometer"], dtls.odometer, abs_tol=0.01):
+        if lastDrive and math.isclose(lastDrive["ending_odometer"], dtls.odometer, abs_tol=0.05):
             if "ending_saved_location" in lastDrive:
                 dtls.savedLocation = lastDrive["ending_saved_location"]
             else:
