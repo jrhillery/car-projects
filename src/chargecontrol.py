@@ -288,11 +288,7 @@ class AutoCurrentControl(ReqCurrentControl):
         :param dtls: Details of the specified vehicle
         """
         if not hasattr(dtls, "battCapacity"):
-            if dtls.battLevel > 5.0:
-                dtls.battCapacity = dtls.energyLeft / (dtls.battLevel * 0.01)
-            else:
-                # avoid dividing by near-zero by using the (slow) battery health api
-                await self.tsIntrfc.addBatteryHealth(dtls)
+            await self.tsIntrfc.addBatteryHealth(dtls)
 
     # end setBatteryCapacity(CarDetails)
 

@@ -30,7 +30,6 @@ class CarDetails(object):
 
     # fields set in TessieInterface.addBattery
     battLevel: float
-    energyLeft: float
 
     # field set in TessieInterface.addSleepStatus
     sleepStatus: str
