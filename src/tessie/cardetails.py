@@ -37,7 +37,7 @@ class CarDetails(object):
     # field set in TessieInterface.addLocation
     savedLocation: str | None
 
-    # field set in AutoCurrentControl.setBatteryCapacity and TessieInterface.addBatteryHealth
+    # field set in TessieInterface.addBatteryHealth
     battCapacity: float
 
     def __init__(self, vehicleState: dict):
