@@ -1,6 +1,9 @@
 # python_scripts/set_request_currents.py
 """Automatically set cars' request currents based on each cars' charging needs."""
 
+# Declare globals that are injected by Home Assistant at runtime
+global hass, data, logger
+
 messages = []
 TESLA_APP_REQ_MIN_AMPS = 5
 

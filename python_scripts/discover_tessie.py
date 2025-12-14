@@ -1,7 +1,10 @@
 # python_scripts/discover_tessie.py
 
+# Declare globals that are injected by Home Assistant at runtime
+global hass, data, logger
 
-def repr(val) -> str:
+
+def typed(val) -> str:
     if val is None:
         return str(val)
 
@@ -39,13 +42,13 @@ for entity_type, entities in sorted(tessie_entities.items()):
     output_str += f"{entity_type.upper()}:\n"
     for entity in sorted(entities):
         state = hass.states.get(entity)
-        output_str += f" - {state.name} {entity} ({repr(state.state)})"
+        output_str += f" - {state.name} {entity} ({typed(state.state)})"
         attribs = state.attributes
         if attribs:
             attribs = attribs.copy()
             del attribs["friendly_name"]
             if attribs:
-                attrib_strs = [f"{key}={repr(val)}" for key, val in attribs.items()]
+                attrib_strs = [f"{key}={typed(val)}" for key, val in attribs.items()]
                 output_str += f"\tattributes: {', '.join(attrib_strs)}"
         output_str += "\n"
     output_str += "\n"
