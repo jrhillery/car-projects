@@ -17,6 +17,7 @@ def getCarDetails(vehicleName: str):
     chargeLimitState = hass.states.get(f"number.{vehicle_name}_charge_limit")
     chargingState = hass.states.get(f"sensor.{vehicle_name}_charging")
     batteryLevelState = hass.states.get(f"sensor.{vehicle_name}_battery_level")
+    statusState = hass.states.get(f"binary_sensor.{vehicle_name}_status")
     locationState = hass.states.get(f"device_tracker.{vehicle_name}_location")
 
     return {
@@ -28,6 +29,7 @@ def getCarDetails(vehicleName: str):
         "chargeLimit": int(float(chargeLimitState.state) + 0.5),
         "chargingState": chargingState.state,
         "battLevel": float(batteryLevelState.state),
+        "status": statusState.state,
         "savedLocation": locationState.state if locationState else None,
         "battCapacity": 68.3,
     }
@@ -95,7 +97,7 @@ def chargingStatusSummary(details, kwhNeeded: float = 0.0) -> str:
     """
     parts = [f"{details['displayName']} was "]
     if details["shiftState"] == "p":
-        parts.append("parked")
+        parts.append(f"{details['status']}line")
     else:
         parts.append("driving")
     if details["savedLocation"]:
