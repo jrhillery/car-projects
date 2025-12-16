@@ -166,15 +166,14 @@ for idx in indices:
     if pluggedInAtHome(dtls):
         reqCurrent = reqCurrents[idx]
         if reqCurrent != dtls["chargeCurrentRequest"]:
+            logMsg(
+                f"{dtls['displayName']} request current changing from"
+                f" {dtls['chargeCurrentRequest']} to {reqCurrent} A"
+            )
             hass.services.call(
                 "number",
                 "set_value",
                 {"entity_id": dtls["chargeCurrentEntityId"], "value": reqCurrent},
-            )
-
-            logMsg(
-                f"{dtls['displayName']} request current"
-                f" changing from {dtls['chargeCurrentRequest']} to {reqCurrent} A"
             )
         else:
             logMsg(
