@@ -1,0 +1,7 @@
+AmpMan:
+  module: requestcurrentcontrol
+  class: RequestCurrentControl
+  vehicles:
+    - Electra
+    - Nittany
+  totalCurrent: 40
