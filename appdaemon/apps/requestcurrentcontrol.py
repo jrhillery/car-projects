@@ -37,6 +37,12 @@ class RequestCurrentControl(Hass):
             [f"binary_sensor.{name}_charge_cable" for name in self.vehicleNames],
             old="on", new="off", eventDesc="unplugged")
 
+        # Listen for charge limit changes
+        await self.listen_state(
+            cast(AsyncStateCallback, self.handleStateChange),
+            [f"number.{name}_charge_limit" for name in self.vehicleNames],
+            eventDesc="changed")
+
         # Listen for charge stopped events
         await self.listen_state(
             cast(AsyncStateCallback, self.handleStateChange),
