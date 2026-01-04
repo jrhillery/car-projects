@@ -24,33 +24,33 @@ class RequestCurrentControl(Hass):
         """Called when AppDaemon starts the app."""
 
         # Get configuration
-        self.vehicleNames = self.args.get("vehicles", [])
+        self.vehicleNames = [name.lower() for name in self.args.get("vehicles", [])]
         self.totalCurrent = self.args.get("totalCurrent", 32)
 
         # Listen for plug-in events
         await self.listen_state(
             cast(AsyncStateCallback, self.handleStaleStateChange),
-            [f"binary_sensor.{name.lower()}_charge_cable" for name in self.vehicleNames],
+            [f"binary_sensor.{name}_charge_cable" for name in self.vehicleNames],
             old="off", new="on", eventDesc="plugged in")
         await self.listen_state(
             cast(AsyncStateCallback, self.handleStateChange),
-            [f"binary_sensor.{name.lower()}_charge_cable" for name in self.vehicleNames],
+            [f"binary_sensor.{name}_charge_cable" for name in self.vehicleNames],
             old="on", new="off", eventDesc="unplugged")
 
         # Listen for charge stopped events
         await self.listen_state(
             cast(AsyncStateCallback, self.handleStateChange),
-            [f"switch.{name.lower()}_charge" for name in self.vehicleNames],
+            [f"switch.{name}_charge" for name in self.vehicleNames],
             old="on", new="off", eventDesc="stopped")
 
         # Listen for a custom event
         await self.listen_event(
             cast(EventCallback, self.handleEvent),
             "SET_REQUEST_CURRENTS")
-        self.log("Ready to adjust cars' request currents.")
+        self.log("Ready to adjust cars' request currents")
     # end initialize()
 
-    async def handleStateChange(self, entity: str, attribute: str, old: Any, new: Any,
+    async def handleStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
                                 **kwargs: Any) -> None:
         """Called when a state changes."""
         self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
@@ -58,23 +58,34 @@ class RequestCurrentControl(Hass):
     # end handleStateChange(str, str, Any, Any, Any)
 
     # noinspection PyInvalidCast
-    async def handleStaleStateChange(self, entity: str, attribute: str, old: Any, new: Any,
+    async def handleStaleStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
                                      **kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
-        _, entityName = await self.split_entity(entity)
-        vehicle_name, _ = entityName.split("_", 1)
         await self.listen_state(
             cast(AsyncStateCallback, self.handleStateChange),
-            f"number.{vehicle_name}_charge_current",
+            f"number.{await self.vehicleName(entity)}_charge_current",
             attribute="last_reported", oneshot=True, eventDesc="reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
-    async def handleEvent(self, event_type: str, data: dict[str, Any], **kwargs: Any) -> None:
+    async def handleEvent(self, event_type: str, _data: dict[str, Any],
+                          **_kwargs: Any) -> None:
         """Handle custom event."""
         self.log("Event %s fired", event_type)
         await self.setRequestCurrents()
     # end handleEvent(str, dict[str, Any], Any)
+
+    async def vehicleName(self, entityId: str) -> str:
+        """Retrieve the vehicle name.
+
+        :param entityId: Fully qualified entity id
+        :return: vehicle name
+        """
+        _, entityName = await self.split_entity(entityId)
+        vehicleName, _ = entityName.split("_", 1)
+
+        return vehicleName
+    # end vehicleName(str)
 
     def logMsg(self, message: str) -> None:
         """Log an info level message and add it to our list.
@@ -186,5 +197,5 @@ class RequestCurrentControl(Hass):
                 title="Set Cars' Request Currents",
                 message="\n".join(self.generateMsgs()),
             )
-        self.log("Request currents are set.")
+        self.log("Request currents are set")
     # end setRequestCurrents()

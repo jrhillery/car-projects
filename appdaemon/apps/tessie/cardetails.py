@@ -32,18 +32,17 @@ class CarDetails:
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
-        vehicle_name = vehicleName.lower()
-        shiftStateState: str = await ad.get_state(f"sensor.{vehicle_name}_shift_state")
-        chargeCurrentEntityId = f"number.{vehicle_name}_charge_current"
+        shiftStateState: str = await ad.get_state(f"sensor.{vehicleName}_shift_state")
+        chargeCurrentEntityId = f"number.{vehicleName}_charge_current"
         chargeCurrentState: dict[str, Any] = await ad.get_state(chargeCurrentEntityId, "all")
-        chargeLimitState: str = await ad.get_state(f"number.{vehicle_name}_charge_limit")
-        chargingState: str = await ad.get_state(f"sensor.{vehicle_name}_charging")
-        batteryLevelState: str = await ad.get_state(f"sensor.{vehicle_name}_battery_level")
-        statusState: str = await ad.get_state(f"binary_sensor.{vehicle_name}_status")
-        locationState: str = await ad.get_state(f"device_tracker.{vehicle_name}_location")
+        chargeLimitState: str = await ad.get_state(f"number.{vehicleName}_charge_limit")
+        chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
+        batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
+        statusState: str = await ad.get_state(f"binary_sensor.{vehicleName}_status")
+        locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
 
         return cls(
-            displayName=vehicleName,
+            displayName=vehicleName.title(),
             shiftState=shiftStateState,
             chargeCurrentEntityId=chargeCurrentEntityId,
             chargeCurrentRequest=int(float(chargeCurrentState["state"]) + 0.5),
