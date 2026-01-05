@@ -186,6 +186,27 @@ class RequestCurrentControl(Hass):
         return self.limitRequestCurrents(vehicles, reqCurrents)
     # end calcRequestCurrents(list[CarDetails])
 
+    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int) -> None:
+        """Set the car's request current to a specified value
+
+        :param dtls: Details of the vehicle to set
+        :param reqCurrent: New maximum current to request (amps)
+        """
+        if reqCurrent != dtls.chargeCurrentRequest:
+            self.logMsg(
+                f"{dtls.displayName} request current changing from"
+                f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
+            )
+            await self.call_service(
+                "number/set_value",
+                entity_id=dtls.chargeCurrentEntityId,
+                value=reqCurrent,
+                hass_timeout=55,
+            )
+        else:
+            self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
+    # end setRequestCurrent(CarDetails, int)
+
     async def setRequestCurrents(self) -> None:
         """Automatically set cars' request currents based on each cars' charging needs."""
 
@@ -201,20 +222,7 @@ class RequestCurrentControl(Hass):
         for idx in indices:
             dtls = vehicles[idx]
             if dtls.pluggedInAtHome():
-                reqCurrent = reqCurrents[idx]
-                if reqCurrent != dtls.chargeCurrentRequest:
-                    self.logMsg(
-                        f"{dtls.displayName} request current changing from"
-                        f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
-                    )
-                    await self.call_service(
-                        "number/set_value",
-                        entity_id=dtls.chargeCurrentEntityId,
-                        value=reqCurrent,
-                        hass_timeout=45,
-                    )
-                else:
-                    self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
+                await self.setRequestCurrent(dtls, reqCurrents[idx])
             else:
                 self.log(dtls.chargingStatusSummary())
         # end for
