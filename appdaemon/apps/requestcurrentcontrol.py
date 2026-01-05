@@ -95,10 +95,10 @@ class RequestCurrentControl(Hass):
     def running(self) -> bool:
         """Check if we are already running."""
         alreadyRunning = self.alreadyActive
-        if not self.alreadyActive:
-            self.alreadyActive = True
-        else:
+        self.alreadyActive = True
+        if alreadyRunning:
             self.log("Duplicate run suppressed")
+
         return alreadyRunning
     # end running()
 
@@ -211,6 +211,7 @@ class RequestCurrentControl(Hass):
                         "number/set_value",
                         entity_id=dtls.chargeCurrentEntityId,
                         value=reqCurrent,
+                        hass_timeout=45,
                     )
                 else:
                     self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
