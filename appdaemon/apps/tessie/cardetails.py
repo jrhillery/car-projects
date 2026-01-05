@@ -12,6 +12,7 @@ class CarDetails:
     """Details of a vehicle as reported by Tessie"""
     TESLA_APP_REQ_MIN_AMPS = 5
 
+    vehicleName: str
     displayName: str
     shiftState: str
     chargeCurrentEntityId: str
@@ -42,6 +43,7 @@ class CarDetails:
         locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
 
         return cls(
+            vehicleName=vehicleName,
             displayName=vehicleName.title(),
             shiftState=shiftStateState,
             chargeCurrentEntityId=chargeCurrentEntityId,

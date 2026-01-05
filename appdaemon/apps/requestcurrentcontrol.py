@@ -13,14 +13,15 @@ from appdaemon.state import AsyncStateCallback
 from tessie import CarDetails
 
 
+# noinspection PyInvalidCast
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
     messages: deque[str] = deque()
+    wakingVehicles: set[str] = set()
     vehicleNames: list[str]
     totalCurrent: int
     alreadyActive: bool
 
-    # noinspection PyInvalidCast
     async def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
 
@@ -66,7 +67,6 @@ class RequestCurrentControl(Hass):
             await self.setRequestCurrents()
     # end handleStateChange(str, str, Any, Any, Any)
 
-    # noinspection PyInvalidCast
     async def handleStaleStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
                                      **kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
@@ -128,6 +128,44 @@ class RequestCurrentControl(Hass):
         while self.messages:
             yield self.messages.popleft()
     # end generateMsgs()
+
+    async def needToWake(self, vehicles: list[CarDetails]) -> bool:
+        """Wake up any cars that are sleeping, plugged-in and at home.
+
+        :param vehicles: List of cars to check
+        :return: true when we found some sleeping cars
+        """
+        someSnoozers = False
+
+        for dtls in vehicles:
+            if not dtls.awake(): # temp and dtls.pluggedInAtHome():
+                someSnoozers = True
+
+                if not dtls.vehicleName in self.wakingVehicles:
+                    self.logMsg(f"Waking {dtls.displayName}")
+                    self.wakingVehicles.add(dtls.vehicleName)
+                    await self.listen_state(
+                        cast(AsyncStateCallback, self.handleStatusStateChange),
+                        f"binary_sensor.{dtls.vehicleName}_status",
+                        new="on", oneshot=True, eventDesc="awake"
+                    )
+                await self.call_service(
+                    "button/press",
+                    entity_id=f"button.{dtls.vehicleName}_wake",
+                    hass_timeout=55)
+
+        return someSnoozers
+    # end needToWake(list[CarDetails])
+
+    async def handleStatusStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
+                                     **kwargs: Any) -> None:
+        """Called when we have fresh status."""
+        self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
+        self.wakingVehicles.discard(await self.vehicleName(entity))
+
+        if not self.wakingVehicles:
+            await self.setRequestCurrents()
+    # end handleFreshStateChange(str, str, Any, Any, Any)
 
     def limitRequestCurrents(self, vehicles: list[CarDetails],
                              desReqCurrents: list[float]) -> list[int]:
@@ -197,12 +235,13 @@ class RequestCurrentControl(Hass):
                 f"{dtls.displayName} request current changing from"
                 f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
             )
-            await self.call_service(
+            results = await self.call_service(
                 "number/set_value",
                 entity_id=dtls.chargeCurrentEntityId,
                 value=reqCurrent,
-                hass_timeout=55,
-            )
+                hass_timeout=55)
+            if results["success"] is False:
+                self.log("Set results: %s", str(results))
         else:
             self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
@@ -212,6 +251,9 @@ class RequestCurrentControl(Hass):
 
         # Get fresh details for all vehicles
         vehicles = [await CarDetails.fromAdapi(self, vehicleName) for vehicleName in self.vehicleNames]
+
+        if await self.needToWake(vehicles):
+            return
 
         reqCurrents = self.calcRequestCurrents(vehicles)
         indices = list(range(len(vehicles)))
