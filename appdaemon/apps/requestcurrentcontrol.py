@@ -74,7 +74,7 @@ class RequestCurrentControl(Hass):
         if not self.running():
             await self.listen_state(
                 cast(AsyncStateCallback, self.handleFreshStateChange),
-                f"number.{await self.vehicleName(entity)}_charge_current",
+                f"number.{self.vehicleName(entity)}_charge_current",
                 attribute="last_reported", oneshot=True, eventDesc="reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
@@ -102,13 +102,14 @@ class RequestCurrentControl(Hass):
         return alreadyRunning
     # end running()
 
-    async def vehicleName(self, entityId: str) -> str:
+    @staticmethod
+    def vehicleName(entityId: str) -> str:
         """Retrieve the vehicle name.
 
         :param entityId: Fully qualified entity id
         :return: vehicle name
         """
-        _, entityName = await self.split_entity(entityId)
+        _, entityName = entityId.split(".")
         vehicleName, _ = entityName.split("_", 1)
 
         return vehicleName
@@ -138,17 +139,16 @@ class RequestCurrentControl(Hass):
         someSnoozers = False
 
         for dtls in vehicles:
-            if not dtls.awake(): # temp and dtls.pluggedInAtHome():
+            if not dtls.awake() and dtls.pluggedInAtHome():
                 someSnoozers = True
 
                 if not dtls.vehicleName in self.wakingVehicles:
-                    self.logMsg(f"Waking {dtls.displayName}")
                     self.wakingVehicles.add(dtls.vehicleName)
+                    self.logMsg(f"Waking {dtls.displayName}")
                     await self.listen_state(
                         cast(AsyncStateCallback, self.handleStatusStateChange),
                         f"binary_sensor.{dtls.vehicleName}_status",
-                        new="on", oneshot=True, eventDesc="awake"
-                    )
+                        new="on", oneshot=True)
                 await self.call_service(
                     "button/press",
                     entity_id=f"button.{dtls.vehicleName}_wake",
@@ -158,10 +158,10 @@ class RequestCurrentControl(Hass):
     # end needToWake(list[CarDetails])
 
     async def handleStatusStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
-                                     **kwargs: Any) -> None:
+                                     **_kwargs: Any) -> None:
         """Called when we have fresh status."""
-        self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
-        self.wakingVehicles.discard(await self.vehicleName(entity))
+        self.wakingVehicles.discard(self.vehicleName(entity))
+        self.log("%s awake", await self.friendly_name(entity))
 
         if not self.wakingVehicles:
             await self.setRequestCurrents()
