@@ -62,26 +62,28 @@ class RequestCurrentControl(Hass):
     async def handleStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
                                 **kwargs: Any) -> None:
         """Called when a state changes."""
+        notRunning = not self.running()
         self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
-        if not self.running():
+        if notRunning:
             await self.setRequestCurrents()
     # end handleStateChange(str, str, Any, Any, Any)
 
     async def handleStaleStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
                                      **kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
+        notRunning = not self.running()
         self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
-        if not self.running():
+        if notRunning:
             await self.listen_state(
                 cast(AsyncStateCallback, self.handleFreshStateChange),
                 f"number.{self.vehicleName(entity)}_charge_current",
-                attribute="last_reported", oneshot=True, eventDesc="reported")
+                attribute="last_reported", oneshot=True)
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
     async def handleFreshStateChange(self, entity: str, _attribute: str, _old: Any, _new: Any,
-                                     **kwargs: Any) -> None:
+                                     **_kwargs: Any) -> None:
         """Called when we have fresh data."""
-        self.log("%s %s", await self.friendly_name(entity), kwargs["eventDesc"])
+        self.log("%s reported", await self.friendly_name(entity))
         await self.setRequestCurrents()
     # end handleFreshStateChange(str, str, Any, Any, Any)
 
