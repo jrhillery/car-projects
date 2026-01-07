@@ -15,7 +15,7 @@ class CarDetails:
     vehicleName: str
     shiftStateEntity: Entity
     chargeCurrentEntity: Entity
-    chargeLimit: int
+    chargeLimitEntity: Entity
     chargingState: str
     battLevel: float
     statusEntity: Entity
@@ -30,7 +30,6 @@ class CarDetails:
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
-        chargeLimitState: str = await ad.get_state(f"number.{vehicleName}_charge_limit")
         chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
         batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
         locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
@@ -39,7 +38,7 @@ class CarDetails:
             vehicleName=vehicleName,
             shiftStateEntity=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
             chargeCurrentEntity=ad.get_entity(f"number.{vehicleName}_charge_current"),
-            chargeLimit=int(float(chargeLimitState) + 0.5),
+            chargeLimitEntity=ad.get_entity(f"number.{vehicleName}_charge_limit"),
             chargingState=chargingState,
             battLevel=float(batteryLevelState),
             statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
@@ -62,6 +61,11 @@ class CarDetails:
     def requestMaxAmps(self) -> int:
         return self.chargeCurrentEntity.attributes.get("max")
     # end requestMaxAmps()
+
+    @property
+    def chargeLimit(self) -> int:
+        return int(float(self.chargeLimitEntity.state) + 0.5)
+    # end chargeLimit()
 
     @property
     def status(self) -> str:
