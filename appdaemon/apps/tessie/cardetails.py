@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
 
 from appdaemon import ADAPI
+from appdaemon.entity import Entity
 
 
 @dataclasses.dataclass
@@ -14,9 +14,7 @@ class CarDetails:
 
     vehicleName: str
     shiftState: str
-    chargeCurrentEntityId: str
-    chargeCurrentRequest: int
-    requestMaxAmps: int
+    chargeCurrentEntity: Entity
     chargeLimit: int
     chargingState: str
     battLevel: float
@@ -33,8 +31,6 @@ class CarDetails:
         :return: CarDetails instance
         """
         shiftStateState: str = await ad.get_state(f"sensor.{vehicleName}_shift_state")
-        chargeCurrentEntityId = f"number.{vehicleName}_charge_current"
-        chargeCurrentState: dict[str, Any] = await ad.get_state(chargeCurrentEntityId, "all")
         chargeLimitState: str = await ad.get_state(f"number.{vehicleName}_charge_limit")
         chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
         batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
@@ -44,9 +40,7 @@ class CarDetails:
         return cls(
             vehicleName=vehicleName,
             shiftState=shiftStateState,
-            chargeCurrentEntityId=chargeCurrentEntityId,
-            chargeCurrentRequest=int(float(chargeCurrentState["state"]) + 0.5),
-            requestMaxAmps=chargeCurrentState["attributes"].get("max"),
+            chargeCurrentEntity=ad.get_entity(f"number.{vehicleName}_charge_current"),
             chargeLimit=int(float(chargeLimitState) + 0.5),
             chargingState=chargingState,
             battLevel=float(batteryLevelState),
@@ -60,6 +54,21 @@ class CarDetails:
     def displayName(self) -> str:
         return self.vehicleName.title()
     # end displayName()
+
+    @property
+    def chargeCurrentEntityId(self) -> str:
+        return self.chargeCurrentEntity.entity_id
+    # end chargeCurrentEntityId()
+
+    @property
+    def chargeCurrentRequest(self) -> int:
+        return int(float(self.chargeCurrentEntity.state) + 0.5)
+    # end chargeCurrentRequest()
+
+    @property
+    def requestMaxAmps(self) -> int:
+        return self.chargeCurrentEntity.attributes.get("max")
+    # end requestMaxAmps()
 
     def pluggedIn(self) -> bool:
         return self.chargingState != "disconnected"
