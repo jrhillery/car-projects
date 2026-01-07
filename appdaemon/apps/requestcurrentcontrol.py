@@ -145,7 +145,7 @@ class RequestCurrentControl(Hass):
                         "button/press",
                         entity_id=f"button.{dtls.vehicleName}_wake",
                         hass_timeout=55)
-                    statuses.append(self.get_entity(f"binary_sensor.{dtls.vehicleName}_status"))
+                    statuses.append(dtls.statusEntity)
 
             timeouts = 0
             for vehicleStatus in statuses:

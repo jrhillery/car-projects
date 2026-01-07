@@ -18,7 +18,7 @@ class CarDetails:
     chargeLimit: int
     chargingState: str
     battLevel: float
-    status: str
+    statusEntity: Entity
     savedLocation: str | None
     battCapacity: float
 
@@ -34,7 +34,6 @@ class CarDetails:
         chargeLimitState: str = await ad.get_state(f"number.{vehicleName}_charge_limit")
         chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
         batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
-        statusState: str = await ad.get_state(f"binary_sensor.{vehicleName}_status")
         locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
 
         return cls(
@@ -44,7 +43,7 @@ class CarDetails:
             chargeLimit=int(float(chargeLimitState) + 0.5),
             chargingState=chargingState,
             battLevel=float(batteryLevelState),
-            status=statusState,
+            statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             savedLocation=locationState,
             battCapacity=68.3,
         )
@@ -64,6 +63,11 @@ class CarDetails:
     def requestMaxAmps(self) -> int:
         return self.chargeCurrentEntity.attributes.get("max")
     # end requestMaxAmps()
+
+    @property
+    def status(self) -> str:
+        return self.statusEntity.state
+    # end status()
 
     def pluggedIn(self) -> bool:
         return self.chargingState != "disconnected"
