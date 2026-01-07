@@ -16,7 +16,7 @@ class CarDetails:
     shiftStateEntity: Entity
     chargeCurrentEntity: Entity
     chargeLimitEntity: Entity
-    chargingState: str
+    chargingEntity: Entity
     battLevel: float
     statusEntity: Entity
     savedLocation: str | None
@@ -30,7 +30,6 @@ class CarDetails:
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
-        chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
         batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
         locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
 
@@ -39,7 +38,7 @@ class CarDetails:
             shiftStateEntity=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
             chargeCurrentEntity=ad.get_entity(f"number.{vehicleName}_charge_current"),
             chargeLimitEntity=ad.get_entity(f"number.{vehicleName}_charge_limit"),
-            chargingState=chargingState,
+            chargingEntity=ad.get_entity(f"sensor.{vehicleName}_charging"),
             battLevel=float(batteryLevelState),
             statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             savedLocation=locationState,
@@ -73,7 +72,7 @@ class CarDetails:
     # end status()
 
     def pluggedIn(self) -> bool:
-        return self.chargingState != "disconnected"
+        return self.chargingEntity.state != "disconnected"
     # end pluggedIn()
 
     def atHome(self) -> bool:
@@ -147,7 +146,7 @@ class CarDetails:
             parts.append("driving")
         if self.savedLocation:
             parts.append(f"@{self.savedLocation}")
-        parts.append(f" {self.chargingState}")
+        parts.append(f" {self.chargingEntity.state}")
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
