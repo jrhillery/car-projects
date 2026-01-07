@@ -13,7 +13,7 @@ class CarDetails:
     TESLA_APP_REQ_MIN_AMPS = 5
 
     vehicleName: str
-    shiftState: str
+    shiftStateEntity: Entity
     chargeCurrentEntity: Entity
     chargeLimit: int
     chargingState: str
@@ -30,7 +30,6 @@ class CarDetails:
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
-        shiftStateState: str = await ad.get_state(f"sensor.{vehicleName}_shift_state")
         chargeLimitState: str = await ad.get_state(f"number.{vehicleName}_charge_limit")
         chargingState: str = await ad.get_state(f"sensor.{vehicleName}_charging")
         batteryLevelState: str = await ad.get_state(f"sensor.{vehicleName}_battery_level")
@@ -38,7 +37,7 @@ class CarDetails:
 
         return cls(
             vehicleName=vehicleName,
-            shiftState=shiftStateState,
+            shiftStateEntity=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
             chargeCurrentEntity=ad.get_entity(f"number.{vehicleName}_charge_current"),
             chargeLimit=int(float(chargeLimitState) + 0.5),
             chargingState=chargingState,
@@ -82,7 +81,7 @@ class CarDetails:
     # end pluggedInAtHome()
 
     def inPark(self) -> bool:
-        return self.shiftState == "p"
+        return self.shiftStateEntity.state == "p"
     # end inPark()
 
     def awake(self) -> bool:
