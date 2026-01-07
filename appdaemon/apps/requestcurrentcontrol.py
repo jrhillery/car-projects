@@ -137,7 +137,7 @@ class RequestCurrentControl(Hass):
         """Wake up any cars that are sleeping, plugged-in and at home."""
         for _ in range(6):
             statuses: list[Entity] = []
-            vehicles = [await CarDetails.fromAdapi(self, name) for name in self.vehicleNames]
+            vehicles = [CarDetails.fromAdapi(self, name) for name in self.vehicleNames]
             for dtls in vehicles:
                 if not dtls.awake() and dtls.pluggedInAtHome():
                     self.logMsg(f"Waking {dtls.displayName}")
@@ -241,7 +241,7 @@ class RequestCurrentControl(Hass):
         await self.wakeSnoozers()
 
         # Get fresh details for all vehicles
-        vehicles = [await CarDetails.fromAdapi(self, vehicleName) for vehicleName in self.vehicleNames]
+        vehicles = [CarDetails.fromAdapi(self, vehicleName) for vehicleName in self.vehicleNames]
 
         reqCurrents = self.calcRequestCurrents(vehicles)
         indices = list(range(len(vehicles)))

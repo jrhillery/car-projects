@@ -19,18 +19,17 @@ class CarDetails:
     chargingEntity: Entity
     batteryLevelEntity: Entity
     statusEntity: Entity
-    savedLocation: str | None
+    locationEntity: Entity
     battCapacity: float
 
     @classmethod
-    async def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
+    def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
         """Gets the details of a vehicle.
 
         :param ad: AppDaemon api instance
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
-        locationState: str = await ad.get_state(f"device_tracker.{vehicleName}_location")
 
         return cls(
             vehicleName=vehicleName,
@@ -40,7 +39,7 @@ class CarDetails:
             chargingEntity=ad.get_entity(f"sensor.{vehicleName}_charging"),
             batteryLevelEntity=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
             statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
-            savedLocation=locationState,
+            locationEntity=ad.get_entity(f"device_tracker.{vehicleName}_location"),
             battCapacity=68.3,
         )
     # end fromAdapi(ADAPI, str)
@@ -74,6 +73,11 @@ class CarDetails:
     def status(self) -> str:
         return self.statusEntity.state
     # end status()
+
+    @property
+    def savedLocation(self) -> str:
+        return self.locationEntity.state
+    # end savedLocation()
 
     def pluggedIn(self) -> bool:
         return self.chargingEntity.state != "disconnected"
