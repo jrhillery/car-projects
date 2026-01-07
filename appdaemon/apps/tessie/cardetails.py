@@ -13,7 +13,6 @@ class CarDetails:
     TESLA_APP_REQ_MIN_AMPS = 5
 
     vehicleName: str
-    displayName: str
     shiftState: str
     chargeCurrentEntityId: str
     chargeCurrentRequest: int
@@ -44,7 +43,6 @@ class CarDetails:
 
         return cls(
             vehicleName=vehicleName,
-            displayName=vehicleName.title(),
             shiftState=shiftStateState,
             chargeCurrentEntityId=chargeCurrentEntityId,
             chargeCurrentRequest=int(float(chargeCurrentState["state"]) + 0.5),
@@ -56,6 +54,12 @@ class CarDetails:
             savedLocation=locationState,
             battCapacity=68.3,
         )
+    # end fromAdapi(ADAPI, str)
+
+    @property
+    def displayName(self) -> str:
+        return self.vehicleName.title()
+    # end displayName()
 
     def pluggedIn(self) -> bool:
         return self.chargingState != "disconnected"
