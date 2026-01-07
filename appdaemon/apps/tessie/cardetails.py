@@ -56,11 +56,6 @@ class CarDetails:
     # end displayName()
 
     @property
-    def chargeCurrentEntityId(self) -> str:
-        return self.chargeCurrentEntity.entity_id
-    # end chargeCurrentEntityId()
-
-    @property
     def chargeCurrentRequest(self) -> int:
         return int(float(self.chargeCurrentEntity.state) + 0.5)
     # end chargeCurrentRequest()

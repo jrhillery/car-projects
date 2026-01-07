@@ -228,11 +228,8 @@ class RequestCurrentControl(Hass):
                 f"{dtls.displayName} request current changing from"
                 f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
             )
-            results = await self.call_service(
-                "number/set_value",
-                entity_id=dtls.chargeCurrentEntityId,
-                value=reqCurrent,
-                hass_timeout=55)
+            results = await dtls.chargeCurrentEntity.call_service(
+                "set_value", value=reqCurrent, hass_timeout=55)
             if results["success"] is False:
                 self.log("Set results: %s", str(results))
         else:
