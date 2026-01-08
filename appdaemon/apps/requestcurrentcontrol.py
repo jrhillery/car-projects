@@ -21,7 +21,7 @@ class RequestCurrentControl(Hass):
     messages: deque[str] = deque()
     vehicleNames: list[str]
     totalCurrent: int
-    vehicles: list[CarDetails]
+    vehicles: dict[str, CarDetails]
     alreadyActive: bool
 
     async def initialize(self) -> None:
@@ -30,9 +30,9 @@ class RequestCurrentControl(Hass):
         # Get configuration
         self.vehicleNames = [name.lower() for name in self.args.get("vehicles", [])]
         self.totalCurrent = self.args.get("totalCurrent", 32)
-        self.vehicles = [CarDetails.fromAdapi(self, vehicleName) for vehicleName in self.vehicleNames]
+        self.vehicles = {name: CarDetails.fromAdapi(self, name) for name in self.vehicleNames}
 
-        for dtls in self.vehicles:
+        for dtls in self.vehicles.values():
             # Listen for plug-in events
             await dtls.chargeCableDetector.listen_state(
                 cast(AsyncStateCallback, self.handleStaleStateChange),
@@ -139,7 +139,7 @@ class RequestCurrentControl(Hass):
         """Wake up any cars that are sleeping, plugged-in and at home."""
         for _ in range(6):
             statuses: list[Entity] = []
-            for dtls in self.vehicles:
+            for dtls in self.vehicles.values():
                 if not dtls.awake() and dtls.pluggedInAtHome():
                     self.logMsg(f"Waking {dtls.displayName}")
                     await dtls.wakeButton.call_service("press", hass_timeout=55)
@@ -158,39 +158,39 @@ class RequestCurrentControl(Hass):
         # end for 6 attempts
     # end wakeSnoozers()
 
-    def limitRequestCurrents(self, desReqCurrents: list[float]) -> list[int]:
+    def limitRequestCurrents(self, desReqCurrents: list[float]) -> dict[str, int]:
         """Get corresponding request currents valid for each charge adapter.
 
         :param desReqCurrents: List of desired request currents (amps)
-        :return: Corresponding list of valid request currents
+        :return: Corresponding dict of valid request currents
         """
-        requestCurrents: list[int] = []
+        requestCurrents: dict[str, int] = {}
         remainingCurrent = self.totalCurrent
 
-        for i, dtls in enumerate(self.vehicles):
+        for i, dtls in enumerate(self.vehicles.values()):
             requestCurrent = dtls.limitRequestCurrent(int(desReqCurrents[i] + 0.5))
-            requestCurrents.append(requestCurrent)
+            requestCurrents[dtls.vehicleName] = requestCurrent
             remainingCurrent -= requestCurrent
         # end for
 
         if remainingCurrent < 0 < len(requestCurrents):
             # we oversubscribed, reduce the largest request current
-            indices: list[int] = list(range(len(requestCurrents)))
-            indices.sort(key=lambda j: requestCurrents[j], reverse=True)
-            requestCurrents[indices[0]] += remainingCurrent
+            keys = list(requestCurrents.keys())
+            keys.sort(key=lambda k: requestCurrents[k], reverse=True)
+            requestCurrents[keys[0]] += remainingCurrent
 
         return requestCurrents
     # end limitRequestCurrents(list[float])
 
-    def calcRequestCurrents(self) -> list[int]:
+    def calcRequestCurrents(self) -> dict[str, int]:
         """Calculate the current needed for each vehicle.
 
-        :return: list of currents needed
+        :return: dict of currents needed
         """
         energiesNeeded: list[float] = []
         totalEnergyNeeded = 0.0
 
-        for dtls in self.vehicles:
+        for dtls in self.vehicles.values():
             energyNeeded = dtls.neededKwh()
 
             if energyNeeded:
@@ -236,15 +236,15 @@ class RequestCurrentControl(Hass):
         await self.wakeSnoozers()
 
         reqCurrents = self.calcRequestCurrents()
-        indices = list(range(len(self.vehicles)))
+        keys = list(self.vehicles.keys())
 
-        # To decrease first, sort indices ascending by increase in request current
-        indices.sort(key=lambda i: reqCurrents[i] - self.vehicles[i].chargeCurrentRequest)
+        # To decrease first, sort ascending by increase in request current
+        keys.sort(key=lambda k: reqCurrents[k] - self.vehicles[k].chargeCurrentRequest)
 
-        for idx in indices:
-            dtls = self.vehicles[idx]
+        for vehicleName in keys:
+            dtls = self.vehicles[vehicleName]
             if dtls.pluggedInAtHome():
-                await self.setRequestCurrent(dtls, reqCurrents[idx])
+                await self.setRequestCurrent(dtls, reqCurrents[vehicleName])
             else:
                 self.log(dtls.chargingStatusSummary())
         # end for
