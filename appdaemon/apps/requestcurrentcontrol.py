@@ -78,7 +78,7 @@ class RequestCurrentControl(Hass):
             vehicle = self.vehicles.get(self.vehicleName(entity))
             await vehicle.chargeCurrentEntity.listen_state(
                 cast(AsyncStateCallback, self.handleFreshStateChange),
-                attribute="last_reported", oneshot=True,
+                attribute="all", oneshot=True,
                 callMsg=f"{vehicle.chargeCurrentEntity.friendly_name} reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
