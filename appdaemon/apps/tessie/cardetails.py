@@ -21,6 +21,9 @@ class CarDetails:
     statusEntity: Entity
     locationEntity: Entity
     battCapacity: float
+    chargeCableDetector: Entity
+    chargeSwitch: Entity
+    wakeButton: Entity
 
     @classmethod
     def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
@@ -41,6 +44,9 @@ class CarDetails:
             statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             locationEntity=ad.get_entity(f"device_tracker.{vehicleName}_location"),
             battCapacity=68.3,
+            chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
+            chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
+            wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
         )
     # end fromAdapi(ADAPI, str)
 
