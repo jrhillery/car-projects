@@ -37,8 +37,7 @@ class RequestCurrentControl(Hass):
             await dtls.chargeCableDetector.listen_state(
                 cast(AsyncStateCallback, self.handleStaleStateChange),
                 old="off", new="on",
-                callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in",
-                currentStateName=dtls.chargeCurrentEntity.friendly_name)
+                callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
             await dtls.chargeCableDetector.listen_state(
                 cast(AsyncStateCallback, self.handleStateChange),
                 old="on", new="off",
@@ -76,17 +75,17 @@ class RequestCurrentControl(Hass):
         """Called when a state changes with stale charge current data."""
         self.log(kwargs["callMsg"])
         if not self.running():
-            await self.listen_state(
+            vehicle = self.vehicles.get(self.vehicleName(entity))
+            await vehicle.chargeCurrentEntity.listen_state(
                 cast(AsyncStateCallback, self.handleFreshStateChange),
-                f"number.{self.vehicleName(entity)}_charge_current",
                 attribute="last_reported", oneshot=True,
-                stateName=kwargs["currentStateName"])
+                callMsg=f"{vehicle.chargeCurrentEntity.friendly_name} reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
     async def handleFreshStateChange(self, _entity: str, _attribute: str,
                                      _old: Any, _new: Any, **kwargs: Any) -> None:
         """Called when we have fresh data."""
-        self.log("%s reported", kwargs["stateName"])
+        self.log(kwargs["callMsg"])
         await self.setRequestCurrents()
     # end handleFreshStateChange(str, str, Any, Any, Any)
 
