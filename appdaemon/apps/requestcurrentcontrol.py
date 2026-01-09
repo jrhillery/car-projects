@@ -44,9 +44,9 @@ class RequestCurrentControl(Hass):
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
             # Listen for charge limit changes
-            await dtls.chargeLimitEntity.listen_state(
+            await dtls.chargeLimitNumber.listen_state(
                 cast(AsyncStateCallback, self.handleStateChange),
-                callMsg=f"{dtls.chargeLimitEntity.friendly_name} changed")
+                callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed")
 
             # Listen for charge stopped events
             await dtls.chargeSwitch.listen_state(
@@ -83,10 +83,10 @@ class RequestCurrentControl(Hass):
         self.staleWaits += 1
         vehicle = self.vehicles.get(self.vehicleName(entity))
 
-        await vehicle.chargeCurrentEntity.listen_state(
+        await vehicle.chargeCurrentNumber.listen_state(
             cast(AsyncStateCallback, self.handleFreshStateChange),
             attribute="all", oneshot=True,
-            callMsg=f"{vehicle.chargeCurrentEntity.friendly_name} reported")
+            callMsg=f"{vehicle.chargeCurrentNumber.friendly_name} reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
     async def handleFreshStateChange(self, _entity: str, _attribute: str,
@@ -142,7 +142,7 @@ class RequestCurrentControl(Hass):
                 if not dtls.awake() and dtls.pluggedInAtHome():
                     self.logMsg(f"Waking {dtls.displayName}")
                     await dtls.wakeButton.call_service("press", hass_timeout=55)
-                    statuses.append(dtls.statusEntity)
+                    statuses.append(dtls.statusDetector)
 
             timeouts = 0
             for vehicleStatus in statuses:
@@ -222,7 +222,7 @@ class RequestCurrentControl(Hass):
                 f"{dtls.displayName} request current changing from"
                 f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
             )
-            results = await dtls.chargeCurrentEntity.call_service(
+            results = await dtls.chargeCurrentNumber.call_service(
                 "set_value", value=reqCurrent, hass_timeout=55)
             if results["success"] is False:
                 self.log("Set results: %s", str(results))

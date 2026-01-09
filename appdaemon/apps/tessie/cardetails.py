@@ -13,13 +13,13 @@ class CarDetails:
     TESLA_APP_REQ_MIN_AMPS = 5
 
     vehicleName: str
-    shiftStateEntity: Entity
-    chargeCurrentEntity: Entity
-    chargeLimitEntity: Entity
-    chargingEntity: Entity
-    batteryLevelEntity: Entity
-    statusEntity: Entity
-    locationEntity: Entity
+    shiftStateSensor: Entity
+    chargeCurrentNumber: Entity
+    chargeLimitNumber: Entity
+    chargingSensor: Entity
+    batteryLevelSensor: Entity
+    statusDetector: Entity
+    locationTracker: Entity
     battCapacity: float
     chargeCableDetector: Entity
     chargeSwitch: Entity
@@ -36,13 +36,13 @@ class CarDetails:
 
         return cls(
             vehicleName=vehicleName,
-            shiftStateEntity=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
-            chargeCurrentEntity=ad.get_entity(f"number.{vehicleName}_charge_current"),
-            chargeLimitEntity=ad.get_entity(f"number.{vehicleName}_charge_limit"),
-            chargingEntity=ad.get_entity(f"sensor.{vehicleName}_charging"),
-            batteryLevelEntity=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
-            statusEntity=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
-            locationEntity=ad.get_entity(f"device_tracker.{vehicleName}_location"),
+            shiftStateSensor=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
+            chargeCurrentNumber=ad.get_entity(f"number.{vehicleName}_charge_current"),
+            chargeLimitNumber=ad.get_entity(f"number.{vehicleName}_charge_limit"),
+            chargingSensor=ad.get_entity(f"sensor.{vehicleName}_charging"),
+            batteryLevelSensor=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
+            statusDetector=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
+            locationTracker=ad.get_entity(f"device_tracker.{vehicleName}_location"),
             battCapacity=68.3,
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
@@ -57,36 +57,36 @@ class CarDetails:
 
     @property
     def chargeCurrentRequest(self) -> int:
-        return int(float(self.chargeCurrentEntity.state) + 0.5)
+        return int(float(self.chargeCurrentNumber.state) + 0.5)
     # end chargeCurrentRequest()
 
     @property
     def requestMaxAmps(self) -> int:
-        return self.chargeCurrentEntity.attributes.get("max")
+        return self.chargeCurrentNumber.attributes.get("max")
     # end requestMaxAmps()
 
     @property
     def chargeLimit(self) -> int:
-        return int(float(self.chargeLimitEntity.state) + 0.5)
+        return int(float(self.chargeLimitNumber.state) + 0.5)
     # end chargeLimit()
 
     @property
     def battLevel(self) -> float:
-        return float(self.batteryLevelEntity.state)
+        return float(self.batteryLevelSensor.state)
     # end battLevel()
 
     @property
     def status(self) -> str:
-        return self.statusEntity.state
+        return self.statusDetector.state
     # end status()
 
     @property
     def savedLocation(self) -> str:
-        return self.locationEntity.state
+        return self.locationTracker.state
     # end savedLocation()
 
     def pluggedIn(self) -> bool:
-        return self.chargingEntity.state != "disconnected"
+        return self.chargingSensor.state != "disconnected"
     # end pluggedIn()
 
     def atHome(self) -> bool:
@@ -98,7 +98,7 @@ class CarDetails:
     # end pluggedInAtHome()
 
     def inPark(self) -> bool:
-        return self.shiftStateEntity.state == "p"
+        return self.shiftStateSensor.state == "p"
     # end inPark()
 
     def awake(self) -> bool:
@@ -160,7 +160,7 @@ class CarDetails:
             parts.append("driving")
         if self.savedLocation:
             parts.append(f"@{self.savedLocation}")
-        parts.append(f" {self.chargingEntity.state}")
+        parts.append(f" {self.chargingSensor.state}")
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
