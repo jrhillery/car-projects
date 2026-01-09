@@ -164,7 +164,7 @@ class CarDetails:
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
-                     f" and battery {self.battLevel}%")
+                     f" and battery {self.battLevel:.0f}%")
         if khwNeeded:
             parts.append(f" ({khwNeeded:.1f} kWh < limit)")
 
