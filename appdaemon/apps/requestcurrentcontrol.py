@@ -19,9 +19,8 @@ from tessie import CarDetails
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
     messages: deque[str] = deque()
-    vehicleNames: list[str]
-    totalCurrent: int
     vehicles: dict[str, CarDetails]
+    totalCurrent: int
     alreadyActive: bool
     staleWaits: int
 
@@ -29,9 +28,9 @@ class RequestCurrentControl(Hass):
         """Called when AppDaemon starts the app."""
 
         # Get configuration
-        self.vehicleNames = [name.lower() for name in self.args.get("vehicles", [])]
+        self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
+                         for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
-        self.vehicles = {name: CarDetails.fromAdapi(self, name) for name in self.vehicleNames}
 
         for dtls in self.vehicles.values():
             # Listen for plug-in events
