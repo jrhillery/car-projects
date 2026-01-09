@@ -23,6 +23,7 @@ class RequestCurrentControl(Hass):
     totalCurrent: int
     vehicles: dict[str, CarDetails]
     alreadyActive: bool
+    staleWaits: int
 
     async def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
@@ -59,6 +60,7 @@ class RequestCurrentControl(Hass):
             cast(EventCallback, self.handleEvent),
             "SET_REQUEST_CURRENTS")
         self.alreadyActive = False
+        self.staleWaits = 0
         self.log("Ready to adjust cars' request currents")
     # end initialize()
 
@@ -66,7 +68,12 @@ class RequestCurrentControl(Hass):
                                 _old: Any, _new: Any, **kwargs: Any) -> None:
         """Called when a state changes."""
         self.log(kwargs["callMsg"])
-        if not self.running():
+        alreadyRunning = self.alreadyActive or self.staleWaits > 0
+        self.alreadyActive = True
+
+        if alreadyRunning:
+            self.log("Duplicate run suppressed")
+        else:
             await self.setRequestCurrents()
     # end handleStateChange(str, str, Any, Any, Any)
 
@@ -74,19 +81,23 @@ class RequestCurrentControl(Hass):
                                      _old: Any, _new: Any, **kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log(kwargs["callMsg"])
-        if not self.running():
-            vehicle = self.vehicles.get(self.vehicleName(entity))
-            await vehicle.chargeCurrentEntity.listen_state(
-                cast(AsyncStateCallback, self.handleFreshStateChange),
-                attribute="all", oneshot=True,
-                callMsg=f"{vehicle.chargeCurrentEntity.friendly_name} reported")
+        self.staleWaits += 1
+        vehicle = self.vehicles.get(self.vehicleName(entity))
+
+        await vehicle.chargeCurrentEntity.listen_state(
+            cast(AsyncStateCallback, self.handleFreshStateChange),
+            attribute="all", oneshot=True,
+            callMsg=f"{vehicle.chargeCurrentEntity.friendly_name} reported")
     # end handleStaleStateChange(str, str, Any, Any, Any)
 
     async def handleFreshStateChange(self, _entity: str, _attribute: str,
                                      _old: Any, _new: Any, **kwargs: Any) -> None:
         """Called when we have fresh data."""
         self.log(kwargs["callMsg"])
-        await self.setRequestCurrents()
+        self.staleWaits -= 1
+
+        if self.staleWaits == 0:
+            await self.setRequestCurrents()
     # end handleFreshStateChange(str, str, Any, Any, Any)
 
     async def handleEvent(self, event_type: str, _data: dict[str, Any],
@@ -95,16 +106,6 @@ class RequestCurrentControl(Hass):
         self.log("Event %s fired", event_type)
         await self.setRequestCurrents()
     # end handleEvent(str, dict[str, Any], Any)
-
-    def running(self) -> bool:
-        """Check if we are already running."""
-        alreadyRunning = self.alreadyActive
-        self.alreadyActive = True
-        if alreadyRunning:
-            self.log("Duplicate run suppressed")
-
-        return alreadyRunning
-    # end running()
 
     @staticmethod
     def vehicleName(entityId: str) -> str:
