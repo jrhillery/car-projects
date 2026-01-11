@@ -144,15 +144,15 @@ class RequestCurrentControl(Hass):
                     await dtls.wakeButton.call_service("press", hass_timeout=55)
                     statuses.append(dtls.statusDetector)
 
-            timeouts = 0
+            timeout = False
             for vehicleStatus in statuses:
                 try:
                     await vehicleStatus.wait_state("on", timeout=55)
                     self.log("%s awake", vehicleStatus.friendly_name)
                 except TimeOutException:
-                    timeouts += 1
+                    timeout = True
                     self.log("%s timed out waking", vehicleStatus.friendly_name)
-            if timeouts == 0:
+            if not timeout:
                 break
         # end for 6 attempts
     # end wakeSnoozers()
@@ -194,6 +194,8 @@ class RequestCurrentControl(Hass):
 
             if energyNeeded:
                 self.logMsg(dtls.chargingStatusSummary(energyNeeded))
+            else:
+                self.log(dtls.chargingStatusSummary())
 
             energiesNeeded.append(energyNeeded)
             totalEnergyNeeded += energyNeeded
@@ -234,19 +236,25 @@ class RequestCurrentControl(Hass):
         """Automatically set cars' request currents based on each cars' charging needs."""
         await self.wakeSnoozers()
 
-        reqCurrents = self.calcRequestCurrents()
-        keys = list(self.vehicles.keys())
+        for _ in range(5):
+            try:
+                reqCurrents = self.calcRequestCurrents()
+                keys = list(self.vehicles.keys())
 
-        # To decrease first, sort ascending by increase in request current
-        keys.sort(key=lambda k: reqCurrents[k] - self.vehicles[k].chargeCurrentRequest)
+                # To decrease first, sort ascending by increase in request current
+                keys.sort(key=lambda k: reqCurrents[k] - self.vehicles[k].chargeCurrentRequest)
 
-        for vehicleName in keys:
-            dtls = self.vehicles[vehicleName]
-            if dtls.pluggedInAtHome():
-                await self.setRequestCurrent(dtls, reqCurrents[vehicleName])
-            else:
-                self.log(dtls.chargingStatusSummary())
-        # end for
+                for vehicleName in keys:
+                    dtls = self.vehicles[vehicleName]
+                    if dtls.pluggedInAtHome():
+                        await self.setRequestCurrent(dtls, reqCurrents[vehicleName])
+                # end for
+
+                break  # all good, break out of for loop
+            except ValueError as e:
+                self.error(f"Error setting request currents {e.__class__.__name__}: {e}")
+                await self.sleep(15)
+        # end for 5 attempts
 
         if self.messages:
             await self.call_service(
