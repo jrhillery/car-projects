@@ -12,6 +12,7 @@ from appdaemon.exceptions import TimeOutException
 from appdaemon.plugins.hass import Hass
 from appdaemon.state import AsyncStateCallback
 
+from tessie import AdWait
 from tessie import CarDetails
 
 
@@ -19,6 +20,7 @@ from tessie import CarDetails
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
     messages: deque[str] = deque()
+    adUtil = AdWait()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
     alreadyActive: bool
@@ -39,7 +41,7 @@ class RequestCurrentControl(Hass):
                 old="off", new="on",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleStateChange),
+                cast(AsyncStateCallback, self.handleStaleStateChange),
                 old="on", new="off",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
@@ -82,22 +84,17 @@ class RequestCurrentControl(Hass):
         self.log(kwargs["callMsg"])
         self.staleWaits += 1
         vehicle = self.vehicles.get(self.vehicleName(entity))
+        try:
+            await self.adUtil.waitUpdate(vehicle.chargeCurrentNumber, timeout=75)
+            self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
+        except TimeOutException:
+            self.log("%s timed out reporting", vehicle.chargeCurrentNumber.friendly_name)
 
-        await vehicle.chargeCurrentNumber.listen_state(
-            cast(AsyncStateCallback, self.handleFreshStateChange),
-            attribute="all", oneshot=True,
-            callMsg=f"{vehicle.chargeCurrentNumber.friendly_name} reported")
-    # end handleStaleStateChange(str, str, Any, Any, Any)
-
-    async def handleFreshStateChange(self, _entity: str, _attribute: str,
-                                     _old: Any, _new: Any, **kwargs: Any) -> None:
-        """Called when we have fresh data."""
-        self.log(kwargs["callMsg"])
         self.staleWaits -= 1
 
         if self.staleWaits == 0:
             await self.setRequestCurrents()
-    # end handleFreshStateChange(str, str, Any, Any, Any)
+    # end handleStaleStateChange(str, str, Any, Any, Any)
 
     async def handleEvent(self, event_type: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:
@@ -224,10 +221,8 @@ class RequestCurrentControl(Hass):
                 f"{dtls.displayName} request current changing from"
                 f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
             )
-            results = await dtls.chargeCurrentNumber.call_service(
+            await dtls.chargeCurrentNumber.call_service(
                 "set_value", value=reqCurrent, hass_timeout=55)
-            if results["success"] is False:
-                self.log("Set results: %s", str(results))
         else:
             self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
