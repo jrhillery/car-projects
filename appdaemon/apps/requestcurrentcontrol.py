@@ -35,16 +35,6 @@ class RequestCurrentControl(Hass):
         self.totalCurrent = self.args.get("totalCurrent", 32)
 
         for dtls in self.vehicles.values():
-            # Listen for plug-in events
-            await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleStaleStateChange),
-                old="off", new="on",
-                callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
-            await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleStaleStateChange),
-                old="on", new="off",
-                callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
-
             # Listen for charge limit changes
             await dtls.chargeLimitNumber.listen_state(
                 cast(AsyncStateCallback, self.handleStateChange),
@@ -56,6 +46,16 @@ class RequestCurrentControl(Hass):
                 old="on", new="off",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} stopped")
 
+            # Listen for plug-in events
+            await dtls.chargeCableDetector.listen_state(
+                cast(AsyncStateCallback, self.handleStaleStateChange),
+                old="off", new="on",
+                callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
+            await dtls.chargeCableDetector.listen_state(
+                cast(AsyncStateCallback, self.handleStaleStateChange),
+                old="on", new="off",
+                callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
+
         # Listen for a custom event
         await self.listen_event(
             cast(EventCallback, self.handleEvent),
@@ -65,10 +65,9 @@ class RequestCurrentControl(Hass):
         self.log("Ready to adjust cars' request currents")
     # end initialize()
 
-    async def handleStateChange(self, _entity: str, _attribute: str,
-                                _old: Any, _new: Any, **kwargs: Any) -> None:
+    async def handleStateChange(self, *_args: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes."""
-        self.log(kwargs["callMsg"])
+        self.log(callMsg)
         alreadyRunning = self.alreadyActive or self.staleWaits > 0
         self.alreadyActive = True
 
@@ -76,12 +75,12 @@ class RequestCurrentControl(Hass):
             self.log("Duplicate run suppressed")
         else:
             await self.setRequestCurrents()
-    # end handleStateChange(str, str, Any, Any, Any)
+    # end handleStateChange(Any, str, Any)
 
-    async def handleStaleStateChange(self, entity: str, _attribute: str,
-                                     _old: Any, _new: Any, **kwargs: Any) -> None:
+    async def handleStaleStateChange(self, entity: str, *_args: Any,
+                                     callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
-        self.log(kwargs["callMsg"])
+        self.log(callMsg)
         self.staleWaits += 1
         vehicle = self.vehicles.get(self.vehicleName(entity))
         try:
@@ -94,7 +93,7 @@ class RequestCurrentControl(Hass):
 
         if self.staleWaits == 0:
             await self.setRequestCurrents()
-    # end handleStaleStateChange(str, str, Any, Any, Any)
+    # end handleStaleStateChange(str, Any, str, Any)
 
     async def handleEvent(self, event_type: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:

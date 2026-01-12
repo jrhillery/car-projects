@@ -27,7 +27,7 @@ class AdWait:
 
         try:
             handle = await entity.listen_state(
-                cast(AsyncStateCallback, self.entityStateUpdated),
+                cast(AsyncStateCallback, self._entityStateUpdated),
                 attribute="all", oneshot=True, waitId=waitId)
             await asyncio.wait_for(asyncEvent.wait(), timeout=timeout)
         except asyncio.TimeoutError as e:
@@ -38,7 +38,7 @@ class AdWait:
             self._asyncEvents.pop(waitId, None)  # Ignore if already removed
     # end waitUpdate(Entity, int | float | None)
 
-    async def entityStateUpdated(self, *_args, waitId: str, **_kwargs) -> None:
+    async def _entityStateUpdated(self, *_args, waitId: str, **_kwargs) -> None:
         """The entity state updated."""
         asyncEvent = self._asyncEvents.pop(waitId)
         # now release the wait
