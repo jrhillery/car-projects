@@ -170,7 +170,7 @@ class CarDetails:
         parts.append(f", limit {self.chargeLimit}%"
                      f" and battery {self.battLevel:.0f}%")
         if khwNeeded:
-            parts.append(f" ({khwNeeded:.1f} kWh < limit)")
+            parts.append(f" (~{khwNeeded:.1f} kWh < limit)")
 
         return "".join(parts)
     # end chargingStatusSummary(float)
