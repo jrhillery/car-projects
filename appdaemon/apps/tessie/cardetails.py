@@ -97,6 +97,10 @@ class CarDetails:
         return self.pluggedIn() and self.atHome()
     # end pluggedInAtHome()
 
+    def chargingAtHome(self) -> bool:
+        return self.chargingSensor.state == "charging" and self.atHome()
+    # end chargingAtHome()
+
     def inPark(self) -> bool:
         return self.shiftStateSensor.state == "p"
     # end inPark()
