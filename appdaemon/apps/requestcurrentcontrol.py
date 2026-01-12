@@ -48,7 +48,7 @@ class RequestCurrentControl(Hass):
 
             # Listen for plug-in events
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleStaleStateChange),
+                cast(AsyncStateCallback, self.handleNewCharge),
                 old="off", new="on",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
             await dtls.chargeCableDetector.listen_state(
@@ -75,32 +75,54 @@ class RequestCurrentControl(Hass):
             self.log("Duplicate run suppressed")
         else:
             await self.setRequestCurrents()
-    # end handleStateChange(Any, str, Any)
+    # end handleStateChange(*Any, str, **Any)
 
-    async def handleStaleStateChange(self, entity: str, *_args: Any,
+    async def handleNewCharge(self, entityId: str, *_args: Any,
+                              callMsg: str, **_kwargs: Any) -> None:
+        """Called when a new vehicle may begin charging with stale charge current data."""
+        self.log(callMsg)
+
+        for dtls in self.vehicles.values():
+            if dtls.chargingAtHome():
+                await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
+
+        await self.waitStaleCurrents(entityId)
+    # end handleNewCharge(*Any, str, **Any)
+
+    async def handleStaleStateChange(self, entityId: str, *_args: Any,
                                      callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log(callMsg)
+
+        await self.waitStaleCurrents(entityId)
+    # end handleStaleStateChange(str, *Any, str, **Any)
+
+    async def waitStaleCurrents(self, entityId: str) -> None:
+        """Waits a while for stale charge current data.
+
+        :param entityId: Fully qualified entity id
+        """
+        vehicle = self.vehicles[self.vehicleName(entityId)]
         self.staleWaits += 1
-        vehicle = self.vehicles.get(self.vehicleName(entity))
         try:
             await self.adUtil.waitUpdate(vehicle.chargeCurrentNumber, timeout=75)
             self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
         except TimeOutException:
             self.log("%s timed out reporting", vehicle.chargeCurrentNumber.friendly_name)
 
+        self.alreadyActive = True
         self.staleWaits -= 1
 
         if self.staleWaits == 0:
             await self.setRequestCurrents()
-    # end handleStaleStateChange(str, Any, str, Any)
+    # end waitStaleCurrents(str)
 
     async def handleEvent(self, event_type: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:
         """Handle custom event."""
         self.log("Event %s fired", event_type)
         await self.setRequestCurrents()
-    # end handleEvent(str, dict[str, Any], Any)
+    # end handleEvent(str, dict[str, Any], **Any)
 
     @staticmethod
     def vehicleName(entityId: str) -> str:
@@ -136,7 +158,7 @@ class RequestCurrentControl(Hass):
             statuses: list[Entity] = []
             for dtls in self.vehicles.values():
                 if not dtls.awake() and dtls.pluggedInAtHome():
-                    self.logMsg(f"Waking {dtls.displayName}")
+                    self.log(f"Waking {dtls.displayName}")
                     await dtls.wakeButton.call_service("press", hass_timeout=55)
                     statuses.append(dtls.statusDetector)
 
@@ -223,7 +245,7 @@ class RequestCurrentControl(Hass):
             await dtls.chargeCurrentNumber.call_service(
                 "set_value", value=reqCurrent, hass_timeout=55)
         else:
-            self.logMsg(f"{dtls.displayName} request current already set to {reqCurrent} A")
+            self.log(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
 
     async def setRequestCurrents(self) -> None:
