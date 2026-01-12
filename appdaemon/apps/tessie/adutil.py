@@ -43,6 +43,6 @@ class AdWait:
         asyncEvent = self._asyncEvents.pop(waitId)
         # now release the wait
         asyncEvent.set()
-    # end entityStateUpdated(Any, str, Any)
+    # end _entityStateUpdated(*Any, str, **Any)
 
 # end class AdWait
