@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections import deque
+from datetime import datetime
 from typing import Any, cast, Generator
 
 from appdaemon.entity import Entity
@@ -12,7 +13,6 @@ from appdaemon.exceptions import TimeOutException
 from appdaemon.plugins.hass import Hass
 from appdaemon.state import AsyncStateCallback
 
-from tessie import AdWait
 from tessie import CarDetails
 
 
@@ -22,7 +22,6 @@ class RequestCurrentControl(Hass):
     messages: deque[str] = deque()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
-    adUtil: AdWait
     alreadyActive: bool
     staleWaits: int
 
@@ -33,7 +32,6 @@ class RequestCurrentControl(Hass):
         self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
-        self.adUtil = AdWait(self)
         self.alreadyActive = False
         self.staleWaits = 0
 
@@ -70,12 +68,11 @@ class RequestCurrentControl(Hass):
     async def handleStateChange(self, *_args: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes."""
         self.log(callMsg)
-        alreadyRunning = self.alreadyActive or self.staleWaits > 0
-        self.alreadyActive = True
 
-        if alreadyRunning:
+        if self.alreadyActive or self.staleWaits > 0:
             self.log("Duplicate run suppressed")
         else:
+            self.alreadyActive = True
             await self.setRequestCurrents()
     # end handleStateChange(*Any, str, **Any)
 
@@ -83,31 +80,40 @@ class RequestCurrentControl(Hass):
                               callMsg: str, **_kwargs: Any) -> None:
         """Called when a new vehicle may begin charging with stale charge current data."""
         self.log(callMsg)
+        self.staleWaits += 1
+        callTime = await self.get_now()
 
         for dtls in self.vehicles.values():
             if dtls.chargingAtHome():
                 await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-        await self.waitStaleCurrents(entityId)
+        await self.waitStaleCurrents(entityId, callTime)
     # end handleNewCharge(*Any, str, **Any)
 
     async def handleStaleStateChange(self, entityId: str, *_args: Any,
                                      callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log(callMsg)
+        self.staleWaits += 1
+        callTime = await self.get_now()
 
-        await self.waitStaleCurrents(entityId)
+        await self.waitStaleCurrents(entityId, callTime)
     # end handleStaleStateChange(str, *Any, str, **Any)
 
-    async def waitStaleCurrents(self, entityId: str) -> None:
+    async def waitStaleCurrents(self, entityId: str, callTime: datetime) -> None:
         """Waits a while for stale charge current data.
 
+        :param callTime: Date and time state change called
         :param entityId: Fully qualified entity id
         """
         vehicle = self.vehicles[self.vehicleName(entityId)]
-        self.staleWaits += 1
+
+        # give the vehicle a chance to settle in
+        await self.sleep(15)
         try:
-            await self.adUtil.waitUpdate(vehicle.chargeCurrentNumber, timeout=75)
+            await vehicle.chargeCurrentNumber.wait_state(
+                lambda st: self.convert_utc(st["last_reported"]) > callTime,
+                attribute="all", timeout=60)
             self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
         except TimeOutException:
             self.log("%s timed out reporting", vehicle.chargeCurrentNumber.friendly_name)
@@ -117,7 +123,7 @@ class RequestCurrentControl(Hass):
 
         if self.staleWaits == 0:
             await self.setRequestCurrents()
-    # end waitStaleCurrents(str)
+    # end waitStaleCurrents(str, datetime)
 
     async def handleEvent(self, event_type: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:
