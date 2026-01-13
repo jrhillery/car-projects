@@ -20,9 +20,9 @@ from tessie import CarDetails
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
     messages: deque[str] = deque()
-    adUtil = AdWait()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
+    adUtil: AdWait
     alreadyActive: bool
     staleWaits: int
 
@@ -33,6 +33,9 @@ class RequestCurrentControl(Hass):
         self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
+        self.adUtil = AdWait(self)
+        self.alreadyActive = False
+        self.staleWaits = 0
 
         for dtls in self.vehicles.values():
             # Listen for charge limit changes
@@ -60,8 +63,7 @@ class RequestCurrentControl(Hass):
         await self.listen_event(
             cast(EventCallback, self.handleEvent),
             "SET_REQUEST_CURRENTS")
-        self.alreadyActive = False
-        self.staleWaits = 0
+
         self.log("Ready to adjust cars' request currents")
     # end initialize()
 
@@ -143,7 +145,9 @@ class RequestCurrentControl(Hass):
         :param message: Message to include
         """
         self.log(message)
-        self.messages.append(message)
+
+        # tilde is a control character in Markdown - so escape it
+        self.messages.append(message.replace("~", "\\~"))
     # end logMsg(str)
 
     def generateMsgs(self) -> Generator[str, None, None]:
