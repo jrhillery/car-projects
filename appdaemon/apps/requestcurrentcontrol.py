@@ -38,7 +38,7 @@ class RequestCurrentControl(Hass):
             # Listen for charge limit changes
             await dtls.chargeLimitNumber.listen_state(
                 cast(AsyncStateCallback, self.handleStateChange),
-                callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed")
+                callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge stopped events
             await dtls.chargeSwitch.listen_state(
@@ -59,21 +59,23 @@ class RequestCurrentControl(Hass):
         # Listen for a custom event
         await self.listen_event(
             cast(EventCallback, self.handleEvent),
-            "SET_REQUEST_CURRENTS")
+            "set_request_currents")
 
         self.log("Ready to adjust cars' request currents")
     # end initialize()
 
-    async def handleStateChange(self, *_args: Any, callMsg: str, **_kwargs: Any) -> None:
+    async def handleStateChange(self, _entityId: str, _attribute: str, _old: Any,
+                                new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes."""
+        callMsg = callMsg.replace("%new%", new)
         self.log(callMsg)
 
         if self.alreadyActive or self.staleWaits > 0:
-            self.log("Duplicate run suppressed")
+            self.log("Simultaneous run suppressed")
         else:
             self.alreadyActive = True
-            await self.setRequestCurrents()
-    # end handleStateChange(*Any, str, **Any)
+            await self.setRequestCurrents(callMsg)
+    # end handleStateChange(str, str, Any, Any, str, **Any)
 
     async def handleNewCharge(self, entityId: str, *_args: Any,
                               callMsg: str, **_kwargs: Any) -> None:
@@ -87,8 +89,8 @@ class RequestCurrentControl(Hass):
             if dtls.chargingAtHome() and dtls.vehicleName != newChargeCarName:
                 await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-        await self.waitStaleCurrents(entityId, callTime)
-    # end handleNewCharge(*Any, str, **Any)
+        await self.waitStaleCurrents(newChargeCarName, callTime, callMsg)
+    # end handleNewCharge(str, *Any, str, **Any)
 
     async def handleStaleStateChange(self, entityId: str, *_args: Any,
                                      callMsg: str, **_kwargs: Any) -> None:
@@ -97,16 +99,18 @@ class RequestCurrentControl(Hass):
         self.staleWaits += 1
         callTime = await self.get_state(entityId, "last_updated")
 
-        await self.waitStaleCurrents(entityId, callTime)
+        await self.waitStaleCurrents(self.vehicleName(entityId), callTime, callMsg)
     # end handleStaleStateChange(str, *Any, str, **Any)
 
-    async def waitStaleCurrents(self, entityId: str, callTime: str) -> None:
+    async def waitStaleCurrents(self, vehicleName: str, callTime: str,
+                                notificationTitle: str) -> None:
         """Waits a while for stale charge current data.
 
+        :param vehicleName: Name of the vehicle triggering this wait
         :param callTime: Date and time state change called
-        :param entityId: Fully qualified entity id
+        :param notificationTitle: Title for persistent notification, if any
         """
-        vehicle = self.vehicles[self.vehicleName(entityId)]
+        vehicle = self.vehicles[vehicleName]
 
         # give the vehicle a chance to settle in
         await self.sleep(15)
@@ -122,14 +126,15 @@ class RequestCurrentControl(Hass):
         self.staleWaits -= 1
 
         if self.staleWaits == 0:
-            await self.setRequestCurrents()
-    # end waitStaleCurrents(str, datetime)
+            await self.setRequestCurrents(notificationTitle)
+    # end waitStaleCurrents(str, str, str)
 
-    async def handleEvent(self, event_type: str, _data: dict[str, Any],
+    async def handleEvent(self, eventType: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:
         """Handle custom event."""
-        self.log("Event %s fired", event_type)
-        await self.setRequestCurrents()
+        title = f"Event {eventType} fired"
+        self.log(title)
+        await self.setRequestCurrents(title)
     # end handleEvent(str, dict[str, Any], **Any)
 
     @staticmethod
@@ -258,8 +263,11 @@ class RequestCurrentControl(Hass):
             self.log(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
 
-    async def setRequestCurrents(self) -> None:
-        """Automatically set cars' request currents based on each cars' charging needs."""
+    async def setRequestCurrents(self, notificationTitle: str) -> None:
+        """Automatically set cars' request currents based on each cars' charging needs.
+
+        :param notificationTitle: Title for persistent notification, if any
+        """
         await self.wakeSnoozers()
 
         for _ in range(5):
@@ -285,9 +293,7 @@ class RequestCurrentControl(Hass):
         if self.messages:
             await self.call_service(
                 "persistent_notification/create",
-                title="Set Cars' Request Currents",
-                message="\n".join(self.generateMsgs()),
-            )
+                title=notificationTitle, message="\n".join(self.generateMsgs()))
         self.alreadyActive = False
         self.log("Request currents are set")
-    # end setRequestCurrents()
+    # end setRequestCurrents(str)
