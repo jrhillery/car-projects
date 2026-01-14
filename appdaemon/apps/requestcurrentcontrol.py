@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import datetime
 from typing import Any, cast, Generator
 
 from appdaemon.entity import Entity
@@ -81,10 +80,11 @@ class RequestCurrentControl(Hass):
         """Called when a new vehicle may begin charging with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
-        callTime = await self.get_now()
+        callTime = await self.get_state(entityId, "last_updated")
+        newChargeCarName = self.vehicleName(entityId)
 
         for dtls in self.vehicles.values():
-            if dtls.chargingAtHome():
+            if dtls.chargingAtHome() and dtls.vehicleName != newChargeCarName:
                 await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
         await self.waitStaleCurrents(entityId, callTime)
@@ -95,12 +95,12 @@ class RequestCurrentControl(Hass):
         """Called when a state changes with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
-        callTime = await self.get_now()
+        callTime = await self.get_state(entityId, "last_updated")
 
         await self.waitStaleCurrents(entityId, callTime)
     # end handleStaleStateChange(str, *Any, str, **Any)
 
-    async def waitStaleCurrents(self, entityId: str, callTime: datetime) -> None:
+    async def waitStaleCurrents(self, entityId: str, callTime: str) -> None:
         """Waits a while for stale charge current data.
 
         :param callTime: Date and time state change called
@@ -112,7 +112,7 @@ class RequestCurrentControl(Hass):
         await self.sleep(15)
         try:
             await vehicle.chargeCurrentNumber.wait_state(
-                lambda st: self.convert_utc(st["last_reported"]) > callTime,
+                lambda st: st["last_reported"] > callTime,
                 attribute="all", timeout=60)
             self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
         except TimeOutException:
