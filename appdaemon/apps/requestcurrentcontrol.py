@@ -6,10 +6,10 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, cast, Generator
 
+from appdaemon import Hass
 from appdaemon.entity import Entity
 from appdaemon.events import EventCallback
 from appdaemon.exceptions import TimeOutException
-from appdaemon.plugins.hass import Hass
 from appdaemon.state import AsyncStateCallback
 
 from tessie import CarDetails
@@ -85,8 +85,8 @@ class RequestCurrentControl(Hass):
         callTime = await self.get_state(entityId, "last_updated")
         newChargeCarName = self.vehicleName(entityId)
 
-        for dtls in self.vehicles.values():
-            if dtls.chargingAtHome() and dtls.vehicleName != newChargeCarName:
+        for name, dtls in self.vehicles.items():
+            if dtls.chargingAtHome() and name != newChargeCarName:
                 await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
         await self.waitStaleCurrents(newChargeCarName, callTime, callMsg)
@@ -120,7 +120,7 @@ class RequestCurrentControl(Hass):
                 attribute="all", timeout=60)
             self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
         except TimeOutException:
-            self.log("%s timed out reporting", vehicle.chargeCurrentNumber.friendly_name)
+            pass
 
         self.alreadyActive = True
         self.staleWaits -= 1
@@ -184,24 +184,23 @@ class RequestCurrentControl(Hass):
                     self.log("%s awake", vehicleStatus.friendly_name)
                 except TimeOutException:
                     timeout = True
-                    self.log("%s timed out waking", vehicleStatus.friendly_name)
             if not timeout:
                 break
         # end for 6 attempts
     # end wakeSnoozers()
 
-    def limitRequestCurrents(self, desReqCurrents: list[float]) -> dict[str, int]:
+    def limitRequestCurrents(self, desReqCurrents: dict[str, float]) -> dict[str, int]:
         """Get corresponding request currents valid for each charge adapter.
 
-        :param desReqCurrents: List of desired request currents (amps)
-        :return: Corresponding dict of valid request currents
+        :param desReqCurrents: Dictionary of desired request currents (amps)
+        :return: Corresponding dictionary of valid request currents
         """
         requestCurrents: dict[str, int] = {}
         remainingCurrent = self.totalCurrent
 
-        for i, dtls in enumerate(self.vehicles.values()):
-            requestCurrent = dtls.limitRequestCurrent(int(desReqCurrents[i] + 0.5))
-            requestCurrents[dtls.vehicleName] = requestCurrent
+        for name, dtls in self.vehicles.items():
+            requestCurrent = dtls.limitRequestCurrent(int(desReqCurrents[name] + 0.5))
+            requestCurrents[name] = requestCurrent
             remainingCurrent -= requestCurrent
         # end for
 
@@ -212,17 +211,17 @@ class RequestCurrentControl(Hass):
             requestCurrents[keys[0]] += remainingCurrent
 
         return requestCurrents
-    # end limitRequestCurrents(list[float])
+    # end limitRequestCurrents(dict[str, float])
 
     def calcRequestCurrents(self) -> dict[str, int]:
         """Calculate the current needed for each vehicle.
 
         :return: dict of currents needed
         """
-        energiesNeeded: list[float] = []
+        energiesNeeded: dict[str, float] = {}
         totalEnergyNeeded = 0.0
 
-        for dtls in self.vehicles.values():
+        for name, dtls in self.vehicles.items():
             energyNeeded = dtls.neededKwh()
 
             if energyNeeded:
@@ -230,18 +229,18 @@ class RequestCurrentControl(Hass):
             else:
                 self.log(dtls.chargingStatusSummary())
 
-            energiesNeeded.append(energyNeeded)
+            energiesNeeded[name] = energyNeeded
             totalEnergyNeeded += energyNeeded
         # end for
 
         # Calculate request currents based on energy needs
         if totalEnergyNeeded:
-            reqCurrents = [
-                self.totalCurrent * (energy / totalEnergyNeeded) for energy in energiesNeeded
-            ]
+            reqCurrents = {
+                name: self.totalCurrent * (energy / totalEnergyNeeded)
+                for name, energy in energiesNeeded.items()}
         else:
             reqCurrent = self.totalCurrent / len(self.vehicles)
-            reqCurrents = [reqCurrent] * len(self.vehicles)
+            reqCurrents = {name: reqCurrent for name in energiesNeeded}
 
         return self.limitRequestCurrents(reqCurrents)
     # end calcRequestCurrents()
@@ -255,8 +254,7 @@ class RequestCurrentControl(Hass):
         if reqCurrent != dtls.chargeCurrentRequest:
             self.logMsg(
                 f"{dtls.displayName} request current changing from"
-                f" {dtls.chargeCurrentRequest} to {reqCurrent} A"
-            )
+                f" {dtls.chargeCurrentRequest} to {reqCurrent} A")
             await dtls.chargeCurrentNumber.call_service(
                 "set_value", value=reqCurrent, hass_timeout=55)
         else:
