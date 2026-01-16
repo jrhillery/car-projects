@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from collections import deque
 from typing import Any, cast, Generator
 
@@ -18,6 +19,8 @@ from tessie import CarDetails
 # noinspection PyInvalidCast
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
+    TESSIE_SETTLE_TIME = dt.timedelta(seconds=15)
+
     messages: deque[str] = deque()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
@@ -107,13 +110,16 @@ class RequestCurrentControl(Hass):
         """Waits a while for stale charge current data.
 
         :param vehicleName: Name of the vehicle triggering this wait
-        :param callTime: Date and time state change called
+        :param callTime: Date and time state change triggered
         :param notificationTitle: Title for persistent notification, if any
         """
-        vehicle = self.vehicles[vehicleName]
+        await self.wakeSnoozers()
 
-        # give the vehicle a chance to settle in
-        await self.sleep(15)
+        # give the triggering vehicle more time to settle in
+        settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
+        await self.sleep((settleTime - await self.get_now()).total_seconds())
+
+        vehicle = self.vehicles[vehicleName]
         try:
             await vehicle.chargeCurrentNumber.wait_state(
                 lambda st: st["last_reported"] > callTime,
@@ -255,8 +261,9 @@ class RequestCurrentControl(Hass):
             self.logMsg(
                 f"{dtls.displayName} request current changing from"
                 f" {dtls.chargeCurrentRequest} to {reqCurrent} A")
-            await dtls.chargeCurrentNumber.call_service(
+            results = await dtls.chargeCurrentNumber.call_service(
                 "set_value", value=reqCurrent, hass_timeout=55)
+            self.log("Result: %s", results)
         else:
             self.log(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
