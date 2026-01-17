@@ -126,6 +126,7 @@ class RequestCurrentControl(Hass):
                 attribute="all", timeout=60)
             self.log("%s reported", vehicle.chargeCurrentNumber.friendly_name)
         except TimeOutException:
+            # already logged by Entity.wait_state
             pass
 
         self.alreadyActive = True
@@ -186,9 +187,10 @@ class RequestCurrentControl(Hass):
             timeout = False
             for vehicleStatus in statuses:
                 try:
-                    await vehicleStatus.wait_state("on", timeout=55)
+                    await vehicleStatus.wait_state("on", timeout=30)
                     self.log("%s awake", vehicleStatus.friendly_name)
                 except TimeOutException:
+                    # already logged by Entity.wait_state
                     timeout = True
             if not timeout:
                 break
@@ -290,7 +292,7 @@ class RequestCurrentControl(Hass):
                 # end for
 
                 break  # all good, break out of for loop
-            except ValueError as e:
+            except Exception as e:
                 self.error(f"Error setting request currents {e.__class__.__name__}: {e}")
                 await self.sleep(15)
         # end for 5 attempts
