@@ -24,6 +24,7 @@ class CarDetails:
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
+    adapi: ADAPI
 
     @classmethod
     def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
@@ -47,6 +48,7 @@ class CarDetails:
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
             wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
+            adapi=ad,
         )
     # end fromAdapi(ADAPI, str)
 
@@ -57,22 +59,38 @@ class CarDetails:
 
     @property
     def chargeCurrentRequest(self) -> int:
-        return int(float(self.chargeCurrentNumber.state) + 0.5)
+        try:
+            return int(float(self.chargeCurrentNumber.state) + 0.5)
+        except ValueError as ve:
+            self.adapi.error("Invalid charge current %s: %s", ve.__class__.__name__, ve)
+            return 0
     # end chargeCurrentRequest()
 
     @property
     def requestMaxAmps(self) -> int:
-        return self.chargeCurrentNumber.attributes.get("max")
+        try:
+            return self.chargeCurrentNumber.attributes["max"]
+        except KeyError as ke:
+            self.adapi.error("Missing max charge current: %s", ke)
+            return 1
     # end requestMaxAmps()
 
     @property
     def chargeLimit(self) -> int:
-        return int(float(self.chargeLimitNumber.state) + 0.5)
+        try:
+            return int(float(self.chargeLimitNumber.state) + 0.5)
+        except ValueError as ve:
+            self.adapi.error("Invalid charge limit %s: %s", ve.__class__.__name__, ve)
+            return 0
     # end chargeLimit()
 
     @property
     def battLevel(self) -> float:
-        return float(self.batteryLevelSensor.state)
+        try:
+            return float(self.batteryLevelSensor.state)
+        except ValueError as ve:
+            self.adapi.error("Invalid battery level %s: %s", ve.__class__.__name__, ve)
+            return 0.0
     # end battLevel()
 
     @property
@@ -151,10 +169,10 @@ class CarDetails:
             return 0.0
     # end neededKwh(bool)
 
-    def chargingStatusSummary(self, khwNeeded: float = 0.0) -> str:
+    def chargingStatusSummary(self, kwhNeeded: float = 0.0) -> str:
         """Return a summary charging status suitable for display.
 
-        :param khwNeeded: The kilowatt-hours below limit to include
+        :param kwhNeeded: The kilowatt-hours below limit to include
         :return: Summary
         """
         parts: list[str] = [f"{self.displayName} was "]
@@ -169,8 +187,8 @@ class CarDetails:
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
                      f" and battery {self.battLevel:.0f}%")
-        if khwNeeded:
-            parts.append(f" (~{khwNeeded:.1f} kWh < limit)")
+        if kwhNeeded:
+            parts.append(f" (~{kwhNeeded:.1f} kWh < limit)")
 
         return "".join(parts)
     # end chargingStatusSummary(float)
