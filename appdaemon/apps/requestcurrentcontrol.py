@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 from collections import deque
 from typing import Any, cast, Generator
@@ -24,8 +25,8 @@ class RequestCurrentControl(Hass):
     messages: deque[str] = deque()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
-    alreadyActive: bool
     staleWaits: int
+    executionLock: asyncio.Lock
 
     async def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
@@ -34,8 +35,8 @@ class RequestCurrentControl(Hass):
         self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
-        self.alreadyActive = False
         self.staleWaits = 0
+        self.executionLock = asyncio.Lock()
 
         for dtls in self.vehicles.values():
             # Listen for charge limit changes
@@ -73,10 +74,9 @@ class RequestCurrentControl(Hass):
         callMsg = callMsg.replace("%new%", new)
         self.log(callMsg)
 
-        if self.alreadyActive or self.staleWaits > 0:
-            self.log("Simultaneous run suppressed")
+        if self.staleWaits > 0:
+            self.log("Premature run suppressed")
         else:
-            self.alreadyActive = True
             await self.setRequestCurrents(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
 
@@ -129,10 +129,11 @@ class RequestCurrentControl(Hass):
             # already logged by Entity.wait_state
             pass
 
-        self.alreadyActive = True
         self.staleWaits -= 1
 
-        if self.staleWaits == 0:
+        if self.staleWaits > 0:
+            self.log("Premature run suppressed")
+        else:
             await self.setRequestCurrents(notificationTitle)
     # end waitStaleCurrents(str, str, str)
 
@@ -270,7 +271,7 @@ class RequestCurrentControl(Hass):
             self.log(f"{dtls.displayName} request current already set to {reqCurrent} A")
     # end setRequestCurrent(CarDetails, int)
 
-    async def setRequestCurrents(self, notificationTitle: str) -> None:
+    async def setRequestCurrentsSolo(self, notificationTitle: str) -> None:
         """Automatically set cars' request currents based on each cars' charging needs.
 
         :param notificationTitle: Title for persistent notification, if any
@@ -301,6 +302,19 @@ class RequestCurrentControl(Hass):
             await self.call_service(
                 "persistent_notification/create",
                 title=notificationTitle, message="\n".join(self.generateMsgs()))
-        self.alreadyActive = False
         self.log("Request currents are set")
+    # end setRequestCurrentsSolo(str)
+
+    async def setRequestCurrents(self, notificationTitle: str) -> None:
+        """Call setRequestCurrentsSolo if it's not currently running.
+
+        :param notificationTitle: Title for persistent notification, if any
+        """
+        try:
+            async with asyncio.timeout(0) as to:
+                async with self.executionLock:
+                    to.reschedule(None)
+                    await self.setRequestCurrentsSolo(notificationTitle)
+        except asyncio.TimeoutError:
+            self.log("Simultaneous run suppressed")
     # end setRequestCurrents(str)
