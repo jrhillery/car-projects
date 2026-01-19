@@ -58,9 +58,7 @@ class RequestCurrentControl(Hass):
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
         # Listen for a custom event
-        await self.listen_event(
-            cast(EventCallback, self.handleEvent),
-            "set_request_currents")
+        await self.listen_event(cast(EventCallback, self.handleEvent), "set_request_currents")
 
         self.log("Ready to adjust cars' request currents")
     # end initialize()
@@ -180,7 +178,7 @@ class RequestCurrentControl(Hass):
 
     async def wakeSnoozers(self) -> None:
         """Wake up any cars that are sleeping, plugged-in and at home."""
-        for _ in range(6):
+        for _ in range(4):
             statuses: list[Entity] = []
             for dtls in self.vehicles.values():
                 if not dtls.awake() and dtls.pluggedInAtHome():
@@ -198,7 +196,7 @@ class RequestCurrentControl(Hass):
                     timeout = True
             if not timeout:
                 break
-        # end for 6 attempts
+        # end for 4 attempts
     # end wakeSnoozers()
 
     def limitRequestCurrents(self, desReqCurrents: dict[str, float]) -> dict[str, int]:
@@ -268,7 +266,7 @@ class RequestCurrentControl(Hass):
             return
 
         self.logMsg(f"{dtls.displayName} request current changing from"
-                    f" {dtls.chargeCurrentRequest} to {reqCurrent} A")
+                    f" {dtls.chargeCurrentRequest} to {reqCurrent:d} A")
 
         for _ in range(9):
             results = await dtls.chargeCurrentNumber.call_service(
@@ -315,7 +313,7 @@ class RequestCurrentControl(Hass):
         if self.messages:
             await self.call_service("persistent_notification/create", title=notificationTitle,
                                     message="\n".join(self.generateMsgs()))
-        self.log("Request currents are set")
+        self.log("Charging request currents are set")
     # end setRequestCurrents(str)
 
     async def setRequestCurrentsIfNotRunning(self, notificationTitle: str) -> None:
