@@ -46,18 +46,15 @@ class RequestCurrentControl(Hass):
 
             # Listen for charge stopped events
             await dtls.chargeSwitch.listen_state(
-                cast(AsyncStateCallback, self.handleStateChange),
-                old="on", new="off",
+                cast(AsyncStateCallback, self.handleStateChange), old="on", new="off",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} stopped")
 
             # Listen for plug-in events
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleNewCharge),
-                old="off", new="on",
+                cast(AsyncStateCallback, self.handlePlugIn), old="off", new="on",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleStaleStateChange),
-                old="on", new="off",
+                cast(AsyncStateCallback, self.handleUnplug), old="on", new="off",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
         # Listen for a custom event
@@ -73,45 +70,49 @@ class RequestCurrentControl(Hass):
         """Called when a state changes."""
         callMsg = callMsg.replace("%new%", new)
         self.log(callMsg)
-
-        if self.staleWaits > 0:
-            self.log("Premature run suppressed")
-        else:
-            await self.setRequestCurrentsIfNotRunning(callMsg)
+        await self.setRequestCurrentsIfNotRunning(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
 
-    async def handleNewCharge(self, entityId: str, *_args: Any,
-                              callMsg: str, **_kwargs: Any) -> None:
+    async def handlePlugIn(self, entityId: str, *_args: Any,
+                           callMsg: str, **_kwargs: Any) -> None:
         """Called when a new vehicle may begin charging with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
-        callTime = await self.get_state(entityId, "last_updated")
-        newChargeCarName = self.vehicleName(entityId)
+        try:
+            callTime = await self.get_state(entityId, "last_updated")
+            newChargeCarName = self.vehicleName(entityId)
 
-        for name, dtls in self.vehicles.items():
-            if dtls.chargingAtHome() and name != newChargeCarName:
-                await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
+            for name, dtls in self.vehicles.items():
+                if dtls.chargingAtHome() and name != newChargeCarName:
+                    await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-        await self.waitStaleCurrents(newChargeCarName, callTime, callMsg)
-    # end handleNewCharge(str, *Any, str, **Any)
+            await self.waitStaleCurrents(newChargeCarName, callTime)
+        finally:
+            self.staleWaits -= 1
 
-    async def handleStaleStateChange(self, entityId: str, *_args: Any,
-                                     callMsg: str, **_kwargs: Any) -> None:
+        await self.setRequestCurrentsIfNotRunning(callMsg)
+    # end handlePlugIn(str, *Any, str, **Any)
+
+    async def handleUnplug(self, entityId: str, *_args: Any,
+                           callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
-        callTime = await self.get_state(entityId, "last_updated")
+        try:
+            callTime = await self.get_state(entityId, "last_updated")
 
-        await self.waitStaleCurrents(self.vehicleName(entityId), callTime, callMsg)
-    # end handleStaleStateChange(str, *Any, str, **Any)
+            await self.waitStaleCurrents(self.vehicleName(entityId), callTime)
+        finally:
+            self.staleWaits -= 1
 
-    async def waitStaleCurrents(self, vehicleName: str, callTime: str,
-                                notificationTitle: str) -> None:
+        await self.setRequestCurrentsIfNotRunning(callMsg)
+    # end handleUnplug(str, *Any, str, **Any)
+
+    async def waitStaleCurrents(self, vehicleName: str, callTime: str) -> None:
         """Waits a while for stale charge current data.
 
         :param vehicleName: Name of the vehicle triggering this wait
         :param callTime: Date and time state change triggered
-        :param notificationTitle: Title for persistent notification, if any
         """
         await self.wakeSnoozers()
 
@@ -120,14 +121,7 @@ class RequestCurrentControl(Hass):
         await self.sleep((settleTime - await self.get_now()).total_seconds())
 
         await self.awaitNewReport(self.vehicles[vehicleName].chargeCurrentNumber, callTime)
-
-        self.staleWaits -= 1
-
-        if self.staleWaits > 0:
-            self.log("Premature run suppressed")
-        else:
-            await self.setRequestCurrentsIfNotRunning(notificationTitle)
-    # end waitStaleCurrents(str, str, str)
+    # end waitStaleCurrents(str, str)
 
     async def handleEvent(self, eventType: str, _data: dict[str, Any],
                           **_kwargs: Any) -> None:
@@ -137,12 +131,13 @@ class RequestCurrentControl(Hass):
         await self.setRequestCurrentsIfNotRunning(title)
     # end handleEvent(str, dict[str, Any], **Any)
 
-    async def awaitNewReport(self, entity: Entity, oldTime: str) -> None:
+    async def awaitNewReport(self, entity: Entity, oldTime: str | None = None) -> None:
         """Wait for a new last reported time in a given entity.
 
         :param entity: Entity to wait for
         :param oldTime: Old time to surpass
         """
+        oldTime = oldTime or await entity.get_state("last_updated")
         try:
             await entity.wait_state(
                 lambda st: st["last_reported"] > oldTime,
@@ -151,7 +146,7 @@ class RequestCurrentControl(Hass):
         except TimeOutException:
             # already logged by Entity.wait_state
             pass
-    # end awaitNewReport(Entity, str)
+    # end awaitNewReport(Entity, str | None)
 
     @staticmethod
     def vehicleName(entityId: str) -> str:
@@ -189,7 +184,7 @@ class RequestCurrentControl(Hass):
             statuses: list[Entity] = []
             for dtls in self.vehicles.values():
                 if not dtls.awake() and dtls.pluggedInAtHome():
-                    self.log(f"Waking {dtls.displayName}")
+                    self.log("Waking %s", dtls.displayName)
                     await dtls.wakeButton.call_service("press", hass_timeout=55)
                     statuses.append(dtls.statusDetector)
 
@@ -225,7 +220,7 @@ class RequestCurrentControl(Hass):
             # we oversubscribed, reduce the largest request current
             keys = list(requestCurrents.keys())
             keys.sort(key=lambda k: requestCurrents[k], reverse=True)
-            requestCurrents[keys[0]] += remainingCurrent
+            requestCurrents[keys[0]] += remainingCurrent  # this is negative
 
         return requestCurrents
     # end limitRequestCurrents(dict[str, float])
@@ -266,10 +261,10 @@ class RequestCurrentControl(Hass):
         """Set the car's request current to a specified value
 
         :param dtls: Details of the vehicle to set
-        :param reqCurrent: New maximum current to request (amps)
+        :param reqCurrent: New maximum charge current to request (amps)
         """
         if reqCurrent == dtls.chargeCurrentRequest:
-            self.log(f"{dtls.displayName} request current already set to {reqCurrent} A")
+            self.log("%s request current already set to %d A", dtls.displayName, reqCurrent)
             return
 
         self.logMsg(f"{dtls.displayName} request current changing from"
@@ -280,12 +275,12 @@ class RequestCurrentControl(Hass):
                 "set_value", value=reqCurrent, hass_timeout=55)
 
             if (duration := results["ad_duration"]) > 0.4:
-                break
+                break  # all good, break out of for loop
+
             # don't trust this quick response - wait to retry
             self.log("%s set value responded too quickly (%.2f s) - retrying",
                      dtls.chargeCurrentNumber.friendly_name, duration)
-            updateTime = await dtls.chargeCurrentNumber.get_state("last_updated")
-            await self.awaitNewReport(dtls.chargeCurrentNumber, updateTime)
+            await self.awaitNewReport(dtls.chargeCurrentNumber)
         # end for 9 attempts
     # end setRequestCurrent(CarDetails, int)
 
@@ -312,14 +307,14 @@ class RequestCurrentControl(Hass):
 
                 break  # all good, break out of for loop
             except Exception as e:
-                self.error(f"Error setting request currents {e.__class__.__name__}: {e}")
+                self.error("Retrying after error setting request currents %s: %s",
+                           e.__class__.__name__, e)
                 await self.sleep(15)
         # end for 5 attempts
 
         if self.messages:
-            await self.call_service(
-                "persistent_notification/create",
-                title=notificationTitle, message="\n".join(self.generateMsgs()))
+            await self.call_service("persistent_notification/create", title=notificationTitle,
+                                    message="\n".join(self.generateMsgs()))
         self.log("Request currents are set")
     # end setRequestCurrents(str)
 
@@ -328,11 +323,14 @@ class RequestCurrentControl(Hass):
 
         :param notificationTitle: Title for persistent notification, if any
         """
-        try:
-            async with asyncio.timeout(0) as to:
-                async with self.executionLock:
-                    to.reschedule(None)
-                    await self.setRequestCurrents(notificationTitle)
-        except asyncio.TimeoutError:
-            self.log("Simultaneous run suppressed")
+        if self.staleWaits > 0:
+            self.log("Premature run suppressed")
+        else:
+            try:
+                async with asyncio.timeout(0) as to:
+                    async with self.executionLock:
+                        to.reschedule(None)
+                        await self.setRequestCurrents(notificationTitle)
+            except asyncio.TimeoutError:
+                self.log("Simultaneous run suppressed")
     # end setRequestCurrentsIfNotRunning(str)
