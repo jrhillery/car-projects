@@ -1,23 +1,18 @@
 # appdaemon/apps/requestcurrentcontrol.py
 """Automatically set cars' request currents based on each cars' charging needs."""
 
-from __future__ import annotations
-
 import asyncio
 import datetime as dt
 from collections import deque
-from typing import Any, cast, Generator
+from typing import Any, Generator
 
 from appdaemon import Hass
 from appdaemon.entity import Entity
-from appdaemon.events import EventCallback
 from appdaemon.exceptions import TimeOutException
-from appdaemon.state import AsyncStateCallback
 
 from tessie import CarDetails
 
 
-# noinspection PyInvalidCast
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
     TESSIE_SETTLE_TIME = dt.timedelta(seconds=15)
@@ -41,26 +36,27 @@ class RequestCurrentControl(Hass):
         for dtls in self.vehicles.values():
             # Listen for charge limit changes
             await dtls.chargeLimitNumber.listen_state(
-                cast(AsyncStateCallback, self.handleStateChange),
+                self.handleStateChange,
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge stopped events
             await dtls.chargeSwitch.listen_state(
-                cast(AsyncStateCallback, self.handleStateChange), old="on", new="off",
+                self.handleStateChange, old="on", new="off",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} stopped")
 
             # Listen for plug-in events
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handlePlugIn), old="off", new="on",
+                self.handlePlugIn, old="off", new="on",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
             await dtls.chargeCableDetector.listen_state(
-                cast(AsyncStateCallback, self.handleUnplug), old="on", new="off",
+                self.handleUnplug, old="on", new="off",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
-        # Listen for a custom event
-        await self.listen_event(cast(EventCallback, self.handleEvent), "set_request_currents")
+        # Listen for a custom event (type hint says no async callback, but it's supported)
+        # noinspection PyTypeChecker
+        await self.listen_event(self.handleEvent, "set_request_currents")
 
-        self.log("Ready to adjust cars' request currents")
+        self.log("Ready to adjust cars' charging request currents")
     # end initialize()
 
     async def handleStateChange(self, _entityId: str, _attribute: str, _old: Any,
@@ -71,8 +67,8 @@ class RequestCurrentControl(Hass):
         await self.setRequestCurrentsIfNotRunning(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
 
-    async def handlePlugIn(self, entityId: str, *_args: Any,
-                           callMsg: str, **_kwargs: Any) -> None:
+    async def handlePlugIn(self, entityId: str, _attribute: str, _old: Any,
+                           _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when a new vehicle may begin charging with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
@@ -89,10 +85,10 @@ class RequestCurrentControl(Hass):
             self.staleWaits -= 1
 
         await self.setRequestCurrentsIfNotRunning(callMsg)
-    # end handlePlugIn(str, *Any, str, **Any)
+    # end handlePlugIn(str, str, Any, Any, str, **Any)
 
-    async def handleUnplug(self, entityId: str, *_args: Any,
-                           callMsg: str, **_kwargs: Any) -> None:
+    async def handleUnplug(self, entityId: str, _attribute: str, _old: Any,
+                           _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when a state changes with stale charge current data."""
         self.log(callMsg)
         self.staleWaits += 1
@@ -104,7 +100,7 @@ class RequestCurrentControl(Hass):
             self.staleWaits -= 1
 
         await self.setRequestCurrentsIfNotRunning(callMsg)
-    # end handleUnplug(str, *Any, str, **Any)
+    # end handleUnplug(str, str, Any, Any, str, **Any)
 
     async def waitStaleCurrents(self, vehicleName: str, callTime: str) -> None:
         """Waits a while for stale charge current data.
@@ -121,8 +117,7 @@ class RequestCurrentControl(Hass):
         await self.awaitNewReport(self.vehicles[vehicleName].chargeCurrentNumber, callTime)
     # end waitStaleCurrents(str, str)
 
-    async def handleEvent(self, eventType: str, _data: dict[str, Any],
-                          **_kwargs: Any) -> None:
+    async def handleEvent(self, eventType: str, _data: dict[str, Any], **_kwargs: Any) -> None:
         """Handle custom event."""
         title = f"Event {eventType} fired"
         self.log(title)
@@ -266,7 +261,7 @@ class RequestCurrentControl(Hass):
             return
 
         self.logMsg(f"{dtls.displayName} request current changing from"
-                    f" {dtls.chargeCurrentRequest} to {reqCurrent:d} A")
+                    f" {dtls.chargeCurrentRequest:d} to {reqCurrent:d} A")
 
         for _ in range(9):
             results = await dtls.chargeCurrentNumber.call_service(
