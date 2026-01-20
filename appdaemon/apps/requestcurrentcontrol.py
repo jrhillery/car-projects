@@ -89,13 +89,16 @@ class RequestCurrentControl(Hass):
 
     async def handleUnplug(self, entityId: str, _attribute: str, _old: Any,
                            _new: Any, callMsg: str, **_kwargs: Any) -> None:
-        """Called when a state changes with stale charge current data."""
+        """Called when a vehicle's charging cable is unplugged."""
         self.log(callMsg)
         self.staleWaits += 1
         try:
-            callTime = await self.get_state(entityId, "last_updated")
-
-            await self.waitStaleCurrents(self.vehicleName(entityId), callTime)
+            dtls = self.vehicles[self.vehicleName(entityId)]
+            try:
+                await dtls.chargingSensor.wait_state("disconnected", timeout=60)
+            except TimeOutException:
+                # already logged by Entity.wait_state
+                pass
         finally:
             self.staleWaits -= 1
 
