@@ -34,9 +34,10 @@ class RequestCurrentControl(Hass):
         self.executionLock = asyncio.Lock()
 
         for dtls in self.vehicles.values():
-            # Listen for charge limit changes
+            # Listen for charge limit changes (except changes to "unavailable")
             await dtls.chargeLimitNumber.listen_state(
                 self.handleStateChange,
+                constrain_state=lambda limit: str(limit).replace('.', '', 1).isnumeric(),
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge stopped events
@@ -69,18 +70,24 @@ class RequestCurrentControl(Hass):
 
     async def handlePlugIn(self, entityId: str, _attribute: str, _old: Any,
                            _new: Any, callMsg: str, **_kwargs: Any) -> None:
-        """Called when a new vehicle may begin charging with stale charge current data."""
+        """Called when a vehicle's charging cable is plugged in."""
         self.log(callMsg)
         self.staleWaits += 1
         try:
             callTime = await self.get_state(entityId, "last_updated")
-            newChargeCarName = self.vehicleName(entityId)
+            pluggedInCar = self.vehicle(entityId)
 
             for name, dtls in self.vehicles.items():
-                if dtls.chargingAtHome() and name != newChargeCarName:
+                if dtls.chargingAtHome() and name != pluggedInCar.vehicleName:
                     await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-            await self.waitStaleCurrents(newChargeCarName, callTime)
+            await self.wakeSnoozers()
+
+            # give the triggering vehicle a minimum time to settle in
+            settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
+            await self.sleep((settleTime - await self.get_now()).total_seconds())
+
+            await self.awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
         finally:
             self.staleWaits -= 1
 
@@ -93,9 +100,9 @@ class RequestCurrentControl(Hass):
         self.log(callMsg)
         self.staleWaits += 1
         try:
-            dtls = self.vehicles[self.vehicleName(entityId)]
+            unpluggedCar = self.vehicle(entityId)
             try:
-                await dtls.chargingSensor.wait_state("disconnected", timeout=60)
+                await unpluggedCar.chargingSensor.wait_state("disconnected", timeout=60)
             except TimeOutException:
                 # already logged by Entity.wait_state
                 pass
@@ -104,21 +111,6 @@ class RequestCurrentControl(Hass):
 
         await self.setRequestCurrentsIfNotRunning(callMsg)
     # end handleUnplug(str, str, Any, Any, str, **Any)
-
-    async def waitStaleCurrents(self, vehicleName: str, callTime: str) -> None:
-        """Waits a while for stale charge current data.
-
-        :param vehicleName: Name of the vehicle triggering this wait
-        :param callTime: Date and time state change triggered
-        """
-        await self.wakeSnoozers()
-
-        # give the triggering vehicle more time to settle in
-        settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
-        await self.sleep((settleTime - await self.get_now()).total_seconds())
-
-        await self.awaitNewReport(self.vehicles[vehicleName].chargeCurrentNumber, callTime)
-    # end waitStaleCurrents(str, str)
 
     async def handleEvent(self, eventType: str, _data: dict[str, Any], **_kwargs: Any) -> None:
         """Handle custom event."""
@@ -144,18 +136,17 @@ class RequestCurrentControl(Hass):
             pass
     # end awaitNewReport(Entity, str | None)
 
-    @staticmethod
-    def vehicleName(entityId: str) -> str:
-        """Retrieve the vehicle name.
+    def vehicle(self, entityId: str) -> CarDetails:
+        """Retrieve the vehicle details for a given entity.
 
         :param entityId: Fully qualified entity id
-        :return: vehicle name
+        :return: vehicle details
         """
-        _, entityName = entityId.split(".")
-        vehicleName, _ = entityName.split("_", 1)
+        entityName = entityId.split(".")[1]
+        vehicleName = entityName.split("_", 1)[0]
 
-        return vehicleName
-    # end vehicleName(str)
+        return self.vehicles[vehicleName]
+    # end vehicle(str)
 
     def logMsg(self, message: str) -> None:
         """Log an info level message and add it to our list.
