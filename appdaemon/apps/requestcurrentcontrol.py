@@ -37,7 +37,7 @@ class RequestCurrentControl(Hass):
             # Listen for charge limit changes (except changes to "unavailable")
             await dtls.chargeLimitNumber.listen_state(
                 self.handleStateChange,
-                constrain_state=lambda limit: str(limit).replace('.', '', 1).isnumeric(),
+                constrain_state=lambda limit: limit.replace(".", "", 1).isnumeric(),
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge stopped events
