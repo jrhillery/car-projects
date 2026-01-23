@@ -278,8 +278,9 @@ class RequestCurrentControl(Hass):
         :param notificationTitle: Title for persistent notification, if any
         """
         await self.wakeSnoozers()
+        attempt = 0
 
-        for _ in range(5):
+        while True:
             try:
                 reqCurrents = self.calcRequestCurrents()
                 keys = list(self.vehicles.keys())
@@ -293,17 +294,21 @@ class RequestCurrentControl(Hass):
                         await self.setRequestCurrent(dtls, reqCurrents[vehicleName])
                 # end for
 
+                self.log("Charging request currents are set")
                 break  # all good, break out of for loop
             except Exception as e:
-                self.log("Retrying after error setting request currents %s: %s",
+                self.log("Error setting request currents %s: %s",
                          e.__class__.__name__, e, level=logging.ERROR)
-                await self.sleep(15)
+            if (attempt := attempt + 1) == 5:
+                self.log("Unable to set charging request currents")
+                break
+            self.log("Retry %d setting request currents", attempt)
+            await self.sleep(15)
         # end for 5 attempts
 
         if self.messages:
             await self.call_service("persistent_notification/create", title=notificationTitle,
                                     message="\n".join(self.generateMsgs()))
-        self.log("Charging request currents are set")
     # end setRequestCurrents(str)
 
     async def setRequestCurrentsIfNotRunning(self, notificationTitle: str) -> None:
