@@ -3,6 +3,7 @@
 
 import asyncio
 import datetime as dt
+import logging
 from collections import deque
 from typing import Any, Generator
 
@@ -294,8 +295,8 @@ class RequestCurrentControl(Hass):
 
                 break  # all good, break out of for loop
             except Exception as e:
-                self.error("Retrying after error setting request currents %s: %s",
-                           e.__class__.__name__, e)
+                self.log("Retrying after error setting request currents %s: %s",
+                         e.__class__.__name__, e, level=logging.ERROR)
                 await self.sleep(15)
         # end for 5 attempts
 

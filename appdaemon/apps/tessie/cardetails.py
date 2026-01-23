@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
+from functools import partial
 
 from appdaemon import ADAPI
 from appdaemon.entity import Entity
@@ -24,7 +26,7 @@ class CarDetails:
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
-    adapi: ADAPI
+    logError: partial[None]
 
     @classmethod
     def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
@@ -48,7 +50,7 @@ class CarDetails:
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
             wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
-            adapi=ad,
+            logError=partial(ad.log, level=logging.ERROR),
         )
     # end fromAdapi(ADAPI, str)
 
@@ -62,7 +64,7 @@ class CarDetails:
         try:
             return int(float(self.chargeCurrentNumber.state) + 0.5)
         except ValueError as ve:
-            self.adapi.error("Invalid charge current %s: %s", ve.__class__.__name__, ve)
+            self.logError("Invalid charge current %s: %s", ve.__class__.__name__, ve)
             return 0
     # end chargeCurrentRequest()
 
@@ -71,7 +73,7 @@ class CarDetails:
         try:
             return self.chargeCurrentNumber.attributes["max"]
         except KeyError as ke:
-            self.adapi.error("Missing max charge current: %s", ke)
+            self.logError("Missing max charge current: %s", ke)
             return 1
     # end requestMaxAmps()
 
@@ -80,7 +82,7 @@ class CarDetails:
         try:
             return int(float(self.chargeLimitNumber.state) + 0.5)
         except ValueError as ve:
-            self.adapi.error("Invalid charge limit %s: %s", ve.__class__.__name__, ve)
+            self.logError("Invalid charge limit %s: %s", ve.__class__.__name__, ve)
             return 0
     # end chargeLimit()
 
@@ -89,7 +91,7 @@ class CarDetails:
         try:
             return float(self.batteryLevelSensor.state)
         except ValueError as ve:
-            self.adapi.error("Invalid battery level %s: %s", ve.__class__.__name__, ve)
+            self.logError("Invalid battery level %s: %s", ve.__class__.__name__, ve)
             return 0.0
     # end battLevel()
 
