@@ -22,7 +22,7 @@ class CarDetails:
     batteryLevelSensor: Entity
     statusDetector: Entity
     locationTracker: Entity
-    battCapacity: float
+    storedEnergySensor: Entity
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
@@ -46,7 +46,7 @@ class CarDetails:
             batteryLevelSensor=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
             statusDetector=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             locationTracker=ad.get_entity(f"device_tracker.{vehicleName}_location"),
-            battCapacity=68.3,
+            storedEnergySensor=ad.get_entity(f"sensor.{vehicleName}_stored_energy"),
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
             wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
@@ -61,6 +61,7 @@ class CarDetails:
 
     @property
     def chargeCurrentRequest(self) -> int:
+        """The requested charge current in amps."""
         try:
             return int(float(self.chargeCurrentNumber.state) + 0.5)
         except ValueError as ve:
@@ -70,6 +71,7 @@ class CarDetails:
 
     @property
     def requestMaxAmps(self) -> int:
+        """The maximum allowed requested charge current in amps."""
         try:
             return self.chargeCurrentNumber.attributes["max"]
         except KeyError as ke:
@@ -79,6 +81,7 @@ class CarDetails:
 
     @property
     def chargeLimit(self) -> int:
+        """The charge limit as percent of capacity."""
         try:
             return int(float(self.chargeLimitNumber.state) + 0.5)
         except ValueError as ve:
@@ -88,6 +91,7 @@ class CarDetails:
 
     @property
     def battLevel(self) -> float:
+        """The battery level as percent of capacity."""
         try:
             return float(self.batteryLevelSensor.state)
         except ValueError as ve:
@@ -104,6 +108,16 @@ class CarDetails:
     def savedLocation(self) -> str:
         return self.locationTracker.state
     # end savedLocation()
+
+    @property
+    def energyRemaining(self) -> float:
+        """The remaining battery energy in kWh."""
+        try:
+            return float(self.storedEnergySensor.state)
+        except ValueError as ve:
+            self.logError("Invalid energy remaining %s: %s", ve.__class__.__name__, ve)
+            return 0.0
+    # end energyRemaining()
 
     def pluggedIn(self) -> bool:
         return self.chargingSensor.state != "disconnected"
@@ -166,7 +180,10 @@ class CarDetails:
         :return: The energy needed
         """
         if not plugInNeeded or self.pluggedInAtHome():
-            return self.chargeNeeded() * 0.01 * self.battCapacity
+            if self.battLevel:
+                return self.chargeNeeded() * self.energyRemaining / self.battLevel
+            else:
+                return 50.0
         else:
             return 0.0
     # end neededKwh(bool)
