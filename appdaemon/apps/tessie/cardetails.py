@@ -90,6 +90,11 @@ class CarDetails:
     # end chargeLimit()
 
     @property
+    def chargingStatus(self) -> str:
+        return self.chargingSensor.state
+    # end chargingStatus()
+
+    @property
     def battLevel(self) -> float:
         """The battery level as percent of capacity."""
         try:
@@ -120,7 +125,7 @@ class CarDetails:
     # end energyRemaining()
 
     def pluggedIn(self) -> bool:
-        return self.chargingSensor.state != "disconnected"
+        return self.chargingStatus != "disconnected"
     # end pluggedIn()
 
     def atHome(self) -> bool:
@@ -132,7 +137,7 @@ class CarDetails:
     # end pluggedInAtHome()
 
     def chargingAtHome(self) -> bool:
-        return self.chargingSensor.state == "charging" and self.atHome()
+        return self.chargingStatus == "charging" and self.atHome()
     # end chargingAtHome()
 
     def inPark(self) -> bool:
@@ -201,7 +206,7 @@ class CarDetails:
             parts.append("driving")
         if self.savedLocation:
             parts.append(f"@{self.savedLocation}")
-        parts.append(f" {self.chargingSensor.state}")
+        parts.append(f" {self.chargingStatus}")
         if self.pluggedIn():
             parts.append(f" {self.chargeCurrentRequest}/{self.requestMaxAmps}A")
         parts.append(f", limit {self.chargeLimit}%"
