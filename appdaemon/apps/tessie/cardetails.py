@@ -60,6 +60,12 @@ class CarDetails:
     # end displayName()
 
     @property
+    def inPark(self) -> bool:
+        """Whether the vehicle is in park or not."""
+        return self.shiftStateSensor.state == "p"
+    # end inPark()
+
+    @property
     def chargeCurrentRequest(self) -> int:
         """The requested charge current in amps."""
         try:
@@ -91,6 +97,11 @@ class CarDetails:
 
     @property
     def chargingStatus(self) -> str:
+        """Charging status of the vehicle.
+
+        "starting", "charging", "stopped", "complete",
+        "disconnected", "no_power", "unavailable" or "unknown"
+        """
         return self.chargingSensor.state
     # end chargingStatus()
 
@@ -106,11 +117,19 @@ class CarDetails:
 
     @property
     def status(self) -> str:
+        """Vehicle connectivity status.
+
+        "on", "off", "unavailable" or "unknown"
+        """
         return self.statusDetector.state
     # end status()
 
     @property
     def savedLocation(self) -> str:
+        """Vehicle location.
+
+        "home", zone name or "not_home"
+        """
         return self.locationTracker.state
     # end savedLocation()
 
@@ -137,12 +156,8 @@ class CarDetails:
     # end pluggedInAtHome()
 
     def chargingAtHome(self) -> bool:
-        return self.chargingStatus == "charging" and self.atHome()
+        return self.chargingStatus in {"starting", "charging"} and self.atHome()
     # end chargingAtHome()
-
-    def inPark(self) -> bool:
-        return self.shiftStateSensor.state == "p"
-    # end inPark()
 
     def awake(self) -> bool:
         return self.status == "on"
@@ -200,7 +215,7 @@ class CarDetails:
         :return: Summary
         """
         parts: list[str] = [f"{self.displayName} was "]
-        if self.inPark():
+        if self.inPark:
             parts.append(f"{self.status}line")
         else:
             parts.append("driving")
