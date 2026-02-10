@@ -22,7 +22,7 @@ class CarDetails:
     batteryLevelSensor: Entity
     statusDetector: Entity
     locationTracker: Entity
-    storedEnergySensor: Entity
+    energyRemainingSensor: Entity
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
@@ -46,7 +46,7 @@ class CarDetails:
             batteryLevelSensor=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
             statusDetector=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             locationTracker=ad.get_entity(f"device_tracker.{vehicleName}_location"),
-            storedEnergySensor=ad.get_entity(f"sensor.{vehicleName}_stored_energy"),
+            energyRemainingSensor=ad.get_entity(f"sensor.{vehicleName}_energy_remaining"),
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
             wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
@@ -137,7 +137,7 @@ class CarDetails:
     def energyRemaining(self) -> float:
         """The remaining battery energy in kWh."""
         try:
-            return float(self.storedEnergySensor.state)
+            return float(self.energyRemainingSensor.state)
         except ValueError as ve:
             self.logError("Invalid energy remaining %s: %s", ve.__class__.__name__, ve)
             return 0.0
