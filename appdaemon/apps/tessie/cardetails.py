@@ -264,12 +264,13 @@ class CarDetails:
     def neededKwh(self, plugInNeeded = True) -> float:
         """Return the energy needed to reach the charge limit, in kWh
            - this estimate is based on the reported battery charge level
-           - depends on having battery capacity
         :param plugInNeeded: The car needs to be plugged in at home to return non-zero
         :return: The energy needed
         """
         if not plugInNeeded or self.pluggedInAtHome():
-            if self.battLevel:
+            if self.batteryCapacity:
+                return self.chargeNeeded() * 0.01 * self.batteryCapacity
+            elif self.battLevel:
                 return self.chargeNeeded() * self.energyRemaining / self.battLevel
             else:
                 return 50.0
