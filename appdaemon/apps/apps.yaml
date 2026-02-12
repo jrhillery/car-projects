@@ -5,3 +5,8 @@ AmpMan:
     - Electra
     - Nittany
   totalCurrent: 40
+
+DumpNamespace:
+  module: dump_namespace
+  class: DumpNamespace
+  namespace: tessie_car_details_persist
