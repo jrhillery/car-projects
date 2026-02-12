@@ -26,9 +26,11 @@ class RequestCurrentControl(Hass):
 
     async def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
+        if not await self.namespace_exists(CarDetails.PERSISTENT_NS):
+            await self.add_namespace(CarDetails.PERSISTENT_NS)
 
         # Get configuration
-        self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
+        self.vehicles = {name.lower(): await CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
         self.staleWaits = 0
@@ -41,9 +43,12 @@ class RequestCurrentControl(Hass):
                 constrain_state=lambda limit: limit.replace(".", "", 1).isnumeric(),
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
-            # Listen for charge stopped events
+            # Listen for charge start/stopped events
             await dtls.chargeSwitch.listen_state(
-                self.handleStateChange, old="on", new="off",
+                self.handleStartCharge, old="off", new="on",
+                callMsg=f"{dtls.chargeSwitch.friendly_name} started")
+            await dtls.chargeSwitch.listen_state(
+                self.handleStopCharge, old="on", new="off",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} stopped")
 
             # Listen for plug-in events
@@ -68,6 +73,26 @@ class RequestCurrentControl(Hass):
         self.log(callMsg)
         await self.setRequestCurrentsIfNotRunning(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
+
+    async def handleStartCharge(self, entityId: str, _attribute: str, _old: Any,
+                                _new: Any, callMsg: str, **_kwargs: Any) -> None:
+        """Called when charging starts."""
+        self.log(callMsg)
+        self.vehicle(entityId).chargingStarting()
+    # end handleStartCharge(str, str, Any, Any, str, **Any)
+
+    async def handleStopCharge(self, entityId: str, _attribute: str, _old: Any,
+                               _new: Any, callMsg: str, **_kwargs: Any) -> None:
+        """Called when charging stops."""
+        self.log(callMsg)
+        chargeStoppedCar = self.vehicle(entityId)
+
+        # Update battery capacity if we got a decent charge
+        if chargeStoppedCar.energyAdded > 5.0:
+            await chargeStoppedCar.updateBatteryCapacity()
+
+        await self.setRequestCurrentsIfNotRunning(callMsg)
+    # end handleStopCharge(str, str, Any, Any, str, **Any)
 
     async def handlePlugIn(self, entityId: str, _attribute: str, _old: Any,
                            _new: Any, callMsg: str, **_kwargs: Any) -> None:

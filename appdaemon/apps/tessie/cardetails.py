@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from functools import partial
+from collections.abc import Callable
 
 from appdaemon import ADAPI
 from appdaemon.entity import Entity
@@ -13,6 +13,7 @@ from appdaemon.entity import Entity
 class CarDetails:
     """Details of a vehicle as reported by Tessie"""
     TESLA_APP_REQ_MIN_AMPS = 5
+    PERSISTENT_NS = "tessie_car_details_persist"
 
     vehicleName: str
     shiftStateSensor: Entity
@@ -23,19 +24,27 @@ class CarDetails:
     statusDetector: Entity
     locationTracker: Entity
     energyRemainingSensor: Entity
+    chargeEnergyAddedSensor: Entity
+    batteryCapacitySensor: Entity
+    chargeStartPercent: float
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
-    logError: partial[None]
+    log: Callable[..., None]
 
     @classmethod
-    def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
+    async def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
         """Gets the details of a vehicle.
 
         :param ad: AppDaemon api instance
         :param vehicleName: Name of the vehicle
         :return: CarDetails instance
         """
+        batteryCapacitySensor = ad.get_entity(f"sensor.{vehicleName}_battery_capacity",
+                                              cls.PERSISTENT_NS, check_existence=False)
+        if batteryCapacitySensor.entity_id not in ad.AD.state.state[cls.PERSISTENT_NS]:
+            await batteryCapacitySensor.set_state(
+                "0.0", attributes={"battery_level_added": 0.0}, check_existence=False)
 
         return cls(
             vehicleName=vehicleName,
@@ -47,10 +56,13 @@ class CarDetails:
             statusDetector=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
             locationTracker=ad.get_entity(f"device_tracker.{vehicleName}_location"),
             energyRemainingSensor=ad.get_entity(f"sensor.{vehicleName}_energy_remaining"),
+            chargeEnergyAddedSensor=ad.get_entity(f"sensor.{vehicleName}_charge_energy_added"),
+            batteryCapacitySensor=batteryCapacitySensor,
+            chargeStartPercent=-1.0,
             chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
             chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
             wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
-            logError=partial(ad.log, level=logging.ERROR),
+            log=ad.log,
         )
     # end fromAdapi(ADAPI, str)
 
@@ -142,6 +154,63 @@ class CarDetails:
             self.logError("Invalid energy remaining %s: %s", ve.__class__.__name__, ve)
             return 0.0
     # end energyRemaining()
+
+    @property
+    def energyAdded(self) -> float:
+        """The charge energy added in kWh."""
+        try:
+            return float(self.chargeEnergyAddedSensor.state)
+        except ValueError as ve:
+            self.logError("Invalid energy added %s: %s", ve.__class__.__name__, ve)
+            return 0.0
+    # end energyAdded()
+
+    @property
+    def batteryCapacity(self) -> float:
+        """The persisted estimated battery capacity in kWh."""
+        try:
+            return float(self.batteryCapacitySensor.state)
+        except ValueError as ve:
+            self.logError("Invalid battery capacity %s: %s", ve.__class__.__name__, ve)
+            return 0.0
+    # end batteryCapacity()
+
+    @property
+    def persistedBatteryLevelAdded(self) -> float:
+        """The persisted battery level added as a fraction of capacity."""
+        try:
+            return self.batteryCapacitySensor.attributes["battery_level_added"]
+        except ValueError as ve:
+            self.logError("Invalid battery level added %s: %s", ve.__class__.__name__, ve)
+            return 0.0
+    # end persistedBatteryLevelAdded()
+
+    def chargingStarting(self) -> None:
+        """The charging process is starting."""
+        self.chargeStartPercent = self.battLevel
+    # end chargingStarting()
+
+    async def updateBatteryCapacity(self) -> None:
+        """Update the estimated battery capacity of the vehicle."""
+        if self.chargeStartPercent < 0.0:
+            self.logError("Unable to update estimated battery capacity"
+                          " - app reinitialized since %s started charging", self.displayName)
+            return
+        batteryLevelAddedAccumulator = self.persistedBatteryLevelAdded
+        energyAccumulator = self.batteryCapacity * batteryLevelAddedAccumulator
+        batteryLevelAddedAccumulator += (self.battLevel - self.chargeStartPercent) / 100.0
+        energyAccumulator += self.energyAdded
+        capacity = energyAccumulator / batteryLevelAddedAccumulator
+
+        await self.batteryCapacitySensor.set_state(
+            str(capacity), attributes={"battery_level_added": batteryLevelAddedAccumulator})
+        self.log("New estimated battery capacity: %.2f, total portion added: %.3f",
+                 capacity, batteryLevelAddedAccumulator)
+    # end updateBatteryCapacity()
+
+    def logError(self, msg: str, *args, **kwargs) -> None:
+        self.log(msg, *args, level=logging.ERROR, **kwargs)
+    # end logError(str, *Any, **Any)
 
     def pluggedIn(self) -> bool:
         return self.chargingStatus != "disconnected"
