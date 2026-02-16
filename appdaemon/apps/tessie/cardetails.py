@@ -42,7 +42,8 @@ class CarDetails:
         """
         batteryCapacitySensor = ad.get_entity(f"sensor.{vehicleName}_battery_capacity",
                                               cls.PERSISTENT_NS, check_existence=False)
-        if batteryCapacitySensor.entity_id not in ad.AD.state.state[cls.PERSISTENT_NS]:
+        if not await ad.entity_exists(batteryCapacitySensor.entity_id, cls.PERSISTENT_NS):
+            # create this battery capacity entity
             await batteryCapacitySensor.set_state(
                 "0.0", attributes={"battery_level_added": 0.0}, check_existence=False)
 
