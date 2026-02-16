@@ -24,13 +24,13 @@ class RequestCurrentControl(Hass):
     staleWaits: int
     executionLock: asyncio.Lock
 
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
-        if not await self.namespace_exists(CarDetails.PERSISTENT_NS):
-            await self.add_namespace(CarDetails.PERSISTENT_NS)
+        if not self.namespace_exists(CarDetails.PERSISTENT_NS):
+            self.add_namespace(CarDetails.PERSISTENT_NS)
 
         # Get configuration
-        self.vehicles = {name.lower(): await CarDetails.fromAdapi(self, name.lower())
+        self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
         self.staleWaits = 0
@@ -38,30 +38,30 @@ class RequestCurrentControl(Hass):
 
         for dtls in self.vehicles.values():
             # Listen for charge limit changes (except changes to "unavailable")
-            await dtls.chargeLimitNumber.listen_state(
+            dtls.chargeLimitNumber.listen_state(
                 self.handleStateChange,
                 constrain_state=lambda limit: limit.replace(".", "", 1).isnumeric(),
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge start/stopped events
-            await dtls.chargeSwitch.listen_state(
+            dtls.chargeSwitch.listen_state(
                 self.handleStartCharge, old="off", new="on",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} started")
-            await dtls.chargeSwitch.listen_state(
+            dtls.chargeSwitch.listen_state(
                 self.handleStopCharge, old="on", new="off",
                 callMsg=f"{dtls.chargeSwitch.friendly_name} stopped")
 
             # Listen for plug-in events
-            await dtls.chargeCableDetector.listen_state(
+            dtls.chargeCableDetector.listen_state(
                 self.handlePlugIn, old="off", new="on",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} plugged in")
-            await dtls.chargeCableDetector.listen_state(
+            dtls.chargeCableDetector.listen_state(
                 self.handleUnplug, old="on", new="off",
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
         # Listen for a custom event (type hint says no async callback, but it's supported)
         # noinspection PyTypeChecker
-        await self.listen_event(self.handleEvent, "set_request_currents")
+        self.listen_event(self.handleEvent, "set_request_currents")
 
         self.log("Ready to adjust cars' charging request currents")
     # end initialize()
