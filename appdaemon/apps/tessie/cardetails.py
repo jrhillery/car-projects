@@ -197,16 +197,16 @@ class CarDetails:
             self.logError("Unable to update estimated battery capacity"
                           " - app reinitialized since %s started charging", self.displayName)
             return
-        batteryLevelAddedAccumulator = self.persistedBatteryLevelAdded
-        energyAccumulator = self.batteryCapacity * batteryLevelAddedAccumulator
-        batteryLevelAddedAccumulator += (self.battLevel - self.chargeStartPercent) / 100.0
-        energyAccumulator += self.energyAdded
-        capacity = energyAccumulator / batteryLevelAddedAccumulator
+        batteryLevelAddedAccum = self.persistedBatteryLevelAdded
+        energyAccum = self.batteryCapacity * batteryLevelAddedAccum
+        batteryLevelAddedAccum += (self.battLevel - self.chargeStartPercent) / 100.0
+        energyAccum += self.energyAdded
+        capacity = energyAccum / batteryLevelAddedAccum
 
         await self.batteryCapacitySensor.set_state(
-            str(capacity), attributes={"battery_level_added": batteryLevelAddedAccumulator})
+            str(capacity), attributes={"battery_level_added": batteryLevelAddedAccum})
         self.log("New estimated battery capacity: %.2f, total portion added: %.3f",
-                 capacity, batteryLevelAddedAccumulator)
+                 capacity, batteryLevelAddedAccum)
     # end updateBatteryCapacity()
 
     def logError(self, msg: str, *args, **kwargs) -> None:
