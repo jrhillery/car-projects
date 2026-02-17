@@ -74,7 +74,7 @@ class RequestCurrentControl(Hass):
         await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
 
-    async def handleStartCharge(self, entityId: str, _attribute: str, _old: Any,
+    def handleStartCharge(self, entityId: str, _attribute: str, _old: Any,
                                 _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when charging starts."""
         self.log(callMsg)
