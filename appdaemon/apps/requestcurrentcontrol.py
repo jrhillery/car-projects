@@ -71,27 +71,27 @@ class RequestCurrentControl(Hass):
         """Called when a state changes."""
         callMsg = callMsg.replace("%new%", new)
         self.log(callMsg)
-        await self.setRequestCurrentsIfNotRunning(callMsg)
+        await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handleStateChange(str, str, Any, Any, str, **Any)
 
     async def handleStartCharge(self, entityId: str, _attribute: str, _old: Any,
                                 _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when charging starts."""
         self.log(callMsg)
-        self.vehicle(entityId).chargingStarting()
+        self._vehicle(entityId).chargingStarting()
     # end handleStartCharge(str, str, Any, Any, str, **Any)
 
     async def handleStopCharge(self, entityId: str, _attribute: str, _old: Any,
                                _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when charging stops."""
         self.log(callMsg)
-        chargeStoppedCar = self.vehicle(entityId)
+        chargeStoppedCar = self._vehicle(entityId)
 
         # Update battery capacity if we got a decent charge
         if chargeStoppedCar.energyAdded > 5.0:
             await chargeStoppedCar.updateBatteryCapacity()
 
-        await self.setRequestCurrentsIfNotRunning(callMsg)
+        await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handleStopCharge(str, str, Any, Any, str, **Any)
 
     async def handlePlugIn(self, entityId: str, _attribute: str, _old: Any,
@@ -101,23 +101,23 @@ class RequestCurrentControl(Hass):
         self.staleWaits += 1
         try:
             callTime = await self.get_state(entityId, "last_updated")
-            pluggedInCar = self.vehicle(entityId)
+            pluggedInCar = self._vehicle(entityId)
 
             for name, dtls in self.vehicles.items():
                 if dtls.chargingAtHome() and name != pluggedInCar.vehicleName:
-                    await self.setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
+                    await self._setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-            await self.wakeSnoozers()
+            await self._wakeSnoozers()
 
             # give the triggering vehicle a minimum time to settle in
             settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
             await self.sleep((settleTime - await self.get_now()).total_seconds())
 
-            await self.awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
+            await self._awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
         finally:
             self.staleWaits -= 1
 
-        await self.setRequestCurrentsIfNotRunning(callMsg)
+        await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handlePlugIn(str, str, Any, Any, str, **Any)
 
     async def handleUnplug(self, entityId: str, _attribute: str, _old: Any,
@@ -126,7 +126,7 @@ class RequestCurrentControl(Hass):
         self.log(callMsg)
         self.staleWaits += 1
         try:
-            unpluggedCar = self.vehicle(entityId)
+            unpluggedCar = self._vehicle(entityId)
             try:
                 await unpluggedCar.chargingSensor.wait_state("disconnected", timeout=60)
             except TimeOutException:
@@ -135,17 +135,17 @@ class RequestCurrentControl(Hass):
         finally:
             self.staleWaits -= 1
 
-        await self.setRequestCurrentsIfNotRunning(callMsg)
+        await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handleUnplug(str, str, Any, Any, str, **Any)
 
     async def handleEvent(self, eventType: str, _data: dict[str, Any], **_kwargs: Any) -> None:
         """Handle custom event."""
         title = f"Event {eventType} fired"
         self.log(title)
-        await self.setRequestCurrentsIfNotRunning(title)
+        await self._setRequestCurrentsIfNotRunning(title)
     # end handleEvent(str, dict[str, Any], **Any)
 
-    async def awaitNewReport(self, entity: Entity, oldTime: str | None = None) -> None:
+    async def _awaitNewReport(self, entity: Entity, oldTime: str | None = None) -> None:
         """Wait for a new last reported time in a given entity.
 
         :param entity: Entity to wait for
@@ -160,9 +160,9 @@ class RequestCurrentControl(Hass):
         except TimeOutException:
             # already logged by Entity.wait_state
             pass
-    # end awaitNewReport(Entity, str | None)
+    # end _awaitNewReport(Entity, str | None)
 
-    def vehicle(self, entityId: str) -> CarDetails:
+    def _vehicle(self, entityId: str) -> CarDetails:
         """Retrieve the vehicle details for a given entity.
 
         :param entityId: Fully qualified entity id
@@ -172,7 +172,7 @@ class RequestCurrentControl(Hass):
         vehicleName = entityName.split("_", 1)[0]
 
         return self.vehicles[vehicleName]
-    # end vehicle(str)
+    # end _vehicle(str)
 
     def logMsg(self, message: str) -> None:
         """Log an info level message and add it to our list.
@@ -185,13 +185,13 @@ class RequestCurrentControl(Hass):
         self.messages.append(message.replace("~", "\\~"))
     # end logMsg(str)
 
-    def generateMsgs(self) -> Generator[str, None, None]:
+    def _generateMsgs(self) -> Generator[str, None, None]:
         """Generate each included message once."""
         while self.messages:
             yield self.messages.popleft()
-    # end generateMsgs()
+    # end _generateMsgs()
 
-    async def wakeSnoozers(self) -> None:
+    async def _wakeSnoozers(self) -> None:
         """Wake up any cars that are sleeping, plugged-in and at home."""
         for _ in range(4):
             statuses: list[Entity] = []
@@ -212,9 +212,9 @@ class RequestCurrentControl(Hass):
             if not timeout:
                 break
         # end for 4 attempts
-    # end wakeSnoozers()
+    # end _wakeSnoozers()
 
-    def limitRequestCurrents(self, desReqCurrents: dict[str, float]) -> dict[str, int]:
+    def _limitRequestCurrents(self, desReqCurrents: dict[str, float]) -> dict[str, int]:
         """Get corresponding request currents valid for each charge adapter.
 
         :param desReqCurrents: Dictionary of desired request currents (amps)
@@ -236,9 +236,9 @@ class RequestCurrentControl(Hass):
             requestCurrents[keys[0]] += remainingCurrent  # this is negative
 
         return requestCurrents
-    # end limitRequestCurrents(dict[str, float])
+    # end _limitRequestCurrents(dict[str, float])
 
-    def calcRequestCurrents(self) -> dict[str, int]:
+    def _calcRequestCurrents(self) -> dict[str, int]:
         """Calculate the current needed for each vehicle.
 
         :return: dict of currents needed
@@ -267,10 +267,10 @@ class RequestCurrentControl(Hass):
             reqCurrent = self.totalCurrent / len(self.vehicles)
             reqCurrents = {name: reqCurrent for name in energiesNeeded}
 
-        return self.limitRequestCurrents(reqCurrents)
-    # end calcRequestCurrents()
+        return self._limitRequestCurrents(reqCurrents)
+    # end _calcRequestCurrents()
 
-    async def setRequestCurrent(self, dtls: CarDetails, reqCurrent: int) -> None:
+    async def _setRequestCurrent(self, dtls: CarDetails, reqCurrent: int) -> None:
         """Set the car's request current to a specified value
 
         :param dtls: Details of the vehicle to set
@@ -293,21 +293,21 @@ class RequestCurrentControl(Hass):
             # don't trust this quick response - wait to retry
             self.log("%s set value responded too quickly (%.2f s) - retrying",
                      dtls.chargeCurrentNumber.friendly_name, duration)
-            await self.awaitNewReport(dtls.chargeCurrentNumber)
+            await self._awaitNewReport(dtls.chargeCurrentNumber)
         # end for 9 attempts
-    # end setRequestCurrent(CarDetails, int)
+    # end _setRequestCurrent(CarDetails, int)
 
-    async def setRequestCurrents(self, notificationTitle: str) -> None:
+    async def _setRequestCurrents(self, notificationTitle: str) -> None:
         """Automatically set cars' request currents based on each cars' charging needs.
 
         :param notificationTitle: Title for persistent notification, if any
         """
-        await self.wakeSnoozers()
+        await self._wakeSnoozers()
         attempt = 0
 
         while True:
             try:
-                reqCurrents = self.calcRequestCurrents()
+                reqCurrents = self._calcRequestCurrents()
                 keys = list(self.vehicles.keys())
 
                 # To decrease first, sort ascending by increase in request current
@@ -316,7 +316,7 @@ class RequestCurrentControl(Hass):
                 for vehicleName in keys:
                     dtls = self.vehicles[vehicleName]
                     if dtls.pluggedInAtHome():
-                        await self.setRequestCurrent(dtls, reqCurrents[vehicleName])
+                        await self._setRequestCurrent(dtls, reqCurrents[vehicleName])
                 # end for
 
                 self.log("Charging request currents are set")
@@ -333,11 +333,11 @@ class RequestCurrentControl(Hass):
 
         if self.messages:
             await self.call_service("persistent_notification/create", title=notificationTitle,
-                                    message="\n".join(self.generateMsgs()))
-    # end setRequestCurrents(str)
+                                    message="\n".join(self._generateMsgs()))
+    # end _setRequestCurrents(str)
 
-    async def setRequestCurrentsIfNotRunning(self, notificationTitle: str) -> None:
-        """Call setRequestCurrents if it's not currently running.
+    async def _setRequestCurrentsIfNotRunning(self, notificationTitle: str) -> None:
+        """Call _setRequestCurrents if it's not currently running.
 
         :param notificationTitle: Title for persistent notification, if any
         """
@@ -348,7 +348,7 @@ class RequestCurrentControl(Hass):
                 async with asyncio.timeout(0) as to:
                     async with self.executionLock:
                         to.reschedule(None)
-                        await self.setRequestCurrents(notificationTitle)
+                        await self._setRequestCurrents(notificationTitle)
             except asyncio.TimeoutError:
                 self.log("Simultaneous run suppressed")
-    # end setRequestCurrentsIfNotRunning(str)
+    # end _setRequestCurrentsIfNotRunning(str)
