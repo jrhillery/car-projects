@@ -37,10 +37,11 @@ class RequestCurrentControl(Hass):
         self.executionLock = asyncio.Lock()
 
         for dtls in self.vehicles.values():
-            # Listen for charge limit changes (except changes to "unavailable")
+            # Listen for charge limit changes (except changes to/from "unavailable")
             dtls.chargeLimitNumber.listen_state(
                 self.handleStateChange,
-                constrain_state=lambda limit: limit.replace(".", "", 1).isnumeric(),
+                old=lambda limit: limit.replace(".", "", 1).isnumeric(),
+                new=lambda limit: limit.replace(".", "", 1).isnumeric(),
                 callMsg=f"{dtls.chargeLimitNumber.friendly_name} changed to %new%")
 
             # Listen for charge start/stopped events
