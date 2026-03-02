@@ -198,17 +198,23 @@ class CarDetails:
                           " - app reinitialized since %s started charging", self.displayName)
             return
         batteryLevelAdded = (self.battLevel - self.chargeStartPercent) / 100.0
+        oldBatteryCapacity = self.batteryCapacity
+        energyAdded = self.energyAdded
 
         # rolling weighted average capped at ~2 full cycles, so recent charges dominate the estimate
         batteryLevelAddedAccum = min(self.persistedBatteryLevelAdded, 2.0 - batteryLevelAdded)
-        energyAccum = self.batteryCapacity * batteryLevelAddedAccum
+        energyAccum = oldBatteryCapacity * batteryLevelAddedAccum
         batteryLevelAddedAccum += batteryLevelAdded
-        energyAccum += self.energyAdded
+        energyAccum += energyAdded
         capacity = energyAccum / batteryLevelAddedAccum
 
         await self.batteryCapacitySensor.set_state(
             str(capacity), attributes={"battery_level_added": batteryLevelAddedAccum})
-        self.log("%s estimated battery capacity: %.2f, total portion added: %.2f",
+        self.log("%s old battery capacity: %.2f kWh, portion added: %.2f,"
+                 " energy added: %.2f kWh (=> capacity for this charge: %.2f kWh)",
+                 self.displayName, oldBatteryCapacity, batteryLevelAdded,
+                 energyAdded, energyAdded / batteryLevelAdded)
+        self.log("%s estimated battery capacity: %.2f kWh, total portion added: %.2f",
                  self.displayName, capacity, batteryLevelAddedAccum)
     # end updateBatteryCapacity()
 
