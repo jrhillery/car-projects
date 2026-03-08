@@ -81,11 +81,7 @@ class CarDetails:
     @property
     def chargeCurrentRequest(self) -> int:
         """The requested charge current in amps."""
-        try:
-            return int(float(self.chargeCurrentNumber.state) + 0.5)
-        except ValueError as ve:
-            self.logError("Invalid charge current %s: %s", ve.__class__.__name__, ve)
-            return 0
+        return int(self._floatState(self.chargeCurrentNumber) + 0.5)
     # end chargeCurrentRequest()
 
     @property
@@ -101,11 +97,7 @@ class CarDetails:
     @property
     def chargeLimit(self) -> int:
         """The charge limit as percent of capacity."""
-        try:
-            return int(float(self.chargeLimitNumber.state) + 0.5)
-        except ValueError as ve:
-            self.logError("Invalid charge limit %s: %s", ve.__class__.__name__, ve)
-            return 0
+        return int(self._floatState(self.chargeLimitNumber) + 0.5)
     # end chargeLimit()
 
     @property
@@ -121,11 +113,7 @@ class CarDetails:
     @property
     def battLevel(self) -> float:
         """The battery level as percent of capacity."""
-        try:
-            return float(self.batteryLevelSensor.state)
-        except ValueError as ve:
-            self.logError("Invalid battery level %s: %s", ve.__class__.__name__, ve)
-            return 0.0
+        return self._floatState(self.batteryLevelSensor)
     # end battLevel()
 
     @property
@@ -149,31 +137,19 @@ class CarDetails:
     @property
     def energyRemaining(self) -> float:
         """The remaining battery energy in kWh."""
-        try:
-            return float(self.energyRemainingSensor.state)
-        except ValueError as ve:
-            self.logError("Invalid energy remaining %s: %s", ve.__class__.__name__, ve)
-            return 0.0
+        return self._floatState(self.energyRemainingSensor)
     # end energyRemaining()
 
     @property
     def energyAdded(self) -> float:
         """The charge energy added in kWh."""
-        try:
-            return float(self.chargeEnergyAddedSensor.state)
-        except ValueError as ve:
-            self.logError("Invalid energy added %s: %s", ve.__class__.__name__, ve)
-            return 0.0
+        return self._floatState(self.chargeEnergyAddedSensor)
     # end energyAdded()
 
     @property
     def batteryCapacity(self) -> float:
         """The persisted estimated battery capacity in kWh."""
-        try:
-            return float(self.batteryCapacitySensor.state)
-        except ValueError as ve:
-            self.logError("Invalid battery capacity %s: %s", ve.__class__.__name__, ve)
-            return 0.0
+        return self._floatState(self.batteryCapacitySensor)
     # end batteryCapacity()
 
     @property
@@ -185,6 +161,19 @@ class CarDetails:
             self.logError("Invalid battery level added %s: %s", ve.__class__.__name__, ve)
             return 0.0
     # end persistedBatteryLevelAdded()
+
+    def _floatState(self, sensor: Entity) -> float:
+        """Handle value errors converting state strings to floats.
+
+        :param sensor: entity with state to convert
+        :return: floating point representation of entity's state
+        """
+        try:
+            return float(sensor.state)
+        except ValueError as ve:
+            self.logError("Invalid %s %s: %s", sensor.friendly_name, ve.__class__.__name__, ve)
+            return 0.0
+    # end _floatState(Entity)
 
     def chargingStarting(self) -> None:
         """The charging process is starting."""
