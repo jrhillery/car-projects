@@ -86,11 +86,19 @@ class RequestCurrentControl(Hass):
                                _new: Any, callMsg: str, **_kwargs: Any) -> None:
         """Called when charging stops."""
         self.log(callMsg)
-        chargeStoppedCar = self._vehicle(entityId)
+        self.staleWaits += 1
+        try:
+            chargeStoppedCar = self._vehicle(entityId)
+            energyAddedSensor = chargeStoppedCar.chargeEnergyAddedSensor
+            callTime = await self.get_state(entityId, "last_updated")
+            await self._awaitNewReport(energyAddedSensor, callTime)
+            self.logMsg(f"{energyAddedSensor.friendly_name}: {energyAddedSensor.state} kWh")
 
-        # Update battery capacity if we got a decent charge
-        if chargeStoppedCar.energyAdded > 5.0:
-            await chargeStoppedCar.updateBatteryCapacity()
+            # Update battery capacity if we got a decent charge
+            if chargeStoppedCar.energyAdded > 5.0:
+                await chargeStoppedCar.updateBatteryCapacity()
+        finally:
+            self.staleWaits -= 1
 
         await self._setRequestCurrentsIfNotRunning(callMsg)
     # end handleStopCharge(str, str, Any, Any, str, **Any)
