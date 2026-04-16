@@ -1,15 +1,15 @@
 # appdaemon/apps/requestcurrentcontrol.py
 """Automatically set cars' request currents based on each cars' charging needs."""
 
+from collections import deque
+
 import asyncio
 import datetime as dt
 import logging
-from collections import deque
-from typing import Any, Generator
-
 from appdaemon import Hass
 from appdaemon.entity import Entity
 from appdaemon.exceptions import TimeOutException
+from typing import Any, cast, Generator
 
 from tessie import CarDetails
 
@@ -24,6 +24,7 @@ class RequestCurrentControl(Hass):
     staleWaits: int
     executionLock: asyncio.Lock
 
+    # noinspection PyTypeChecker
     def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
         if not self.namespace_exists(CarDetails.PERSISTENT_NS):
@@ -61,7 +62,6 @@ class RequestCurrentControl(Hass):
                 callMsg=f"{dtls.chargeCableDetector.friendly_name} unplugged")
 
         # Listen for a custom event (type hint says no async callback, but it's supported)
-        # noinspection PyTypeChecker
         self.listen_event(self.handleEvent, "set_request_currents")
 
         self.log("Ready to adjust cars' charging request currents")
@@ -90,6 +90,7 @@ class RequestCurrentControl(Hass):
         try:
             chargeStoppedCar = self._vehicle(entityId)
             energyAddedSensor = chargeStoppedCar.chargeEnergyAddedSensor
+            # noinspection PyUnresolvedReferences
             callTime = await self.get_state(entityId, "last_updated")
             await self._awaitNewReport(energyAddedSensor, callTime)
             self.logMsg(f"{energyAddedSensor.friendly_name}: {energyAddedSensor.state} kWh")
@@ -109,6 +110,7 @@ class RequestCurrentControl(Hass):
         self.log(callMsg)
         self.staleWaits += 1
         try:
+            # noinspection PyUnresolvedReferences
             callTime = await self.get_state(entityId, "last_updated")
             pluggedInCar = self._vehicle(entityId)
 
@@ -120,6 +122,7 @@ class RequestCurrentControl(Hass):
 
             # give the triggering vehicle a minimum time to settle in
             settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
+            # noinspection PyUnresolvedReferences
             await self.sleep((settleTime - await self.get_now()).total_seconds())
 
             await self._awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
@@ -163,7 +166,7 @@ class RequestCurrentControl(Hass):
         oldTime = oldTime or await entity.get_state("last_updated")
         try:
             await entity.wait_state(
-                lambda st: st["last_reported"] > oldTime,
+                lambda st: st["last_reported"] > cast(str, oldTime),
                 attribute="all", timeout=60)
             self.log("%s reported", entity.friendly_name)
         except TimeOutException:
