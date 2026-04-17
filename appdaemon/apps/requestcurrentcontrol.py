@@ -226,6 +226,22 @@ class RequestCurrentControl(Hass):
         # end for 4 attempts
     # end _wakeSnoozers()
 
+    def _homeEnergyNeeded(self, dtls: CarDetails) -> float:
+        """Return the home energy needed to reach the charge limit, in kWh
+
+        :param dtls: Details of the vehicle to query
+        :return: The energy needed from home
+        """
+        energyNeeded = dtls.neededKwh()
+
+        if energyNeeded:
+            self.logMsg(dtls.chargingStatusSummary(energyNeeded))
+        else:
+            self.log(dtls.chargingStatusSummary())
+
+        return energyNeeded if dtls.atHome() else 0.0
+    # end _homeEnergyNeeded(CarDetails)
+
     def _limitRequestCurrents(self, desReqCurrents: dict[str, float]) -> dict[str, int]:
         """Get corresponding request currents valid for each charge adapter.
 
@@ -255,26 +271,14 @@ class RequestCurrentControl(Hass):
 
         :return: dict of currents needed
         """
-        energiesNeeded: dict[str, float] = {}
-        totalEnergyNeeded = 0.0
-
-        for name, dtls in self.vehicles.items():
-            energyNeeded = dtls.neededKwh()
-
-            if energyNeeded:
-                self.logMsg(dtls.chargingStatusSummary(energyNeeded))
-            else:
-                self.log(dtls.chargingStatusSummary())
-
-            energiesNeeded[name] = energyNeeded
-            totalEnergyNeeded += energyNeeded
-        # end for
+        energiesNeeded = {name: self._homeEnergyNeeded(dtls)
+                          for name, dtls in self.vehicles.items()}
+        totalHomeEnergyNeeded = sum(energiesNeeded.values())
 
         # Calculate request currents based on energy needs
-        if totalEnergyNeeded:
-            reqCurrents = {
-                name: self.totalCurrent * (energy / totalEnergyNeeded)
-                for name, energy in energiesNeeded.items()}
+        if totalHomeEnergyNeeded:
+            reqCurrents = {name: self.totalCurrent * (homeEnergy / totalHomeEnergyNeeded)
+                           for name, homeEnergy in energiesNeeded.items()}
         else:
             reqCurrent = self.totalCurrent / len(self.vehicles)
             reqCurrents = {name: reqCurrent for name in energiesNeeded}
