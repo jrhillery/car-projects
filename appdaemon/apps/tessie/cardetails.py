@@ -197,6 +197,7 @@ class CarDetails:
         energyAccum += energyAdded
         capacity = energyAccum / batteryLevelAddedAccum
 
+        # noinspection PyUnresolvedReferences
         await self.batteryCapacitySensor.set_state(
             str(capacity), attributes={"battery_level_added": batteryLevelAddedAccum})
         self.log("%s old battery capacity: %.2f kWh, portion added: %.2f,"
