@@ -96,8 +96,8 @@ class RequestCurrentControl(Hass):
             self.logMsg(f"{energyAddedSensor.friendly_name}: {energyAddedSensor.state} kWh")
 
             # Update battery capacity if we got a decent charge
-            if chargeStoppedCar.energyAdded > 5.0:
-                await chargeStoppedCar.updateBatteryCapacity()
+            if chargeStoppedCar.energyAdded > 2.0:
+                self.logMsg(await chargeStoppedCar.updateBatteryCapacity())
         finally:
             self.staleWaits -= 1
 

@@ -180,32 +180,30 @@ class CarDetails:
         self.chargeStartPercent = self.battLevel
     # end chargingStarting()
 
-    async def updateBatteryCapacity(self) -> None:
-        """Update the estimated battery capacity of the vehicle."""
+    async def updateBatteryCapacity(self) -> str:
+        """Update the working battery capacity estimate of the vehicle.
+
+        :return: Summary of estimate
+        """
         if self.chargeStartPercent < 0.0:
-            self.logError("Unable to update estimated battery capacity"
-                          " - app reinitialized since %s started charging", self.displayName)
-            return
+            return (f"Unable to update estimated battery capacity - app"
+                    f" reinitialized since {self.displayName} started charging")
         batteryLevelAdded = (self.battLevel - self.chargeStartPercent) / 100.0
         oldBatteryCapacity = self.batteryCapacity
-        energyAdded = self.energyAdded
 
         # rolling weighted average capped at ~2 full cycles, so recent charges dominate the estimate
         batteryLevelAddedAccum = min(self.persistedBatteryLevelAdded, 2.0 - batteryLevelAdded)
         energyAccum = oldBatteryCapacity * batteryLevelAddedAccum
         batteryLevelAddedAccum += batteryLevelAdded
-        energyAccum += energyAdded
+        energyAccum += self.energyAdded
         capacity = energyAccum / batteryLevelAddedAccum
 
         # noinspection PyUnresolvedReferences
         await self.batteryCapacitySensor.set_state(
             str(capacity), attributes={"battery_level_added": batteryLevelAddedAccum})
-        self.log("%s old battery capacity: %.2f kWh, portion added: %.2f,"
-                 " energy added: %.2f kWh (=> capacity for this charge: %.2f kWh)",
-                 self.displayName, oldBatteryCapacity, batteryLevelAdded,
-                 energyAdded, energyAdded / batteryLevelAdded)
-        self.log("%s estimated battery capacity: %.2f kWh, total portion added: %.2f",
-                 self.displayName, capacity, batteryLevelAddedAccum)
+
+        return (f"{self.displayName} working capacity estimate changing"
+                f" from {oldBatteryCapacity:.2f} to {capacity:.2f} kWh")
     # end updateBatteryCapacity()
 
     def logError(self, msg: str, *args, **kwargs) -> None:
