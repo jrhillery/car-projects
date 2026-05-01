@@ -38,7 +38,7 @@ class CarDetails(object):
     savedLocation: str | None
 
     # field set in TessieInterface.addBatteryHealth
-    battCapacity: float
+    battCapacity: float | None
 
     def __init__(self, vehicleState: dict):
         """Initialize this instance and allocate resources"""
@@ -196,6 +196,7 @@ class CarDetails(object):
             parts.append("driving")
         if self.savedLocation:
             parts.append(f"@{self.savedLocation}")
+        # noinspection PyStringConversionWithoutDunderMethod
         parts.append(f" {self.outsideTemp}\u00B0"
                      f" {timedelta(seconds=int(self.dataAge() + 0.5))} ago"
                      f" {self.chargingState}")

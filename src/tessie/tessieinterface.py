@@ -1,21 +1,19 @@
 
-import math
-
 import asyncio
 import haversine
 import json
 import logging
+import math
+from aiohttp import ClientResponse, ClientSession
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from typing import Self
-
-from aiohttp import ClientResponse, ClientSession
 
 from util import Configure, HTTPException, Interpret
 from . import CarDetails
 
 
-class TessieInterface(AbstractAsyncContextManager[Self]):
+class TessieInterface(AbstractAsyncContextManager["TessieInterface"]):
     """Provides an interface through Tessie to authorized vehicles"""
 
     async def __aenter__(self) -> Self:
@@ -347,11 +345,13 @@ class TessieInterface(AbstractAsyncContextManager[Self]):
         :param dtls: Details of the vehicle to wake
         :return: Common wake up task instance for the vehicle
         """
-        if dtls.wakeTask is None:
-            dtls.wakeTask = asyncio.create_task(self._wake(dtls),
-                                                name=f"Wake {dtls.displayName}")
+        if dtls.wakeTask is not None:
+            wakeTask = dtls.wakeTask
+        else:
+            dtls.wakeTask = wakeTask = asyncio.create_task(
+                self._wake(dtls), name=f"Wake {dtls.displayName}")
 
-        return dtls.wakeTask
+        return wakeTask
     # end getWakeTask(CarDetails)
 
     async def wakeVehicle(self, dtls: CarDetails) -> None:

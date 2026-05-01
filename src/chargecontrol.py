@@ -26,8 +26,8 @@ class ChargeControl(object):
         self.enable: bool = args.enable
         self.neededEnergy: bool = args.neededEnergy
         self.restoreLimit: bool = args.restoreLimit
-        self.specifyReq: int | None = int(args.specifyReq[1]) if args.specifyReq else None
-        self.specifyReqName: str | None = args.specifyReq[0] if args.specifyReq else None
+        self.specifyReq: int = int(args.specifyReq[1]) if args.specifyReq else 0
+        self.specifyReqName: str = args.specifyReq[0] if args.specifyReq else "Unknown"
 
         with open(Configure.findParmPath().joinpath("circuitmapping.json"),
                   "r", encoding="utf-8") as mappingFile:
@@ -73,7 +73,7 @@ class ChargeControl(object):
         processor: TessieProc
 
         match True:
-            case _ if self.specifyReq is not None:
+            case _ if self.specifyReq:
                 processor = ReqCurrentControl(self, persistData)
             case _ if self.autoReq:
                 processor = AutoCurrentControl(self, persistData)
@@ -89,12 +89,14 @@ class ChargeControl(object):
                 processor = StatusPresenter(self, persistData)
         # end match
 
+        # noinspection PyUnboundLocalVariable
         return processor
     # end getSpecifiedProcessor(PersistentData)
 
     async def main(self) -> None:
         logging.debug(f"Starting {' '.join(sys.argv)}")
 
+        # noinspection PyAbstractClass
         async with AsyncExitStack() as cStack:
             # Prevent the computer from going to sleep until cStack closes
             if not cStack.enter_context(keep.running()).active:
@@ -258,6 +260,7 @@ class ReqCurrentControl(TessieProc):
             indices: list[int] = list(range(len(vehicles)))
 
             # to decrease first, sort indices ascending by increase in request current
+            # noinspection PyUnresolvedReferences
             indices.sort(key=lambda i: reqCurrents[i] - vehicles[i].chargeCurrentRequest)
             lastIndex = indices[len(indices) - 1]
 
@@ -300,11 +303,13 @@ class AutoCurrentControl(ReqCurrentControl):
         """
         percent: int | None = self.persistData.getVal(self.PRIOR_CHARGE_LIMIT, dtls.vin)
 
-        if percent is None:
+        if percent is not None:
+            chargeLimit = percent
+        else:
             # use an average value if no limit is persisted
-            percent = (dtls.limitMinPercent + dtls.limitMaxPercent) // 2
+            chargeLimit = (dtls.limitMinPercent + dtls.limitMaxPercent) // 2
 
-        return dtls.limitChargeLimit(percent)
+        return dtls.limitChargeLimit(chargeLimit)
     # end getPriorLimit(CarDetails)
 
     async def automaticallySetReqCurrent(self, onlyWake=False,

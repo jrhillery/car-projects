@@ -68,7 +68,7 @@ class Interpret(object):
         :param resp: Response from an HTTP request
         :return: A string representing the response reason, or "Error" if no reason given
         """
-        reason = Interpret.decodeText(resp.reason)
+        reason = Interpret.decodeText(resp.reason or "Empty response")
 
         if not reason:
             reason = "Error"
