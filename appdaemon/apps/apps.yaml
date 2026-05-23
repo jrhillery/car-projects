@@ -10,3 +10,9 @@ AmpMan:
 #  module: dump_namespace
 #  class: DumpNamespace
 #  namespace: tessie_car_details_persist
+
+#RestorePriorState:
+#  module: restorepriorstate
+#  class: RestorePriorState
+#  vehicleName: Nittany
+#  capacity: 61.10
