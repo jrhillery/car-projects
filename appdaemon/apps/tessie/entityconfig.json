@@ -1,0 +1,52 @@
+{
+  "entityIds": {
+    "shiftStateSensor": {
+      "prefix": "sensor.",
+      "suffix": "_shift_state"
+    },
+    "chargeCurrentNumber": {
+      "prefix": "number.",
+      "suffix": "_charge_current"
+    },
+    "chargeLimitNumber": {
+      "prefix": "number.",
+      "suffix": "_charge_limit"
+    },
+    "chargingSensor": {
+      "prefix": "sensor.",
+      "suffix": "_charging"
+    },
+    "batteryLevelSensor": {
+      "prefix": "sensor.",
+      "suffix": "_battery_level"
+    },
+    "statusDetector": {
+      "prefix": "binary_sensor.",
+      "suffix": "_status"
+    },
+    "locationTracker": {
+      "prefix": "device_tracker.",
+      "suffix": "_location"
+    },
+    "energyRemainingSensor": {
+      "prefix": "sensor.",
+      "suffix": "_energy_remaining"
+    },
+    "chargeEnergyAddedSensor": {
+      "prefix": "sensor.",
+      "suffix": "_charge_energy_added"
+    },
+    "chargeCableDetector": {
+      "prefix": "binary_sensor.",
+      "suffix": "_charge_cable"
+    },
+    "chargeSwitch": {
+      "prefix": "switch.",
+      "suffix": "_charge"
+    },
+    "wakeButton": {
+      "prefix": "button.",
+      "suffix": "_wake"
+    }
+  }
+}

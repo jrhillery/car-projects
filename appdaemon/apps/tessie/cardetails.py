@@ -2,12 +2,30 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
-from collections.abc import Callable
-
+import pathlib
 from appdaemon import ADAPI
 from appdaemon.entity import Entity
+from collections.abc import Callable
+from functools import lru_cache
+from unittest.mock import NonCallableMock
 
+
+@lru_cache(None)
+def getEntityConfig() -> dict[str, dict]:
+    with open(pathlib.Path(__file__).parent.joinpath("entityconfig.json"),
+              "r", encoding="utf-8") as configFile:
+
+        return json.load(configFile)
+# end getEntityConfig()
+
+def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str) -> Entity:
+    idParts: dict | None = getEntityConfig()["entityIds"].get(entityLabel)
+
+    return (ad.get_entity(idParts["prefix"] + vehicleName + idParts["suffix"])
+            if idParts else NonCallableMock(Entity))
+# end getEntity(str, ADAPI, str)
 
 @dataclasses.dataclass
 class CarDetails:
@@ -49,20 +67,20 @@ class CarDetails:
 
         return cls(
             vehicleName=vehicleName,
-            shiftStateSensor=ad.get_entity(f"sensor.{vehicleName}_shift_state"),
-            chargeCurrentNumber=ad.get_entity(f"number.{vehicleName}_charge_current"),
-            chargeLimitNumber=ad.get_entity(f"number.{vehicleName}_charge_limit"),
-            chargingSensor=ad.get_entity(f"sensor.{vehicleName}_charging"),
-            batteryLevelSensor=ad.get_entity(f"sensor.{vehicleName}_battery_level"),
-            statusDetector=ad.get_entity(f"binary_sensor.{vehicleName}_status"),
-            locationTracker=ad.get_entity(f"device_tracker.{vehicleName}_location"),
-            energyRemainingSensor=ad.get_entity(f"sensor.{vehicleName}_energy_remaining"),
-            chargeEnergyAddedSensor=ad.get_entity(f"sensor.{vehicleName}_charge_energy_added"),
+            shiftStateSensor=getEntity("shiftStateSensor", ad, vehicleName),
+            chargeCurrentNumber=getEntity("chargeCurrentNumber", ad, vehicleName),
+            chargeLimitNumber=getEntity("chargeLimitNumber", ad, vehicleName),
+            chargingSensor=getEntity("chargingSensor", ad, vehicleName),
+            batteryLevelSensor=getEntity("batteryLevelSensor", ad, vehicleName),
+            statusDetector=getEntity("statusDetector", ad, vehicleName),
+            locationTracker=getEntity("locationTracker", ad, vehicleName),
+            energyRemainingSensor=getEntity("energyRemainingSensor", ad, vehicleName),
+            chargeEnergyAddedSensor=getEntity("chargeEnergyAddedSensor", ad, vehicleName),
             batteryCapacitySensor=batteryCapacitySensor,
             chargeStartPercent=-1.0,
-            chargeCableDetector=ad.get_entity(f"binary_sensor.{vehicleName}_charge_cable"),
-            chargeSwitch=ad.get_entity(f"switch.{vehicleName}_charge"),
-            wakeButton=ad.get_entity(f"button.{vehicleName}_wake"),
+            chargeCableDetector=getEntity("chargeCableDetector", ad, vehicleName),
+            chargeSwitch=getEntity("chargeSwitch", ad, vehicleName),
+            wakeButton=getEntity("wakeButton", ad, vehicleName),
             log=ad.log,
         )
     # end fromAdapi(ADAPI, str)
