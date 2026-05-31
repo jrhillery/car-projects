@@ -93,10 +93,12 @@ class RequestCurrentControl(Hass):
             # noinspection PyUnresolvedReferences
             callTime = await self.get_state(entityId, "last_updated")
             await self._awaitNewReport(energyAddedSensor, callTime)
-            self.logMsg(f"{energyAddedSensor.friendly_name}: {energyAddedSensor.state} kWh")
+            energyAdded = chargeStoppedCar.energyAdded
+            logMethod = self.logMsg if energyAdded > 0.0 else self.log
+            logMethod(f"{energyAddedSensor.friendly_name}: {energyAdded} kWh")
 
             # Update battery capacity if we got a decent charge
-            if chargeStoppedCar.energyAdded > 2.0:
+            if energyAdded > 2.0:
                 self.logMsg(await chargeStoppedCar.updateBatteryCapacity())
         finally:
             self.staleWaits -= 1
