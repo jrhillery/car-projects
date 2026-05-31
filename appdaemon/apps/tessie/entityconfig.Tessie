@@ -2,49 +2,51 @@
   "entityIds": {
     "shiftStateSensor": {
       "prefix": "sensor.",
-      "suffix": "_shift_state_2"
+      "suffix": "_shift_state"
     },
     "chargeCurrentNumber": {
       "prefix": "number.",
-      "suffix": "_charge_current_2"
+      "suffix": "_charge_current"
     },
     "chargeLimitNumber": {
       "prefix": "number.",
-      "suffix": "_charge_limit_2"
+      "suffix": "_charge_limit"
     },
     "chargingSensor": {
       "prefix": "sensor.",
-      "suffix": "_charging_2"
+      "suffix": "_charging"
     },
     "batteryLevelSensor": {
       "prefix": "sensor.",
-      "suffix": "_battery_level_2"
+      "suffix": "_battery_level"
     },
     "statusDetector": {
       "prefix": "binary_sensor.",
-      "suffix": "_status_2"
+      "suffix": "_status"
     },
     "locationTracker": {
       "prefix": "device_tracker.",
-      "suffix": "_location_2"
+      "suffix": "_location"
     },
     "energyRemainingSensor": {
+      "prefix": "sensor.",
+      "suffix": "_energy_remaining"
     },
     "chargeEnergyAddedSensor": {
       "prefix": "sensor.",
-      "suffix": "_charge_energy_added_2"
+      "suffix": "_charge_energy_added"
     },
     "chargeCableDetector": {
       "prefix": "binary_sensor.",
-      "suffix": "_charge_cable_2"
+      "suffix": "_charge_cable"
     },
     "chargeSwitch": {
       "prefix": "switch.",
-      "suffix": "_charge_2"
+      "suffix": "_charge"
     },
     "wakeButton": {
       "prefix": "button.",
-      "suffix": "_wake_2"
+      "suffix": "_wake"
     }
   }
 }

@@ -20,11 +20,17 @@ def getEntityConfig() -> dict[str, dict]:
         return json.load(configFile)
 # end getEntityConfig()
 
-def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str) -> Entity:
+def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str,
+              mockStateValue: str = "") -> Entity:
     idParts: dict | None = getEntityConfig()["entityIds"].get(entityLabel)
 
-    return (ad.get_entity(idParts["prefix"] + vehicleName + idParts["suffix"])
-            if idParts else NonCallableMock(Entity))
+    if idParts:
+        return ad.get_entity(idParts["prefix"] + vehicleName + idParts["suffix"])
+    else:
+        mock = NonCallableMock(Entity)
+        mock.state.return_value = mockStateValue
+
+        return mock
 # end getEntity(str, ADAPI, str)
 
 @dataclasses.dataclass
@@ -74,7 +80,7 @@ class CarDetails:
             batteryLevelSensor=getEntity("batteryLevelSensor", ad, vehicleName),
             statusDetector=getEntity("statusDetector", ad, vehicleName),
             locationTracker=getEntity("locationTracker", ad, vehicleName),
-            energyRemainingSensor=getEntity("energyRemainingSensor", ad, vehicleName),
+            energyRemainingSensor=getEntity("energyRemainingSensor", ad, vehicleName, "0.0"),
             chargeEnergyAddedSensor=getEntity("chargeEnergyAddedSensor", ad, vehicleName),
             batteryCapacitySensor=batteryCapacitySensor,
             chargeStartPercent=-1.0,
@@ -286,7 +292,7 @@ class CarDetails:
         if not plugInNeeded or self.pluggedIn():
             if self.batteryCapacity:
                 return self.chargeNeeded() * 0.01 * self.batteryCapacity
-            elif self.battLevel:
+            elif self.energyRemaining and self.battLevel:
                 return self.chargeNeeded() * self.energyRemaining / self.battLevel
             else:
                 return 50.0
