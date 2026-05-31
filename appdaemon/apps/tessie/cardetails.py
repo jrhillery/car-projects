@@ -13,12 +13,15 @@ from unittest.mock import NonCallableMock
 
 
 @lru_cache(None)
-def getEntityConfig() -> dict[str, dict]:
+def getEntityConfig() -> dict:
     with open(pathlib.Path(__file__).parent.joinpath("entityconfig.json"),
               "r", encoding="utf-8") as configFile:
 
         return json.load(configFile)
 # end getEntityConfig()
+
+def getPersistentNameSpace() -> str:
+    return getEntityConfig()["persistentNameSpace"]
 
 def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str,
               mockStateValue: str = "") -> Entity:
@@ -28,7 +31,7 @@ def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str,
         return ad.get_entity(idParts["prefix"] + vehicleName + idParts["suffix"])
     else:
         mock = NonCallableMock(Entity)
-        mock.state.return_value = mockStateValue
+        mock.state = mockStateValue
 
         return mock
 # end getEntity(str, ADAPI, str)
@@ -37,7 +40,6 @@ def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str,
 class CarDetails:
     """Details of a vehicle as reported by Tessie"""
     TESLA_APP_REQ_MIN_AMPS = 5
-    PERSISTENT_NS = "tessie_car_details_persist"
 
     vehicleName: str
     shiftStateSensor: Entity
@@ -65,7 +67,7 @@ class CarDetails:
         :return: CarDetails instance
         """
         batteryCapacitySensor = ad.get_entity(f"sensor.{vehicleName}_battery_capacity",
-                                              cls.PERSISTENT_NS, check_existence=False)
+                                              getPersistentNameSpace(), check_existence=False)
         if not batteryCapacitySensor.exists():
             # create this battery capacity entity
             batteryCapacitySensor.set_state(

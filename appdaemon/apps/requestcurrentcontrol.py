@@ -11,7 +11,7 @@ from appdaemon.entity import Entity
 from appdaemon.exceptions import TimeOutException
 from typing import Any, cast, Generator
 
-from tessie import CarDetails
+from tessie import CarDetails, getPersistentNameSpace
 
 
 class RequestCurrentControl(Hass):
@@ -27,8 +27,8 @@ class RequestCurrentControl(Hass):
     # noinspection PyTypeChecker
     def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
-        if not self.namespace_exists(CarDetails.PERSISTENT_NS):
-            self.add_namespace(CarDetails.PERSISTENT_NS)
+        if not self.namespace_exists(getPersistentNameSpace()):
+            self.add_namespace(getPersistentNameSpace())
 
         # Get configuration
         self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())

@@ -48,5 +48,6 @@
       "prefix": "button.",
       "suffix": "_wake"
     }
-  }
+  },
+  "persistentNameSpace" : "tessie_car_details_persist"
 }
