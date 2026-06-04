@@ -92,7 +92,7 @@ class RequestCurrentControl(Hass):
             energyAddedSensor = chargeStoppedCar.chargeEnergyAddedSensor
             # noinspection PyUnresolvedReferences
             callTime = await self.get_state(entityId, "last_updated")
-            await self._awaitNewReport(energyAddedSensor, callTime)
+            await self._awaitNewReport(energyAddedSensor, callTime, 602)
             energyAdded = chargeStoppedCar.energyAdded
             logMethod = self.logMsg if energyAdded > 0.0 else self.log
             logMethod(f"{energyAddedSensor.friendly_name}: {energyAdded} kWh")
@@ -159,22 +159,24 @@ class RequestCurrentControl(Hass):
         await self._setRequestCurrentsIfNotRunning(title)
     # end handleEvent(str, dict[str, Any], **Any)
 
-    async def _awaitNewReport(self, entity: Entity, oldTime: str | None = None) -> None:
+    async def _awaitNewReport(
+            self, entity: Entity, oldTime: str | None = None, timeout: int = 60) -> None:
         """Wait for a new last reported time in a given entity.
 
         :param entity: Entity to wait for
         :param oldTime: Old time to surpass
+        :param timeout: Seconds to wait for state report
         """
         oldTime = oldTime or await entity.get_state("last_updated")
         try:
             await entity.wait_state(
                 lambda st: st["last_reported"] > cast(str, oldTime),
-                attribute="all", timeout=60)
+                attribute="all", timeout=timeout)
             self.log("%s reported", entity.friendly_name)
         except TimeOutException:
             # already logged by Entity.wait_state
             pass
-    # end _awaitNewReport(Entity, str | None)
+    # end _awaitNewReport(Entity, str | None, int)
 
     def _vehicle(self, entityId: str) -> CarDetails:
         """Retrieve the vehicle details for a given entity.
