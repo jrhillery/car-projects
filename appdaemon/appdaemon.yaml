@@ -1,0 +1,17 @@
+---
+appdaemon:
+  latitude:   35.35190
+  longitude: -80.77708
+  elevation: 225  # elevation in meters
+  time_zone: America/New_York
+  plugins:
+    HASS:
+      type: hass
+      token: !env_var SUPERVISOR_TOKEN
+  thread_duration_warning_threshold: 90
+  ascii_encode: false  # allow logging utf-8
+http:
+  url: http://0.0.0.0:5050
+admin:
+api:
+hadashboard:
