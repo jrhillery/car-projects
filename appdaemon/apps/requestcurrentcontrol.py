@@ -237,11 +237,8 @@ class RequestCurrentControl(Hass):
         :return: The energy needed from home
         """
         energyNeeded = dtls.neededKwh()
-
-        if energyNeeded:
-            self.logMsg(dtls.chargingStatusSummary(energyNeeded))
-        else:
-            self.log(dtls.chargingStatusSummary())
+        logMethod = self.logMsg if energyNeeded > 0.0 else self.log
+        logMethod(dtls.chargingStatusSummary(energyNeeded))
 
         return energyNeeded if dtls.atHome() else 0.0
     # end _homeEnergyNeeded(CarDetails)
