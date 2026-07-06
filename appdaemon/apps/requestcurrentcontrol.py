@@ -21,6 +21,7 @@ class RequestCurrentControl(Hass):
     messages: deque[str] = deque()
     vehicles: dict[str, CarDetails]
     totalCurrent: int
+    fullCycles: float
     staleWaits: int
     executionLock: asyncio.Lock
 
@@ -34,6 +35,7 @@ class RequestCurrentControl(Hass):
         self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
                          for name in self.args.get("vehicles", [])}
         self.totalCurrent = self.args.get("totalCurrent", 32)
+        self.fullCycles = self.args.get("rollingWeightedAverageFullCycles", 2.0)
         self.staleWaits = 0
         self.executionLock = asyncio.Lock()
 
@@ -99,7 +101,7 @@ class RequestCurrentControl(Hass):
 
             # Update battery capacity if we got a decent charge
             if energyAdded > 2.0:
-                self.logMsg(await chargeStoppedCar.updateBatteryCapacity())
+                self.logMsg(await chargeStoppedCar.updateBatteryCapacity(self.fullCycles))
         finally:
             self.staleWaits -= 1
 

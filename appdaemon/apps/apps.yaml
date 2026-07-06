@@ -5,6 +5,7 @@ AmpMan:
     - Electra
     - Nittany
   totalCurrent: 40
+  rollingWeightedAverageFullCycles: 2.5
 
 DumpNamespace:
   module: dump_namespace

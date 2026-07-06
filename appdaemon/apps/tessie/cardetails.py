@@ -206,21 +206,22 @@ class CarDetails:
         self.chargeStartPercent = self.battLevel
     # end chargingStarting()
 
-    async def updateBatteryCapacity(self) -> str:
+    async def updateBatteryCapacity(self, fullCycles: float) -> str:
         """Update the working battery capacity estimate of the vehicle.
 
+        :param fullCycles: number of full charge cycles to include in rolling weighted average
         :return: Summary of estimate
         """
         if self.chargeStartPercent < 0.0:
             return (f"Unable to update estimated battery capacity - app"
                     f" reinitialized since {self.displayName} started charging")
-        batteryLevelAdded = (self.battLevel - self.chargeStartPercent) / 100.0
+        levelAdded = (self.battLevel - self.chargeStartPercent) / 100.0
         oldBatteryCapacity = self.batteryCapacity
 
-        # rolling weighted average capped at ~2 full cycles, so recent charges dominate the estimate
-        batteryLevelAddedAccum = min(self.persistedBatteryLevelAdded, 2.0 - batteryLevelAdded)
+        # rolling weighted average capped at fullCycles, so recent charges dominate the estimate
+        batteryLevelAddedAccum = min(self.persistedBatteryLevelAdded, fullCycles - levelAdded)
         energyAccum = oldBatteryCapacity * batteryLevelAddedAccum
-        batteryLevelAddedAccum += batteryLevelAdded
+        batteryLevelAddedAccum += levelAdded
         energyAccum += self.energyAdded
         capacity = energyAccum / batteryLevelAddedAccum
 
