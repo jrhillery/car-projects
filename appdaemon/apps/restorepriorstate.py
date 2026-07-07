@@ -9,7 +9,7 @@ class RestorePriorState(Hass):
     def initialize(self):
         vehicleName = self.args["vehicleName"].lower()
         capacity = str(self.args["capacity"])
-        dtls = CarDetails.fromAdapi(self, vehicleName)
+        dtls = CarDetails.fromAdapi(self, vehicleName, 0)
         oldCapacity = dtls.batteryCapacity
 
         dtls.batteryCapacitySensor.set_state(

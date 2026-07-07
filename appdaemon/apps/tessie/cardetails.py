@@ -42,6 +42,7 @@ class CarDetails:
     TESLA_APP_REQ_MIN_AMPS = 5
 
     vehicleName: str
+    maxCurrentConfig: int
     shiftStateSensor: Entity
     chargeCurrentNumber: Entity
     chargeLimitNumber: Entity
@@ -59,11 +60,12 @@ class CarDetails:
     log: Callable[..., None]
 
     @classmethod
-    def fromAdapi(cls, ad: ADAPI, vehicleName: str) -> CarDetails:
+    def fromAdapi(cls, ad: ADAPI, vehicleName: str, maxCurrentConfig: int) -> CarDetails:
         """Gets the details of a vehicle.
 
         :param ad: AppDaemon api instance
         :param vehicleName: Name of the vehicle
+        :param maxCurrentConfig: Maximum configured requested charge current in amps
         :return: CarDetails instance
         """
         batteryCapacitySensor = ad.get_entity(f"sensor.{vehicleName}_battery_capacity",
@@ -75,6 +77,7 @@ class CarDetails:
 
         return cls(
             vehicleName=vehicleName,
+            maxCurrentConfig=maxCurrentConfig,
             shiftStateSensor=getEntity("shiftStateSensor", ad, vehicleName),
             chargeCurrentNumber=getEntity("chargeCurrentNumber", ad, vehicleName),
             chargeLimitNumber=getEntity("chargeLimitNumber", ad, vehicleName),
@@ -260,12 +263,16 @@ class CarDetails:
     def limitRequestCurrent(self, reqCurrent: int) -> int:
         """Return a request current that does not exceed
            - the charge adapter's maximum
+           - the car's configured maximum
            - the minimum supported by Tesla's app
         :param reqCurrent: Desired request current (amps)
         :return: Nearest valid request current
         """
         if reqCurrent > self.requestMaxAmps:
             reqCurrent = self.requestMaxAmps
+
+        if reqCurrent > self.maxCurrentConfig:
+            reqCurrent = self.maxCurrentConfig
 
         if reqCurrent < self.TESLA_APP_REQ_MIN_AMPS and self.pluggedInAtHome():
             reqCurrent = self.TESLA_APP_REQ_MIN_AMPS

@@ -2,10 +2,12 @@ AmpMan:
   module: requestcurrentcontrol
   class: RequestCurrentControl
   vehicles:
-    - Electra
-    - Nittany
+    - name: Electra
+      maxCurrent: 32
+    - name: Nittany
+      maxCurrent: 32
   totalCurrent: 40
-  rollingWeightedAverageFullCycles: 2.5
+  rollingWeightedAverageFullCycles: 3.4
 
 DumpNamespace:
   module: dump_namespace

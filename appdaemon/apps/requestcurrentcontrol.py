@@ -13,10 +13,11 @@ from typing import Any, cast, Generator
 
 from tessie import CarDetails, getPersistentNameSpace
 
+DEFAULT_MAX_CURRENT = 32
+TESSIE_SETTLE_TIME = dt.timedelta(seconds=15)
 
 class RequestCurrentControl(Hass):
     """AppDaemon app to automatically set cars' request currents."""
-    TESSIE_SETTLE_TIME = dt.timedelta(seconds=15)
 
     messages: deque[str] = deque()
     vehicles: dict[str, CarDetails]
@@ -32,9 +33,14 @@ class RequestCurrentControl(Hass):
             self.add_namespace(getPersistentNameSpace())
 
         # Get configuration
-        self.vehicles = {name.lower(): CarDetails.fromAdapi(self, name.lower())
-                         for name in self.args.get("vehicles", [])}
-        self.totalCurrent = self.args.get("totalCurrent", 32)
+        self.vehicles = {}
+        for vehicle in self.args.get("vehicles", []):
+            if "name" not in vehicle:
+                continue
+            name = vehicle["name"].lower()
+            maxCurrent = vehicle.get("maxCurrent", DEFAULT_MAX_CURRENT)
+            self.vehicles[name] = CarDetails.fromAdapi(self, name, maxCurrent)
+        self.totalCurrent = self.args.get("totalCurrent", DEFAULT_MAX_CURRENT)
         self.fullCycles = self.args.get("rollingWeightedAverageFullCycles", 2.0)
         self.staleWaits = 0
         self.executionLock = asyncio.Lock()
@@ -125,7 +131,7 @@ class RequestCurrentControl(Hass):
             await self._wakeSnoozers()
 
             # give the triggering vehicle a minimum time to settle in
-            settleTime = self.convert_utc(callTime) + self.TESSIE_SETTLE_TIME
+            settleTime = self.convert_utc(callTime) + TESSIE_SETTLE_TIME
             # noinspection PyUnresolvedReferences
             await self.sleep((settleTime - await self.get_now()).total_seconds())
 
