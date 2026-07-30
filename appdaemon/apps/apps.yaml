@@ -19,5 +19,5 @@ DumpNamespace:
 #RestorePriorState:
 #  module: restorepriorstate
 #  class: RestorePriorState
-#  vehicleName: Nittany
-#  capacity: 61.10
+#  vehicleName: Electra
+#  capacity: 67.95

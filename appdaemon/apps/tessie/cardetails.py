@@ -54,6 +54,8 @@ class CarDetails:
     chargeEnergyAddedSensor: Entity
     batteryCapacitySensor: Entity
     chargeStartPercent: float
+    chargeStartEnergyAdded: float
+    chargeSessionActive: bool
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
@@ -89,6 +91,8 @@ class CarDetails:
             chargeEnergyAddedSensor=getEntity("chargeEnergyAddedSensor", ad, vehicleName),
             batteryCapacitySensor=batteryCapacitySensor,
             chargeStartPercent=-1.0,
+            chargeStartEnergyAdded=0.0,
+            chargeSessionActive=False,
             chargeCableDetector=getEntity("chargeCableDetector", ad, vehicleName),
             chargeSwitch=getEntity("chargeSwitch", ad, vehicleName),
             wakeButton=getEntity("wakeButton", ad, vehicleName),
@@ -172,7 +176,7 @@ class CarDetails:
     @property
     def energyAdded(self) -> float:
         """The charge energy added in kWh."""
-        return self._floatState(self.chargeEnergyAddedSensor)
+        return self._floatState(self.chargeEnergyAddedSensor) - self.chargeStartEnergyAdded
     # end energyAdded()
 
     @property
@@ -207,6 +211,11 @@ class CarDetails:
     def chargingStarting(self) -> None:
         """The charging process is starting."""
         self.chargeStartPercent = self.battLevel
+        if self.chargeSessionActive:
+            self.chargeStartEnergyAdded = self._floatState(self.chargeEnergyAddedSensor)
+        else:
+            self.chargeStartEnergyAdded = 0.0
+        self.chargeSessionActive = True
     # end chargingStarting()
 
     async def updateBatteryCapacity(self, fullCycles: float) -> str:

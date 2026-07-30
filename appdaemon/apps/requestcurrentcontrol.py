@@ -124,18 +124,19 @@ class RequestCurrentControl(Hass):
             callTime = await self.get_state(entityId, "last_updated")
             pluggedInCar = self._vehicle(entityId)
 
-            for name, dtls in self.vehicles.items():
-                if dtls.chargingAtHome() and name != pluggedInCar.vehicleName:
-                    await self._setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
+            if pluggedInCar.atHome():
+                for name, dtls in self.vehicles.items():
+                    if dtls.chargingAtHome() and name != pluggedInCar.vehicleName:
+                        await self._setRequestCurrent(dtls, dtls.TESLA_APP_REQ_MIN_AMPS)
 
-            await self._wakeSnoozers()
+                await self._wakeSnoozers()
 
-            # give the triggering vehicle a minimum time to settle in
-            settleTime = self.convert_utc(callTime) + TESSIE_SETTLE_TIME
-            # noinspection PyUnresolvedReferences
-            await self.sleep((settleTime - await self.get_now()).total_seconds())
+                # give the triggering vehicle a minimum time to settle in
+                settleTime = self.convert_utc(callTime) + TESSIE_SETTLE_TIME
+                # noinspection PyUnresolvedReferences
+                await self.sleep((settleTime - await self.get_now()).total_seconds())
 
-            await self._awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
+                await self._awaitNewReport(pluggedInCar.chargeCurrentNumber, callTime)
         finally:
             self.staleWaits -= 1
 
@@ -149,6 +150,7 @@ class RequestCurrentControl(Hass):
         self.staleWaits += 1
         try:
             unpluggedCar = self._vehicle(entityId)
+            unpluggedCar.chargeSessionActive = False
             try:
                 await unpluggedCar.chargingSensor.wait_state("disconnected", timeout=60)
             except TimeOutException:
