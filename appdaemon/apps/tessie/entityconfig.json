@@ -1,5 +1,13 @@
 {
   "entityIds": {
+    "batteryCapacitySensor": {
+      "prefix": "input_number.",
+      "suffix": "_battery_capacity"
+    },
+    "batteryLevelAddedSensor": {
+      "prefix": "input_number.",
+      "suffix": "_battery_level_added"
+    },
     "shiftStateSensor": {
       "prefix": "sensor.",
       "suffix": "_shift_state"
@@ -48,6 +56,5 @@
       "prefix": "button.",
       "suffix": "_wake"
     }
-  },
-  "persistentNameSpace" : "tesla_fleet_car_details_persist"
+  }
 }

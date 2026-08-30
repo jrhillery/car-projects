@@ -7,7 +7,6 @@ import logging
 import pathlib
 from appdaemon import ADAPI
 from appdaemon.entity import Entity
-from collections.abc import Callable
 from functools import lru_cache
 from unittest.mock import NonCallableMock
 
@@ -19,9 +18,6 @@ def getEntityConfig() -> dict:
 
         return json.load(configFile)
 # end getEntityConfig()
-
-def getPersistentNameSpace() -> str:
-    return getEntityConfig()["persistentNameSpace"]
 
 def getEntity(entityLabel: str, ad: ADAPI, vehicleName: str,
               mockStateValue: str = "") -> Entity:
@@ -53,13 +49,14 @@ class CarDetails:
     energyRemainingSensor: Entity
     chargeEnergyAddedSensor: Entity
     batteryCapacitySensor: Entity
+    batteryLevelAddedSensor: Entity
     chargeStartPercent: float
     chargeStartEnergyAdded: float
     chargeSessionActive: bool
     chargeCableDetector: Entity
     chargeSwitch: Entity
     wakeButton: Entity
-    log: Callable[..., None]
+    ad: ADAPI
 
     @classmethod
     def fromAdapi(cls, ad: ADAPI, vehicleName: str, maxCurrentConfig: int) -> CarDetails:
@@ -70,12 +67,15 @@ class CarDetails:
         :param maxCurrentConfig: Maximum configured requested charge current in amps
         :return: CarDetails instance
         """
-        batteryCapacitySensor = ad.get_entity(f"sensor.{vehicleName}_battery_capacity",
-                                              getPersistentNameSpace(), check_existence=False)
-        if not batteryCapacitySensor.exists():
-            # create this battery capacity entity
-            batteryCapacitySensor.set_state(
-                "0.0", attributes={"battery_level_added": 0.0}, check_existence=False)
+        # These must already exist as Home Assistant "Number" helpers, e.g.
+        # created via Settings -> Devices & Services -> Helpers -> Number.
+        batteryCapacitySensor = getEntity("batteryCapacitySensor", ad, vehicleName)
+        batteryLevelAddedSensor = getEntity("batteryLevelAddedSensor", ad, vehicleName)
+
+        if not batteryCapacitySensor.exists() or not batteryLevelAddedSensor.exists():
+            ad.log("Missing Home Assistant helper(s) for %s - create %s and %s",
+                   vehicleName, batteryCapacitySensor.entity_id, batteryLevelAddedSensor.entity_id,
+                   level="WARNING")
 
         return cls(
             vehicleName=vehicleName,
@@ -90,13 +90,14 @@ class CarDetails:
             energyRemainingSensor=getEntity("energyRemainingSensor", ad, vehicleName, "0.0"),
             chargeEnergyAddedSensor=getEntity("chargeEnergyAddedSensor", ad, vehicleName),
             batteryCapacitySensor=batteryCapacitySensor,
+            batteryLevelAddedSensor=batteryLevelAddedSensor,
             chargeStartPercent=-1.0,
             chargeStartEnergyAdded=0.0,
             chargeSessionActive=False,
             chargeCableDetector=getEntity("chargeCableDetector", ad, vehicleName),
             chargeSwitch=getEntity("chargeSwitch", ad, vehicleName),
             wakeButton=getEntity("wakeButton", ad, vehicleName),
-            log=ad.log,
+            ad=ad,
         )
     # end fromAdapi(ADAPI, str)
 
@@ -188,11 +189,7 @@ class CarDetails:
     @property
     def persistedBatteryLevelAdded(self) -> float:
         """The persisted battery level added as a fraction of capacity."""
-        try:
-            return self.batteryCapacitySensor.attributes["battery_level_added"]
-        except ValueError as ve:
-            self.logError("Invalid battery level added %s: %s", ve.__class__.__name__, ve)
-            return 0.0
+        return self._floatState(self.batteryLevelAddedSensor)
     # end persistedBatteryLevelAdded()
 
     def _floatState(self, sensor: Entity) -> float:
@@ -218,6 +215,22 @@ class CarDetails:
         self.chargeSessionActive = True
     # end chargingStarting()
 
+    async def setBatteryCapacity(self, capacity: float, batteryLevelAdded: float) -> None:
+        """Persist the working battery capacity estimate to Home Assistant helpers.
+
+        :param capacity: The estimated battery capacity in kWh
+        :param batteryLevelAdded: The rolling battery level added accumulator
+        """
+        await self.ad.call_service(
+            "input_number/set_value",
+            entity_id=self.batteryCapacitySensor.entity_id,
+            value=capacity)
+        await self.ad.call_service(
+            "input_number/set_value",
+            entity_id=self.batteryLevelAddedSensor.entity_id,
+            value=batteryLevelAdded)
+    # end setBatteryCapacity(float, float)
+
     async def updateBatteryCapacity(self, fullCycles: float) -> str:
         """Update the working battery capacity estimate of the vehicle.
 
@@ -237,16 +250,14 @@ class CarDetails:
         energyAccum += self.energyAdded
         capacity = energyAccum / batteryLevelAddedAccum
 
-        # noinspection PyUnresolvedReferences
-        await self.batteryCapacitySensor.set_state(
-            str(capacity), attributes={"battery_level_added": batteryLevelAddedAccum})
+        await self.setBatteryCapacity(capacity, batteryLevelAddedAccum)
 
         return (f"{self.displayName} working capacity estimate changing"
                 f" from {oldBatteryCapacity:.2f} to {capacity:.2f} kWh")
-    # end updateBatteryCapacity()
+    # end updateBatteryCapacity(float)
 
     def logError(self, msg: str, *args, **kwargs) -> None:
-        self.log(msg, *args, level=logging.ERROR, **kwargs)
+        self.ad.log(msg, *args, level=logging.ERROR, **kwargs)
     # end logError(str, *Any, **Any)
 
     def pluggedIn(self) -> bool:

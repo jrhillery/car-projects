@@ -11,7 +11,7 @@ from appdaemon.entity import Entity
 from appdaemon.exceptions import TimeOutException
 from typing import Any, cast, Generator
 
-from tessie import CarDetails, getPersistentNameSpace
+from tessie import CarDetails
 
 DEFAULT_MAX_CURRENT = 32
 TESSIE_SETTLE_TIME = dt.timedelta(seconds=15)
@@ -29,8 +29,6 @@ class RequestCurrentControl(Hass):
     # noinspection PyTypeChecker
     def initialize(self) -> None:
         """Called when AppDaemon starts the app."""
-        if not self.namespace_exists(getPersistentNameSpace()):
-            self.add_namespace(getPersistentNameSpace())
 
         # Get configuration
         self.vehicles = {}

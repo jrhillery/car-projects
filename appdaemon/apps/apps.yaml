@@ -9,15 +9,13 @@ AmpMan:
   totalCurrent: 40
   rollingWeightedAverageFullCycles: 3.4
 
-DumpNamespace:
-  module: dump_namespace
-  class: DumpNamespace
-  namespaces:
-    - tessie_car_details_persist
-    - tesla_fleet_car_details_persist
-
 #RestorePriorState:
 #  module: restorepriorstate
 #  class: RestorePriorState
-#  vehicleName: Electra
-#  capacity: 67.95
+#  vehicles:
+#    - name: Electra
+#      capacity: 68.13
+#      battery_level_added: 3.0
+#    - name: Nittany
+#      capacity: 63.22
+#      battery_level_added: 3.0
