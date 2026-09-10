@@ -248,7 +248,7 @@ class CarDetails:
         energyAccum = oldBatteryCapacity * batteryLevelAddedAccum
         batteryLevelAddedAccum += levelAdded
         energyAccum += self.energyAdded
-        capacity = energyAccum / batteryLevelAddedAccum
+        capacity = round(energyAccum / batteryLevelAddedAccum, 2)
 
         await self.setBatteryCapacity(capacity, batteryLevelAddedAccum)
 
