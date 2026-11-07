@@ -7,7 +7,7 @@ AmpMan:
     - name: Nittany
       maxCurrent: 32
   totalCurrent: 40
-  rollingWeightedAverageFullCycles: 3.4
+  rollingWeightedAverageFullCycles: 5.0
 
 #RestorePriorState:
 #  module: restorepriorstate
